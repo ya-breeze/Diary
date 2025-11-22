@@ -28,28 +28,39 @@ export class AssetPreviewModalComponent {
   }
 
   @Input() viewOnly = false; // Hide edit actions in view mode
+  @Input() hasMultipleImages = false; // Whether there are multiple images to navigate
 
   @Output() close = new EventEmitter<void>();
   @Output() delete = new EventEmitter<string>();
   @Output() download = new EventEmitter<string>();
+  @Output() navigateNext = new EventEmitter<void>();
+  @Output() navigatePrevious = new EventEmitter<void>();
 
   private _assetPath = signal<string | null>(null);
   assetType = signal<"image" | "video" | "unknown">("unknown");
   assetUrl = signal<string>("");
 
   constructor(private assetService: AssetService) {
-    // Close modal on Escape key
+    // Handle keyboard events (Escape, Arrow keys)
     effect(() => {
-      const handleEscape = (event: KeyboardEvent) => {
-        if (event.key === "Escape" && this._assetPath()) {
+      const handleKeyboard = (event: KeyboardEvent) => {
+        if (!this._assetPath()) return;
+
+        if (event.key === "Escape") {
           this.closeModal();
+        } else if (event.key === "ArrowRight" && this.hasMultipleImages) {
+          event.preventDefault();
+          this.navigateNext.emit();
+        } else if (event.key === "ArrowLeft" && this.hasMultipleImages) {
+          event.preventDefault();
+          this.navigatePrevious.emit();
         }
       };
 
       if (this._assetPath()) {
-        document.addEventListener("keydown", handleEscape);
+        document.addEventListener("keydown", handleKeyboard);
         return () => {
-          document.removeEventListener("keydown", handleEscape);
+          document.removeEventListener("keydown", handleKeyboard);
         };
       }
       return undefined;
@@ -105,6 +116,14 @@ export class AssetPreviewModalComponent {
 
   onBackdropClick(event: MouseEvent): void {
     if (event.target === event.currentTarget) {
+      this.closeModal();
+    }
+  }
+
+  onImageClick(event: MouseEvent): void {
+    // In view-only mode, clicking the image closes the modal
+    if (this.viewOnly) {
+      event.stopPropagation();
       this.closeModal();
     }
   }

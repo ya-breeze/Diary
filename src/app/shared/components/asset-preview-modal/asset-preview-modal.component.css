@@ -114,6 +114,39 @@
   transform: scale(1.1);
 }
 
+.nav-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 56px;
+  height: 56px;
+  border: none;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 48px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.nav-button:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.nav-button-left {
+  left: 20px;
+}
+
+.nav-button-right {
+  right: 20px;
+}
+
 .modal-body {
   flex: 1;
   overflow: auto;

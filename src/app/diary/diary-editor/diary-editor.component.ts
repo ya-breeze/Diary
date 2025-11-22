@@ -67,6 +67,8 @@ export class DiaryEditorComponent
   showMarkdownPreview = signal<boolean>(false);
   showKeyboardHelp = signal<boolean>(false);
   currentMode = signal<EditorMode>("view"); // Default to view mode
+  imageList = signal<string[]>([]); // List of all images in current entry
+  currentImageIndex = signal<number>(0); // Current image index in the list
   private shortcutsSubscription?: Subscription;
   private bodySubscription?: Subscription;
   private cursorPosition: { start: number; end: number } | null = null;
@@ -195,7 +197,21 @@ export class DiaryEditorComponent
     if (!viewBody) return;
 
     const images = viewBody.querySelectorAll("img");
+
+    // Build list of image filenames
+    const imageFilenames: string[] = [];
     images.forEach((img) => {
+      const src = img.getAttribute("src");
+      if (src) {
+        const filename = src.split("/").pop();
+        if (filename) {
+          imageFilenames.push(filename);
+        }
+      }
+    });
+    this.imageList.set(imageFilenames);
+
+    images.forEach((img, index) => {
       // Remove existing listener if any
       const clone = img.cloneNode(true) as HTMLImageElement;
       img.parentNode?.replaceChild(clone, img);
@@ -210,6 +226,7 @@ export class DiaryEditorComponent
           // URL format: http://localhost:8080/v1/assets/9232aa57-eab9-4b2f-975b-3bfd6d421474.jpg
           const filename = src.split("/").pop();
           if (filename) {
+            this.currentImageIndex.set(index);
             this.openImagePreview(filename);
           }
         }
@@ -219,6 +236,21 @@ export class DiaryEditorComponent
 
   private openImagePreview(imagePath: string): void {
     this.previewAssetPath.set(imagePath);
+  }
+
+  navigateImage(direction: "next" | "previous"): void {
+    const images = this.imageList();
+    if (images.length === 0) return;
+
+    let newIndex = this.currentImageIndex();
+    if (direction === "next") {
+      newIndex = (newIndex + 1) % images.length;
+    } else {
+      newIndex = (newIndex - 1 + images.length) % images.length;
+    }
+
+    this.currentImageIndex.set(newIndex);
+    this.previewAssetPath.set(images[newIndex]);
   }
 
   handleShortcutAction(action: string): void {
@@ -519,7 +551,9 @@ export class DiaryEditorComponent
   }
 
   private processAssetLinks(markdown: string): string {
-    // Replace markdown image links ![](filename) with full asset URLs
+    // Replace markdown image syntax ![](filename) with either:
+    // - Full asset URL for images
+    // - HTML5 video tag for videos
     // Pattern: ![alt text](filename) or ![](filename)
     return markdown.replace(
       /!\[([^\]]*)\]\(([^)]+)\)/g,
@@ -528,9 +562,20 @@ export class DiaryEditorComponent
         if (filename.startsWith("http://") || filename.startsWith("https://")) {
           return match;
         }
-        // Convert to full asset URL
-        const assetUrl = this.assetService.getAssetUrl(filename);
-        return `![${altText}](${assetUrl})`;
+
+        // Check if it's a video file
+        const ext = filename.split(".").pop()?.toLowerCase();
+        const videoExts = ["mp4", "webm", "ogg", "mov", "avi"];
+
+        if (ext && videoExts.includes(ext)) {
+          // Convert to HTML5 video tag for videos
+          const videoUrl = this.assetService.getAssetUrl(filename);
+          return `<video controls><source src="${videoUrl}" type="video/${ext}"></video>`;
+        } else {
+          // Convert to full asset URL for images
+          const assetUrl = this.assetService.getAssetUrl(filename);
+          return `![${altText}](${assetUrl})`;
+        }
       }
     );
   }
