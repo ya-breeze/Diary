@@ -122,13 +122,6 @@ make test-watch
 make coverage
 ```
 
-### Test Credentials
-
-For testing the application with the backend at `localhost:8080`:
-
-- **Email**: `test@test.com`
-- **Password**: `test`
-
 ## Keyboard Shortcuts
 
 The application includes comprehensive keyboard shortcuts for efficient navigation:
@@ -218,37 +211,3 @@ The application integrates with a backend API defined in `api/openapi.yaml`:
 - `POST /v1/assets/batch` - Batch upload assets
 - `GET /v1/assets/{path}` - Download asset
 - `DELETE /v1/assets/{path}` - Delete asset
-
-## Development Commands
-
-```bash
-make help          # Show all available commands
-make dev           # Start development server
-make build         # Build for production
-make test          # Run tests
-make lint          # Run linter
-make lint-fix      # Fix linting issues
-make format        # Format code with Prettier
-make clean         # Clean build artifacts
-```
-
-## Authentication Flow
-
-1. User navigates to the app
-2. Auth guard checks for valid JWT token
-3. If no token, redirect to `/login`
-4. User enters credentials
-5. On successful login:
-   - Token is stored in localStorage
-   - User profile is loaded
-   - Redirect to `/diary`
-6. All API requests include JWT token in Authorization header
-7. On 401 error, user is logged out and redirected to login
-
-## Contributing
-
-See `IMPLEMENTATION.md` for detailed implementation plan and `PROGRESS.md` for current status.
-
-## License
-
-Private project
