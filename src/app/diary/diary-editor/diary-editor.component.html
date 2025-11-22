@@ -2,6 +2,15 @@
   <header class="diary-header" role="banner">
     <h1>Personal Diary</h1>
     <nav class="header-actions" aria-label="Main navigation">
+      <button
+        type="button"
+        (click)="toggleKeyboardHelp()"
+        class="help-button"
+        aria-label="Show keyboard shortcuts"
+        title="Keyboard shortcuts (/)"
+      >
+        ⌨️
+      </button>
       <a
         routerLink="/diary/search"
         class="search-link"
@@ -254,3 +263,8 @@
   (delete)="onAssetDeleted($event)"
   (download)="downloadAsset($event)"
 ></app-asset-preview-modal>
+
+<app-keyboard-shortcuts-help
+  [isOpen]="showKeyboardHelp()"
+  (close)="toggleKeyboardHelp()"
+></app-keyboard-shortcuts-help>

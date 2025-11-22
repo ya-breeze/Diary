@@ -1,4 +1,12 @@
-import { Component, OnInit, signal, effect, computed } from "@angular/core";
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  HostListener,
+  signal,
+  effect,
+  computed,
+} from "@angular/core";
 import { CommonModule } from "@angular/common";
 import {
   FormBuilder,
@@ -7,15 +15,18 @@ import {
   ReactiveFormsModule,
 } from "@angular/forms";
 import { Router, RouterModule } from "@angular/router";
+import { Subscription } from "rxjs";
 import { DiaryService } from "../../core/services/diary.service";
 import { AuthService } from "../../core/services/auth.service";
 import { AssetService } from "../../core/services/asset.service";
 import { ToastService } from "../../core/services/toast.service";
+import { KeyboardShortcutsService } from "../../core/services/keyboard-shortcuts.service";
 import { DiaryItem } from "../../shared/models";
 import { AssetUploadComponent } from "../../shared/components/asset-upload/asset-upload.component";
 import { AssetGalleryComponent } from "../../shared/components/asset-gallery/asset-gallery.component";
 import { AssetPreviewModalComponent } from "../../shared/components/asset-preview-modal/asset-preview-modal.component";
 import { LoadingSpinnerComponent } from "../../shared/components/loading-spinner/loading-spinner.component";
+import { KeyboardShortcutsHelpComponent } from "../../shared/components/keyboard-shortcuts-help/keyboard-shortcuts-help.component";
 import { marked } from "marked";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 
@@ -30,11 +41,12 @@ import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
     AssetGalleryComponent,
     AssetPreviewModalComponent,
     LoadingSpinnerComponent,
+    KeyboardShortcutsHelpComponent,
   ],
   templateUrl: "./diary-editor.component.html",
   styleUrl: "./diary-editor.component.css",
 })
-export class DiaryEditorComponent implements OnInit {
+export class DiaryEditorComponent implements OnInit, OnDestroy {
   diaryForm: FormGroup;
   currentDate = signal<string>("");
   currentItem = signal<DiaryItem | null>(null);
@@ -46,6 +58,8 @@ export class DiaryEditorComponent implements OnInit {
   uploadedAssets = signal<string[]>([]);
   previewAssetPath = signal<string | null>(null);
   showMarkdownPreview = signal<boolean>(false);
+  showKeyboardHelp = signal<boolean>(false);
+  private shortcutsSubscription?: Subscription;
   markdownHtml = computed<SafeHtml>(() => {
     const body = this.diaryForm.get("body")?.value || "";
     // Replace asset references with full URLs
@@ -54,12 +68,38 @@ export class DiaryEditorComponent implements OnInit {
     return this.sanitizer.sanitize(1, html) || "";
   });
 
+  @HostListener("window:keydown", ["$event"])
+  handleKeyDown(event: KeyboardEvent): void {
+    // Don't handle shortcuts when typing in input fields
+    const target = event.target as HTMLElement;
+    if (
+      target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.isContentEditable
+    ) {
+      // Allow Ctrl+S even in input fields
+      if (event.key === "s" && event.ctrlKey) {
+        event.preventDefault();
+        this.onSave();
+      }
+      // Allow Ctrl+P for preview toggle
+      if (event.key === "p" && event.ctrlKey) {
+        event.preventDefault();
+        this.toggleMarkdownPreview();
+      }
+      return;
+    }
+
+    this.keyboardShortcutsService.handleKeyboardEvent(event);
+  }
+
   constructor(
     private fb: FormBuilder,
     private diaryService: DiaryService,
     private authService: AuthService,
     private assetService: AssetService,
     private toastService: ToastService,
+    private keyboardShortcutsService: KeyboardShortcutsService,
     private router: Router,
     private sanitizer: DomSanitizer
   ) {
@@ -100,6 +140,50 @@ export class DiaryEditorComponent implements OnInit {
         this.diaryForm.markAsPristine();
       }
     });
+
+    // Subscribe to keyboard shortcuts
+    this.shortcutsSubscription =
+      this.keyboardShortcutsService.shortcuts$.subscribe((action) => {
+        this.handleShortcutAction(action);
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.shortcutsSubscription?.unsubscribe();
+  }
+
+  handleShortcutAction(action: string): void {
+    switch (action) {
+      case "save":
+        this.onSave();
+        break;
+      case "previous":
+        this.goToPreviousDate();
+        break;
+      case "next":
+        this.goToNextDate();
+        break;
+      case "preview":
+        this.toggleMarkdownPreview();
+        break;
+      case "search":
+        this.router.navigate(["/diary/search"]);
+        break;
+      case "help":
+        this.toggleKeyboardHelp();
+        break;
+      case "escape":
+        if (this.showKeyboardHelp()) {
+          this.toggleKeyboardHelp();
+        } else if (this.previewAssetPath()) {
+          this.closePreview();
+        }
+        break;
+    }
+  }
+
+  toggleKeyboardHelp(): void {
+    this.showKeyboardHelp.set(!this.showKeyboardHelp());
   }
 
   loadDiaryEntry(date: string): void {

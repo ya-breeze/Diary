@@ -72,7 +72,9 @@ src/app/
 │   └── services/
 │       ├── auth.service.ts
 │       ├── diary.service.ts
-│       └── asset.service.ts
+│       ├── asset.service.ts
+│       ├── toast.service.ts
+│       └── keyboard-shortcuts.service.ts
 ├── shared/
 │   └── models/
 │       ├── user.model.ts
@@ -107,10 +109,18 @@ src/app/
 │   │   │   ├── asset-gallery.component.ts
 │   │   │   ├── asset-gallery.component.html
 │   │   │   └── asset-gallery.component.css
-│   │   └── asset-preview-modal/
-│   │       ├── asset-preview-modal.component.ts
-│   │       ├── asset-preview-modal.component.html
-│   │       └── asset-preview-modal.component.css
+│   │   ├── asset-preview-modal/
+│   │   │   ├── asset-preview-modal.component.ts
+│   │   │   ├── asset-preview-modal.component.html
+│   │   │   └── asset-preview-modal.component.css
+│   │   ├── loading-spinner/
+│   │   │   └── loading-spinner.component.ts
+│   │   ├── toast-container/
+│   │   │   └── toast-container.component.ts
+│   │   └── keyboard-shortcuts-help/
+│   │       ├── keyboard-shortcuts-help.component.ts
+│   │       ├── keyboard-shortcuts-help.component.html
+│   │       └── keyboard-shortcuts-help.component.css
 │   └── models/
 │       ├── user.model.ts
 │       ├── diary-item.model.ts
@@ -158,13 +168,15 @@ src/app/
 - ✅ Accessibility improvements with ARIA labels, roles, and semantic HTML
 - ✅ Keyboard navigation support with proper focus management
 - ✅ Form validation with screen reader support
+- ✅ Keyboard shortcuts service for common actions
+- ✅ Keyboard shortcuts help modal with visual guide
+- ✅ Implemented shortcuts: Ctrl+S (save), Alt+← (previous), Alt+→ (next), Ctrl+P (preview), Ctrl+F (search), / (help), Esc (close)
 
 ## Next Steps
 
 ### Phase 6: UI/UX Improvements (Remaining)
 
 - [ ] Dark/light theme toggle
-- [ ] Keyboard shortcuts for common actions
 
 ### Phase 7: Testing
 
