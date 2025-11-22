@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, effect } from "@angular/core";
+import { Component, OnInit, signal, effect, computed } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import {
   FormBuilder,
@@ -9,10 +9,13 @@ import {
 import { Router } from "@angular/router";
 import { DiaryService } from "../../core/services/diary.service";
 import { AuthService } from "../../core/services/auth.service";
+import { AssetService } from "../../core/services/asset.service";
 import { DiaryItem } from "../../shared/models";
 import { AssetUploadComponent } from "../../shared/components/asset-upload/asset-upload.component";
 import { AssetGalleryComponent } from "../../shared/components/asset-gallery/asset-gallery.component";
 import { AssetPreviewModalComponent } from "../../shared/components/asset-preview-modal/asset-preview-modal.component";
+import { marked } from "marked";
+import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 
 @Component({
   selector: "app-diary-editor",
@@ -39,12 +42,22 @@ export class DiaryEditorComponent implements OnInit {
   showAssetUpload = signal<boolean>(false);
   uploadedAssets = signal<string[]>([]);
   previewAssetPath = signal<string | null>(null);
+  showMarkdownPreview = signal<boolean>(false);
+  markdownHtml = computed<SafeHtml>(() => {
+    const body = this.diaryForm.get("body")?.value || "";
+    // Replace asset references with full URLs
+    const processedBody = this.processAssetLinks(body);
+    const html = marked.parse(processedBody, { async: false }) as string;
+    return this.sanitizer.sanitize(1, html) || "";
+  });
 
   constructor(
     private fb: FormBuilder,
     private diaryService: DiaryService,
     private authService: AuthService,
-    private router: Router
+    private assetService: AssetService,
+    private router: Router,
+    private sanitizer: DomSanitizer
   ) {
     this.diaryForm = this.fb.group({
       title: ["", [Validators.required, Validators.maxLength(200)]],
@@ -254,6 +267,27 @@ export class DiaryEditorComponent implements OnInit {
 
   toggleAssetUpload(): void {
     this.showAssetUpload.update((v) => !v);
+  }
+
+  toggleMarkdownPreview(): void {
+    this.showMarkdownPreview.update((v) => !v);
+  }
+
+  private processAssetLinks(markdown: string): string {
+    // Replace markdown image links ![](filename) with full asset URLs
+    // Pattern: ![alt text](filename) or ![](filename)
+    return markdown.replace(
+      /!\[([^\]]*)\]\(([^)]+)\)/g,
+      (match, altText, filename) => {
+        // If it's already a full URL, don't modify it
+        if (filename.startsWith("http://") || filename.startsWith("https://")) {
+          return match;
+        }
+        // Convert to full asset URL
+        const assetUrl = this.assetService.getAssetUrl(filename);
+        return `![${altText}](${assetUrl})`;
+      }
+    );
   }
 
   onAssetsUploaded(paths: string[]): void {

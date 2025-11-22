@@ -49,6 +49,16 @@
 - ✅ Toggle asset upload section
 - ✅ Responsive design for mobile devices
 
+### Phase 5: Enhanced Features ✅
+
+- ✅ Markdown preview with live rendering
+- ✅ Toggle between edit and preview modes
+- ✅ GitHub-flavored markdown styling
+- ✅ Search functionality by text and tags
+- ✅ Search results page with clickable entries
+- ✅ Navigation from search results to diary editor
+- ✅ Search link in diary editor header
+
 ## Project Structure
 
 ```
@@ -79,10 +89,14 @@ src/app/
 │   │   ├── diary-list.component.ts
 │   │   ├── diary-list.component.html
 │   │   └── diary-list.component.css
-│   └── diary-editor/
-│       ├── diary-editor.component.ts
-│       ├── diary-editor.component.html
-│       └── diary-editor.component.css
+│   ├── diary-editor/
+│   │   ├── diary-editor.component.ts
+│   │   ├── diary-editor.component.html
+│   │   └── diary-editor.component.css
+│   └── diary-search/
+│       ├── diary-search.component.ts
+│       ├── diary-search.component.html
+│       └── diary-search.component.css
 ├── shared/
 │   ├── components/
 │   │   ├── asset-upload/
@@ -135,13 +149,6 @@ src/app/
 - Service layer for API communication
 
 ## Next Steps
-
-### Phase 5: Enhanced Features
-
-- [ ] Markdown editor with live preview
-- [ ] Markdown toolbar with formatting options
-- [ ] Search functionality with text and tag filters
-- [ ] Calendar view for date navigation
 
 ### Phase 6: UI/UX Improvements
 

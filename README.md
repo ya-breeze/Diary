@@ -36,6 +36,15 @@ A modern Angular 20 application for managing personal diary entries with authent
   - Asset deletion with confirmation
   - Responsive grid layout
 
+- **Enhanced Features**
+
+  - Markdown preview with live rendering
+  - Toggle between edit and preview modes
+  - GitHub-flavored markdown styling
+  - Search functionality by text and tags
+  - Search results page with clickable entries
+  - Quick navigation to search from editor
+
 - **Core Infrastructure**
   - HTTP interceptors for auth and error handling
   - Service layer for API communication

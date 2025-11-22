@@ -1,9 +1,12 @@
 <div class="diary-container">
   <header class="diary-header">
     <h1>Personal Diary</h1>
-    <div class="user-info">
-      <span>{{ userEmail() }}</span>
-      <button (click)="logout()" class="logout-button">Logout</button>
+    <div class="header-actions">
+      <a routerLink="/diary/search" class="search-link">🔍 Search</a>
+      <div class="user-info">
+        <span>{{ userEmail() }}</span>
+        <button (click)="logout()" class="logout-button">Logout</button>
+      </div>
     </div>
   </header>
 
@@ -62,7 +65,22 @@
       </div>
 
       <div class="form-group">
-        <label for="body">Entry</label>
+        <div class="editor-header">
+          <label for="body">Entry</label>
+          <button
+            type="button"
+            (click)="toggleMarkdownPreview()"
+            class="preview-toggle-button"
+          >
+            @if (showMarkdownPreview()) {
+            <span>📝 Edit</span>
+            } @else {
+            <span>👁️ Preview</span>
+            }
+          </button>
+        </div>
+
+        @if (!showMarkdownPreview()) {
         <textarea
           id="body"
           formControlName="body"
@@ -73,7 +91,10 @@
             diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched
           "
         ></textarea>
-        @if (diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched) {
+        } @else {
+        <div class="markdown-preview" [innerHTML]="markdownHtml()"></div>
+        } @if (diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched)
+        {
         <div class="field-error">
           @if (diaryForm.get('body')?.errors?.['required']) {
           <span>Entry content is required</span>
