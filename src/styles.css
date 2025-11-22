@@ -68,3 +68,13 @@ html,
 body {
   height: 100%;
 }
+
+/* Global markdown preview styles (content rendered via innerHTML) */
+.markdown-preview img,
+.markdown-preview video {
+  max-width: 100%;
+  height: auto;
+  max-height: 80vh;
+  display: block;
+  object-fit: contain;
+}

@@ -383,8 +383,17 @@ label {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
   line-height: 1.6;
-  color: #333;
   overflow-x: auto;
+  overflow-y: auto;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  box-sizing: border-box;
+}
+
+/* Ensure all content inside markdown preview respects container width */
+.markdown-preview * {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .markdown-preview h1,
@@ -466,14 +475,26 @@ label {
 }
 
 .markdown-preview img {
-  max-width: 100%;
-  max-height: 600px;
-  width: auto;
-  height: auto;
-  object-fit: contain;
+  max-width: 100% !important;
+  max-height: 80vh !important;
+  width: auto !important;
+  height: auto !important;
+  object-fit: contain !important;
   border-radius: 4px;
   margin: 10px 0;
   display: block;
+  box-shadow: 0 2px 8px var(--shadow-sm);
+}
+
+.markdown-preview video {
+  max-width: 100% !important;
+  max-height: 80vh !important;
+  width: auto !important;
+  height: auto !important;
+  border-radius: 4px;
+  margin: 10px 0;
+  display: block;
+  box-shadow: 0 2px 8px var(--shadow-sm);
 }
 
 .markdown-preview a {

@@ -62,12 +62,13 @@ export class DiaryEditorComponent implements OnInit, OnDestroy {
   showMarkdownPreview = signal<boolean>(false);
   showKeyboardHelp = signal<boolean>(false);
   private shortcutsSubscription?: Subscription;
+  private cursorPosition: { start: number; end: number } | null = null;
   markdownHtml = computed<SafeHtml>(() => {
     const body = this.diaryForm.get("body")?.value || "";
     // Replace asset references with full URLs
     const processedBody = this.processAssetLinks(body);
     const html = marked.parse(processedBody, { async: false }) as string;
-    return this.sanitizer.sanitize(1, html) || "";
+    return this.sanitizer.bypassSecurityTrustHtml(html);
   });
 
   @HostListener("window:keydown", ["$event"])
@@ -358,7 +359,34 @@ export class DiaryEditorComponent implements OnInit, OnDestroy {
   }
 
   toggleMarkdownPreview(): void {
+    const wasShowingPreview = this.showMarkdownPreview();
+
+    if (!wasShowingPreview) {
+      // Switching to preview mode - save cursor position
+      const textarea = document.getElementById("body") as HTMLTextAreaElement;
+      if (textarea) {
+        this.cursorPosition = {
+          start: textarea.selectionStart,
+          end: textarea.selectionEnd,
+        };
+      }
+    }
+
     this.showMarkdownPreview.update((v) => !v);
+
+    if (wasShowingPreview) {
+      // Switching back to edit mode - restore cursor position
+      setTimeout(() => {
+        const textarea = document.getElementById("body") as HTMLTextAreaElement;
+        if (textarea && this.cursorPosition) {
+          textarea.focus();
+          textarea.setSelectionRange(
+            this.cursorPosition.start,
+            this.cursorPosition.end
+          );
+        }
+      }, 0);
+    }
   }
 
   private processAssetLinks(markdown: string): string {
