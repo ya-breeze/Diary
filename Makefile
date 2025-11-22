@@ -23,15 +23,15 @@ build-dev:
 # Testing
 test:
 	@echo "🧪 Running unit tests..."
-	npm run test -- --watch=false --browsers=ChromeHeadless
+	CHROME_BIN=chromium npm run test -- --watch=false --browsers=ChromeHeadless
 
 test-watch:
 	@echo "🧪 Running unit tests in watch mode..."
-	npm run test
+	CHROME_BIN=chromium npm run test
 
 coverage:
 	@echo "📊 Generating test coverage report..."
-	npm run test -- --watch=false --browsers=ChromeHeadless --code-coverage
+	CHROME_BIN=chromium npm run test -- --watch=false --browsers=ChromeHeadless --code-coverage
 
 # Code Quality
 lint:

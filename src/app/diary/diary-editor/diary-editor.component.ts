@@ -31,6 +31,8 @@ import { ThemeToggleComponent } from "../../shared/components/theme-toggle/theme
 import { marked } from "marked";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 
+export type EditorMode = "view" | "edit";
+
 @Component({
   selector: "app-diary-editor",
   standalone: true,
@@ -61,6 +63,7 @@ export class DiaryEditorComponent implements OnInit, OnDestroy {
   previewAssetPath = signal<string | null>(null);
   showMarkdownPreview = signal<boolean>(false);
   showKeyboardHelp = signal<boolean>(false);
+  currentMode = signal<EditorMode>("view"); // Default to view mode
   private shortcutsSubscription?: Subscription;
   private bodySubscription?: Subscription;
   private cursorPosition: { start: number; end: number } | null = null;
@@ -128,6 +131,10 @@ export class DiaryEditorComponent implements OnInit, OnDestroy {
       this.userEmail.set(user.email);
     }
 
+    // Load mode preference (defaults to 'view')
+    const savedMode = this.loadModePref();
+    this.currentMode.set(savedMode);
+
     // Keep a live copy of the body text for preview so it always reflects
     // the current editor content, not only what was last saved/loaded.
     this.bodySubscription = this.diaryForm
@@ -187,6 +194,9 @@ export class DiaryEditorComponent implements OnInit, OnDestroy {
       case "preview":
         this.toggleMarkdownPreview();
         break;
+      case "toggleMode":
+        this.toggleMode();
+        break;
       case "search":
         this.router.navigate(["/diary/search"]);
         break;
@@ -205,6 +215,66 @@ export class DiaryEditorComponent implements OnInit, OnDestroy {
 
   toggleKeyboardHelp(): void {
     this.showKeyboardHelp.set(!this.showKeyboardHelp());
+  }
+
+  toggleMode(): void {
+    const newMode: EditorMode = this.currentMode() === "view" ? "edit" : "view";
+
+    // If switching from edit to view and there are unsaved changes, prompt user
+    if (this.currentMode() === "edit" && this.diaryForm.dirty) {
+      if (
+        confirm(
+          "You have unsaved changes. Do you want to save before switching to view mode?"
+        )
+      ) {
+        this.saveEntry().subscribe(() => {
+          this.currentMode.set(newMode);
+          this.saveModePref(newMode);
+        });
+      } else {
+        this.currentMode.set(newMode);
+        this.saveModePref(newMode);
+      }
+    } else {
+      this.currentMode.set(newMode);
+      this.saveModePref(newMode);
+    }
+  }
+
+  switchToEditMode(): void {
+    this.currentMode.set("edit");
+    this.saveModePref("edit");
+  }
+
+  switchToViewMode(): void {
+    if (this.diaryForm.dirty) {
+      if (
+        confirm(
+          "You have unsaved changes. Do you want to save before switching to view mode?"
+        )
+      ) {
+        this.saveEntry().subscribe(() => {
+          this.currentMode.set("view");
+          this.saveModePref("view");
+        });
+      } else {
+        this.currentMode.set("view");
+        this.saveModePref("view");
+      }
+    } else {
+      this.currentMode.set("view");
+      this.saveModePref("view");
+    }
+  }
+
+  private saveModePref(mode: EditorMode): void {
+    localStorage.setItem("diary-editor-mode", mode);
+  }
+
+  private loadModePref(): EditorMode {
+    const saved = localStorage.getItem("diary-editor-mode");
+    // Default to 'view' mode as per requirements
+    return saved === "edit" || saved === "view" ? saved : "view";
   }
 
   loadDiaryEntry(date: string): void {

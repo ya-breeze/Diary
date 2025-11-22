@@ -1,7 +1,33 @@
 <div class="diary-container">
   <header class="diary-header" role="banner">
-    <h1>Personal Diary</h1>
+    <div class="header-left">
+      <h1>Personal Diary</h1>
+      <span
+        class="mode-indicator"
+        [class.view-mode]="currentMode() === 'view'"
+        [class.edit-mode]="currentMode() === 'edit'"
+      >
+        {{ currentMode() === "view" ? "👁️ View Mode" : "✏️ Edit Mode" }}
+      </span>
+    </div>
     <nav class="header-actions" aria-label="Main navigation">
+      <button
+        type="button"
+        (click)="toggleMode()"
+        class="mode-toggle-button"
+        [attr.aria-label]="
+          currentMode() === 'view'
+            ? 'Switch to edit mode'
+            : 'Switch to view mode'
+        "
+        title="Toggle mode (Ctrl+E)"
+      >
+        @if (currentMode() === 'view') {
+        <span>✏️ Edit</span>
+        } @else {
+        <span>👁️ View</span>
+        }
+      </button>
       <app-theme-toggle></app-theme-toggle>
       <button
         type="button"
@@ -65,7 +91,49 @@
 
     @if (isLoading()) {
     <app-loading-spinner [size]="60" message="Loading diary entry..." />
+    } @else { @if (currentMode() === 'view') {
+    <!-- VIEW MODE -->
+    <div
+      class="view-mode-container"
+      role="article"
+      aria-label="Diary entry view"
+    >
+      <div class="view-entry">
+        <h2 class="view-title">
+          {{ currentItem()?.title || "Untitled Entry" }}
+        </h2>
+
+        @if (currentItem()?.tags && currentItem()!.tags!.length > 0) {
+        <div class="view-tags" role="list" aria-label="Entry tags">
+          @for (tag of currentItem()!.tags; track tag) {
+          <span class="view-tag" role="listitem">{{ tag }}</span>
+          }
+        </div>
+        }
+
+        <div
+          class="view-body markdown-preview"
+          [innerHTML]="markdownHtml()"
+          role="region"
+          aria-label="Entry content"
+        ></div>
+
+        @if (!currentItem()?.body || currentItem()?.body === '') {
+        <div class="empty-entry-message">
+          <p>This entry is empty.</p>
+          <button
+            type="button"
+            (click)="switchToEditMode()"
+            class="edit-empty-button"
+          >
+            ✏️ Start Writing
+          </button>
+        </div>
+        }
+      </div>
+    </div>
     } @else {
+    <!-- EDIT MODE -->
     <form
       [formGroup]="diaryForm"
       class="diary-form"
@@ -254,7 +322,7 @@
         }
       </div>
     </form>
-    }
+    } }
   </main>
 </div>
 

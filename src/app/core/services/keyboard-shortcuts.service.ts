@@ -38,9 +38,15 @@ export class KeyboardShortcutsService {
       action: "next",
     },
     {
+      key: "e",
+      ctrlKey: true,
+      description: "Toggle between view and edit modes",
+      action: "toggleMode",
+    },
+    {
       key: "p",
       ctrlKey: true,
-      description: "Toggle markdown preview",
+      description: "Toggle markdown preview (in edit mode)",
       action: "preview",
     },
     {
@@ -67,10 +73,13 @@ export class KeyboardShortcutsService {
     const matchedShortcut = this.registeredShortcuts.find((shortcut) => {
       return (
         shortcut.key.toLowerCase() === event.key.toLowerCase() &&
-        (shortcut.ctrlKey === undefined || shortcut.ctrlKey === event.ctrlKey) &&
+        (shortcut.ctrlKey === undefined ||
+          shortcut.ctrlKey === event.ctrlKey) &&
         (shortcut.altKey === undefined || shortcut.altKey === event.altKey) &&
-        (shortcut.shiftKey === undefined || shortcut.shiftKey === event.shiftKey) &&
-        (shortcut.metaKey === undefined || shortcut.metaKey === (event.metaKey || event.ctrlKey))
+        (shortcut.shiftKey === undefined ||
+          shortcut.shiftKey === event.shiftKey) &&
+        (shortcut.metaKey === undefined ||
+          shortcut.metaKey === (event.metaKey || event.ctrlKey))
       );
     });
 
@@ -89,7 +98,7 @@ export class KeyboardShortcutsService {
 
   getShortcutLabel(shortcut: KeyboardShortcut): string {
     const keys: string[] = [];
-    
+
     if (shortcut.ctrlKey || shortcut.metaKey) {
       keys.push("Ctrl");
     }
@@ -99,7 +108,7 @@ export class KeyboardShortcutsService {
     if (shortcut.shiftKey) {
       keys.push("Shift");
     }
-    
+
     // Format special keys
     let keyLabel = shortcut.key;
     if (shortcut.key === "ArrowLeft") keyLabel = "←";
@@ -107,10 +116,9 @@ export class KeyboardShortcutsService {
     if (shortcut.key === "ArrowUp") keyLabel = "↑";
     if (shortcut.key === "ArrowDown") keyLabel = "↓";
     if (shortcut.key === "Escape") keyLabel = "Esc";
-    
+
     keys.push(keyLabel.toUpperCase());
-    
+
     return keys.join(" + ");
   }
 }
-

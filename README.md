@@ -15,6 +15,11 @@ A modern Angular 20 application for managing personal diary entries with authent
 
 - **Diary Management**
 
+  - **Dual Mode Interface**
+    - View Mode (default): Read-only mode for browsing entries with rendered content
+    - Edit Mode: Full editing capabilities with markdown editor
+    - Quick toggle between modes (Ctrl+E)
+    - Mode preference persistence
   - View diary entries by date
   - Navigate between dates (previous/next)
   - Date picker for quick navigation
@@ -126,15 +131,16 @@ make coverage
 
 The application includes comprehensive keyboard shortcuts for efficient navigation:
 
-| Shortcut   | Action                       |
-| ---------- | ---------------------------- |
-| `Ctrl + S` | Save current diary entry     |
-| `Alt + ←`  | Navigate to previous day     |
-| `Alt + →`  | Navigate to next day         |
-| `Ctrl + P` | Toggle markdown preview      |
-| `Ctrl + F` | Open search                  |
-| `/`        | Show keyboard shortcuts help |
-| `Esc`      | Close modals/dialogs         |
+| Shortcut   | Action                                 |
+| ---------- | -------------------------------------- |
+| `Ctrl + E` | Toggle between view and edit modes     |
+| `Ctrl + S` | Save current diary entry               |
+| `Alt + ←`  | Navigate to previous day               |
+| `Alt + →`  | Navigate to next day                   |
+| `Ctrl + P` | Toggle markdown preview (in edit mode) |
+| `Ctrl + F` | Open search                            |
+| `/`        | Show keyboard shortcuts help           |
+| `Esc`      | Close modals/dialogs                   |
 
 ## Theme Support
 
