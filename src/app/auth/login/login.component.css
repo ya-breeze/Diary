@@ -98,3 +98,22 @@ input.invalid {
   cursor: not-allowed;
 }
 
+/* Mobile phones */
+@media (max-width: 480px) {
+  .login-card {
+    padding: 30px 20px;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  h2 {
+    font-size: 18px;
+  }
+
+  input,
+  .login-button {
+    font-size: 14px;
+  }
+}

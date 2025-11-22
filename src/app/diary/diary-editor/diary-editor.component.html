@@ -1,21 +1,35 @@
 <div class="diary-container">
-  <header class="diary-header">
+  <header class="diary-header" role="banner">
     <h1>Personal Diary</h1>
-    <div class="header-actions">
-      <a routerLink="/diary/search" class="search-link">🔍 Search</a>
+    <nav class="header-actions" aria-label="Main navigation">
+      <a
+        routerLink="/diary/search"
+        class="search-link"
+        aria-label="Search diary entries"
+      >
+        🔍 Search
+      </a>
       <div class="user-info">
-        <span>{{ userEmail() }}</span>
-        <button (click)="logout()" class="logout-button">Logout</button>
+        <span aria-label="Current user email">{{ userEmail() }}</span>
+        <button
+          (click)="logout()"
+          class="logout-button"
+          aria-label="Logout from application"
+        >
+          Logout
+        </button>
       </div>
-    </div>
+    </nav>
   </header>
 
-  <div class="diary-content">
-    <div class="date-navigation">
+  <main class="diary-content" role="main">
+    <nav class="date-navigation" aria-label="Date navigation">
       <button
         (click)="goToPreviousDate()"
         [disabled]="!currentItem()?.previousDate"
         class="nav-button"
+        aria-label="Go to previous diary entry"
+        [attr.aria-disabled]="!currentItem()?.previousDate"
       >
         ← Previous
       </button>
@@ -25,21 +39,28 @@
         [value]="currentDate()"
         (change)="onDateChange($event)"
         class="date-picker"
+        aria-label="Select diary entry date"
       />
 
       <button
         (click)="goToNextDate()"
         [disabled]="!currentItem()?.nextDate"
         class="nav-button"
+        aria-label="Go to next diary entry"
+        [attr.aria-disabled]="!currentItem()?.nextDate"
       >
         Next →
       </button>
-    </div>
+    </nav>
 
     @if (isLoading()) {
-    <div class="loading">Loading...</div>
+    <app-loading-spinner [size]="60" message="Loading diary entry..." />
     } @else {
-    <form [formGroup]="diaryForm" class="diary-form">
+    <form
+      [formGroup]="diaryForm"
+      class="diary-form"
+      aria-label="Diary entry form"
+    >
       <div class="form-group">
         <label for="title">Title</label>
         <input
@@ -51,10 +72,15 @@
           [class.invalid]="
             diaryForm.get('title')?.invalid && diaryForm.get('title')?.touched
           "
+          aria-required="true"
+          [attr.aria-invalid]="
+            diaryForm.get('title')?.invalid && diaryForm.get('title')?.touched
+          "
+          aria-describedby="title-error"
         />
         @if (diaryForm.get('title')?.invalid && diaryForm.get('title')?.touched)
         {
-        <div class="field-error">
+        <div class="field-error" id="title-error" role="alert">
           @if (diaryForm.get('title')?.errors?.['required']) {
           <span>Title is required</span>
           } @if (diaryForm.get('title')?.errors?.['maxlength']) {
@@ -71,6 +97,12 @@
             type="button"
             (click)="toggleMarkdownPreview()"
             class="preview-toggle-button"
+            [attr.aria-pressed]="showMarkdownPreview()"
+            [attr.aria-label]="
+              showMarkdownPreview()
+                ? 'Switch to edit mode'
+                : 'Switch to preview mode'
+            "
           >
             @if (showMarkdownPreview()) {
             <span>📝 Edit</span>
@@ -90,12 +122,22 @@
           [class.invalid]="
             diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched
           "
+          aria-required="true"
+          [attr.aria-invalid]="
+            diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched
+          "
+          aria-describedby="body-error"
         ></textarea>
         } @else {
-        <div class="markdown-preview" [innerHTML]="markdownHtml()"></div>
+        <div
+          class="markdown-preview"
+          [innerHTML]="markdownHtml()"
+          role="region"
+          aria-label="Markdown preview"
+        ></div>
         } @if (diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched)
         {
-        <div class="field-error">
+        <div class="field-error" id="body-error" role="alert">
           @if (diaryForm.get('body')?.errors?.['required']) {
           <span>Entry content is required</span>
           }
@@ -114,27 +156,33 @@
             (keydown)="onTagInputKeydown($event)"
             placeholder="Add a tag and press Enter..."
             class="tag-input"
+            aria-label="Enter tag name"
+            aria-describedby="tags-help"
           />
           <button
             type="button"
             (click)="addTag()"
             class="add-tag-button"
             [disabled]="!tagInput().trim()"
+            aria-label="Add tag to entry"
           >
             Add Tag
           </button>
         </div>
+        <span id="tags-help" class="sr-only"
+          >Press Enter or click Add Tag button to add a tag</span
+        >
 
         @if (tags.length > 0) {
-        <div class="tags-list">
+        <div class="tags-list" role="list" aria-label="Current tags">
           @for (tag of tags; track tag) {
-          <span class="tag">
+          <span class="tag" role="listitem">
             {{ tag }}
             <button
               type="button"
               (click)="removeTag(tag)"
               class="remove-tag"
-              aria-label="Remove tag"
+              [attr.aria-label]="'Remove tag ' + tag"
             >
               ×
             </button>
@@ -185,26 +233,19 @@
           class="save-button"
         >
           @if (isSaving()) {
-          <span>Saving...</span>
+          <span>💾 Saving...</span>
           } @else {
-          <span>Save Entry</span>
+          <span>💾 Save Entry</span>
           }
         </button>
 
-        @if (saveMessage()) {
-        <div
-          class="save-message"
-          [class.success]="saveMessage().includes('success')"
-        >
-          {{ saveMessage() }}
-        </div>
-        } @if (diaryForm.dirty) {
+        @if (diaryForm.dirty) {
         <span class="unsaved-indicator">● Unsaved changes</span>
         }
       </div>
     </form>
     }
-  </div>
+  </main>
 </div>
 
 <app-asset-preview-modal

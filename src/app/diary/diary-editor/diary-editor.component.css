@@ -1,3 +1,16 @@
+/* Screen reader only - for accessibility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 .diary-container {
   min-height: 100vh;
   background-color: #f5f5f5;
@@ -494,13 +507,40 @@ label {
   border-radius: 8px;
 }
 
+/* Tablet and below */
 @media (max-width: 768px) {
   .diary-header {
     padding: 15px 20px;
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
   }
 
   .diary-header h1 {
     font-size: 20px;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .search-link,
+  .logout-button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .user-info {
+    width: 100%;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .diary-content {
+    margin: 20px auto;
+    padding: 0 15px;
   }
 
   .date-navigation {
@@ -508,7 +548,8 @@ label {
     gap: 10px;
   }
 
-  .nav-button {
+  .nav-button,
+  .date-picker {
     width: 100%;
   }
 
@@ -516,9 +557,18 @@ label {
     padding: 20px;
   }
 
+  .title-input {
+    font-size: 18px;
+  }
+
+  .body-textarea {
+    min-height: 250px;
+  }
+
   .form-actions {
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
   }
 
   .save-button {
@@ -533,5 +583,53 @@ label {
 
   .toggle-upload-button {
     width: 100%;
+  }
+
+  .editor-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .preview-toggle-button {
+    width: 100%;
+  }
+}
+
+/* Mobile phones */
+@media (max-width: 480px) {
+  .diary-header {
+    padding: 12px 15px;
+  }
+
+  .diary-header h1 {
+    font-size: 18px;
+  }
+
+  .diary-content {
+    margin: 15px auto;
+    padding: 0 10px;
+  }
+
+  .diary-form {
+    padding: 15px;
+  }
+
+  .title-input {
+    font-size: 16px;
+  }
+
+  .body-textarea {
+    min-height: 200px;
+    font-size: 14px;
+  }
+
+  .tag-input {
+    font-size: 14px;
+  }
+
+  .save-button {
+    padding: 12px;
+    font-size: 14px;
   }
 }

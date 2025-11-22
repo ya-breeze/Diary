@@ -1,14 +1,14 @@
-import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Component } from "@angular/core";
+import { RouterOutlet } from "@angular/router";
+import { ToastContainerComponent } from "./shared/components/toast-container/toast-container.component";
 
 @Component({
-  selector: 'app-root',
+  selector: "app-root",
   standalone: true,
-  imports: [RouterOutlet],
-  templateUrl: './app.html',
-  styleUrl: './app.css'
+  imports: [RouterOutlet, ToastContainerComponent],
+  templateUrl: "./app.html",
+  styleUrl: "./app.css",
 })
 export class App {
-  title = 'Personal Diary';
+  title = "Personal Diary";
 }
-

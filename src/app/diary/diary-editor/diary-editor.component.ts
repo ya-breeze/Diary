@@ -6,14 +6,16 @@ import {
   Validators,
   ReactiveFormsModule,
 } from "@angular/forms";
-import { Router } from "@angular/router";
+import { Router, RouterModule } from "@angular/router";
 import { DiaryService } from "../../core/services/diary.service";
 import { AuthService } from "../../core/services/auth.service";
 import { AssetService } from "../../core/services/asset.service";
+import { ToastService } from "../../core/services/toast.service";
 import { DiaryItem } from "../../shared/models";
 import { AssetUploadComponent } from "../../shared/components/asset-upload/asset-upload.component";
 import { AssetGalleryComponent } from "../../shared/components/asset-gallery/asset-gallery.component";
 import { AssetPreviewModalComponent } from "../../shared/components/asset-preview-modal/asset-preview-modal.component";
+import { LoadingSpinnerComponent } from "../../shared/components/loading-spinner/loading-spinner.component";
 import { marked } from "marked";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 
@@ -23,9 +25,11 @@ import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    RouterModule,
     AssetUploadComponent,
     AssetGalleryComponent,
     AssetPreviewModalComponent,
+    LoadingSpinnerComponent,
   ],
   templateUrl: "./diary-editor.component.html",
   styleUrl: "./diary-editor.component.css",
@@ -37,7 +41,6 @@ export class DiaryEditorComponent implements OnInit {
   isLoading = signal<boolean>(false);
   isSaving = signal<boolean>(false);
   userEmail = signal<string>("");
-  saveMessage = signal<string>("");
   tagInput = signal<string>("");
   showAssetUpload = signal<boolean>(false);
   uploadedAssets = signal<string[]>([]);
@@ -56,6 +59,7 @@ export class DiaryEditorComponent implements OnInit {
     private diaryService: DiaryService,
     private authService: AuthService,
     private assetService: AssetService,
+    private toastService: ToastService,
     private router: Router,
     private sanitizer: DomSanitizer
   ) {
@@ -180,7 +184,6 @@ export class DiaryEditorComponent implements OnInit {
   saveEntry() {
     if (this.diaryForm.valid) {
       this.isSaving.set(true);
-      this.saveMessage.set("");
 
       const formValue = this.diaryForm.value;
       return this.diaryService.saveItem({
@@ -197,13 +200,12 @@ export class DiaryEditorComponent implements OnInit {
     this.saveEntry().subscribe({
       next: () => {
         this.isSaving.set(false);
-        this.saveMessage.set("Saved successfully!");
+        this.toastService.success("Diary entry saved successfully!");
         this.diaryForm.markAsPristine();
-        setTimeout(() => this.saveMessage.set(""), 3000);
       },
       error: (error) => {
         this.isSaving.set(false);
-        this.saveMessage.set("Error saving entry. Please try again.");
+        this.toastService.error("Error saving entry. Please try again.");
         console.error("Error saving diary entry:", error);
       },
     });
@@ -293,8 +295,9 @@ export class DiaryEditorComponent implements OnInit {
   onAssetsUploaded(paths: string[]): void {
     this.uploadedAssets.update((current) => [...current, ...paths]);
     this.showAssetUpload.set(false);
-    this.saveMessage.set(`${paths.length} asset(s) uploaded successfully!`);
-    setTimeout(() => this.saveMessage.set(""), 3000);
+    this.toastService.success(
+      `${paths.length} asset(s) uploaded successfully!`
+    );
   }
 
   onAssetSelected(path: string): void {
@@ -303,8 +306,7 @@ export class DiaryEditorComponent implements OnInit {
 
   onAssetDeleted(path: string): void {
     this.uploadedAssets.update((current) => current.filter((p) => p !== path));
-    this.saveMessage.set("Asset deleted successfully!");
-    setTimeout(() => this.saveMessage.set(""), 3000);
+    this.toastService.success("Asset deleted successfully!");
   }
 
   closePreview(): void {

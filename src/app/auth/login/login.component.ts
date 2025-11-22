@@ -8,11 +8,13 @@ import {
 } from "@angular/forms";
 import { Router, ActivatedRoute } from "@angular/router";
 import { AuthService } from "../../core/services/auth.service";
+import { ToastService } from "../../core/services/toast.service";
+import { LoadingSpinnerComponent } from "../../shared/components/loading-spinner/loading-spinner.component";
 
 @Component({
   selector: "app-login",
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, LoadingSpinnerComponent],
   templateUrl: "./login.component.html",
   styleUrl: "./login.component.css",
 })
@@ -25,6 +27,7 @@ export class LoginComponent {
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
+    private toastService: ToastService,
     private router: Router,
     private route: ActivatedRoute
   ) {
@@ -45,12 +48,16 @@ export class LoginComponent {
       this.authService.login(this.loginForm.value).subscribe({
         next: () => {
           this.isLoading.set(false);
+          this.toastService.success("Login successful! Welcome back.");
           // Navigate to the return URL after successful login
           this.router.navigateByUrl(this.returnUrl);
         },
         error: (error) => {
           this.isLoading.set(false);
           this.errorMessage.set("Invalid email or password. Please try again.");
+          this.toastService.error(
+            "Login failed. Please check your credentials."
+          );
           console.error("Login error:", error);
         },
       });
