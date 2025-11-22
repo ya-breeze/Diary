@@ -62,9 +62,11 @@ export class DiaryEditorComponent implements OnInit, OnDestroy {
   showMarkdownPreview = signal<boolean>(false);
   showKeyboardHelp = signal<boolean>(false);
   private shortcutsSubscription?: Subscription;
+  private bodySubscription?: Subscription;
   private cursorPosition: { start: number; end: number } | null = null;
+  private bodyText = signal<string>("");
   markdownHtml = computed<SafeHtml>(() => {
-    const body = this.diaryForm.get("body")?.value || "";
+    const body = this.bodyText();
     // Replace asset references with full URLs
     const processedBody = this.processAssetLinks(body);
     const html = marked.parse(processedBody, { async: false }) as string;
@@ -126,6 +128,18 @@ export class DiaryEditorComponent implements OnInit, OnDestroy {
       this.userEmail.set(user.email);
     }
 
+    // Keep a live copy of the body text for preview so it always reflects
+    // the current editor content, not only what was last saved/loaded.
+    this.bodySubscription = this.diaryForm
+      .get("body")!
+      .valueChanges.subscribe((value: string) => {
+        this.bodyText.set(value || "");
+      });
+
+    // Initialize bodyText with the current form value
+    const initialBody = this.diaryForm.get("body")?.value || "";
+    this.bodyText.set(initialBody);
+
     // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split("T")[0];
     this.currentDate.set(today);
@@ -141,6 +155,9 @@ export class DiaryEditorComponent implements OnInit, OnDestroy {
           tags: item.tags || [],
         });
         this.diaryForm.markAsPristine();
+
+        // Also update live body text for preview when a new item loads
+        this.bodyText.set(item.body || "");
       }
     });
 
@@ -153,6 +170,7 @@ export class DiaryEditorComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.shortcutsSubscription?.unsubscribe();
+    this.bodySubscription?.unsubscribe();
   }
 
   handleShortcutAction(action: string): void {
