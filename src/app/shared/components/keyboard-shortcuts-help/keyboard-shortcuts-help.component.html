@@ -1,0 +1,41 @@
+@if (isOpen) {
+<div
+  class="modal-backdrop"
+  (click)="onBackdropClick($event)"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="shortcuts-title"
+>
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="shortcuts-title">⌨️ Keyboard Shortcuts</h2>
+      <button
+        type="button"
+        (click)="onClose()"
+        class="close-button"
+        aria-label="Close keyboard shortcuts help"
+      >
+        ×
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="shortcuts-list">
+        @for (shortcut of shortcuts; track shortcut.action) {
+        <div class="shortcut-item">
+          <div class="shortcut-keys">
+            <kbd>{{ getShortcutLabel(shortcut) }}</kbd>
+          </div>
+          <div class="shortcut-description">{{ shortcut.description }}</div>
+        </div>
+        }
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <p class="hint">Press <kbd>/</kbd> or <kbd>?</kbd> to toggle this help</p>
+    </div>
+  </div>
+</div>
+}
+
