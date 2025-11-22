@@ -74,7 +74,8 @@ src/app/
 │       ├── diary.service.ts
 │       ├── asset.service.ts
 │       ├── toast.service.ts
-│       └── keyboard-shortcuts.service.ts
+│       ├── keyboard-shortcuts.service.ts
+│       └── theme.service.ts
 ├── shared/
 │   └── models/
 │       ├── user.model.ts
@@ -117,10 +118,14 @@ src/app/
 │   │   │   └── loading-spinner.component.ts
 │   │   ├── toast-container/
 │   │   │   └── toast-container.component.ts
-│   │   └── keyboard-shortcuts-help/
-│   │       ├── keyboard-shortcuts-help.component.ts
-│   │       ├── keyboard-shortcuts-help.component.html
-│   │       └── keyboard-shortcuts-help.component.css
+│   │   ├── keyboard-shortcuts-help/
+│   │   │   ├── keyboard-shortcuts-help.component.ts
+│   │   │   ├── keyboard-shortcuts-help.component.html
+│   │   │   └── keyboard-shortcuts-help.component.css
+│   │   └── theme-toggle/
+│   │       ├── theme-toggle.component.ts
+│   │       ├── theme-toggle.component.html
+│   │       └── theme-toggle.component.css
 │   └── models/
 │       ├── user.model.ts
 │       ├── diary-item.model.ts
@@ -171,12 +176,13 @@ src/app/
 - ✅ Keyboard shortcuts service for common actions
 - ✅ Keyboard shortcuts help modal with visual guide
 - ✅ Implemented shortcuts: Ctrl+S (save), Alt+← (previous), Alt+→ (next), Ctrl+P (preview), Ctrl+F (search), / (help), Esc (close)
+- ✅ Dark/light theme toggle with system preference detection
+- ✅ Theme service with localStorage persistence
+- ✅ CSS variables for consistent theming across all components
+- ✅ Smooth theme transitions with animations
+- ✅ Theme toggle component integrated in diary editor and login page
 
 ## Next Steps
-
-### Phase 6: UI/UX Improvements (Remaining)
-
-- [ ] Dark/light theme toggle
 
 ### Phase 7: Testing
 

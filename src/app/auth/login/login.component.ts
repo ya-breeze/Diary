@@ -10,11 +10,17 @@ import { Router, ActivatedRoute } from "@angular/router";
 import { AuthService } from "../../core/services/auth.service";
 import { ToastService } from "../../core/services/toast.service";
 import { LoadingSpinnerComponent } from "../../shared/components/loading-spinner/loading-spinner.component";
+import { ThemeToggleComponent } from "../../shared/components/theme-toggle/theme-toggle.component";
 
 @Component({
   selector: "app-login",
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, LoadingSpinnerComponent],
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    LoadingSpinnerComponent,
+    ThemeToggleComponent,
+  ],
   templateUrl: "./login.component.html",
   styleUrl: "./login.component.css",
 })

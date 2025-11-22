@@ -27,6 +27,7 @@ import { AssetGalleryComponent } from "../../shared/components/asset-gallery/ass
 import { AssetPreviewModalComponent } from "../../shared/components/asset-preview-modal/asset-preview-modal.component";
 import { LoadingSpinnerComponent } from "../../shared/components/loading-spinner/loading-spinner.component";
 import { KeyboardShortcutsHelpComponent } from "../../shared/components/keyboard-shortcuts-help/keyboard-shortcuts-help.component";
+import { ThemeToggleComponent } from "../../shared/components/theme-toggle/theme-toggle.component";
 import { marked } from "marked";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 
@@ -42,6 +43,7 @@ import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
     AssetPreviewModalComponent,
     LoadingSpinnerComponent,
     KeyboardShortcutsHelpComponent,
+    ThemeToggleComponent,
   ],
   templateUrl: "./diary-editor.component.html",
   styleUrl: "./diary-editor.component.css",
