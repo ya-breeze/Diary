@@ -1,0 +1,231 @@
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-container {
+  background: white;
+  border-radius: 10px;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+  background-color: #f8f9fa;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  word-break: break-word;
+}
+
+.close-button {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background-color: transparent;
+  color: #666;
+  font-size: 32px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-button:hover {
+  background-color: #e9ecef;
+  color: #333;
+}
+
+.modal-body {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: #f5f5f5;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: 5px;
+}
+
+.preview-video {
+  max-width: 100%;
+  max-height: 70vh;
+  border-radius: 5px;
+}
+
+.preview-unknown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 40px;
+  color: #999;
+}
+
+.preview-unknown svg {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 20px;
+}
+
+.preview-unknown p {
+  font-size: 16px;
+  margin: 0 0 20px 0;
+}
+
+.download-link {
+  padding: 10px 20px;
+  background-color: #667eea;
+  color: white;
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: 600;
+  transition: background-color 0.3s;
+}
+
+.download-link:hover {
+  background-color: #5568d3;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  padding: 20px;
+  border-top: 1px solid #eee;
+  background-color: #f8f9fa;
+}
+
+.action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.action-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.copy-btn {
+  background-color: #667eea;
+  color: white;
+}
+
+.copy-btn:hover {
+  background-color: #5568d3;
+  transform: translateY(-2px);
+}
+
+.download-btn {
+  background-color: #28a745;
+  color: white;
+}
+
+.download-btn:hover {
+  background-color: #218838;
+  transform: translateY(-2px);
+}
+
+.delete-btn {
+  background-color: #dc3545;
+  color: white;
+}
+
+.delete-btn:hover {
+  background-color: #c82333;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .modal-container {
+    max-width: 95vw;
+    max-height: 95vh;
+  }
+
+  .modal-header {
+    padding: 15px;
+  }
+
+  .modal-title {
+    font-size: 16px;
+  }
+
+  .modal-body {
+    padding: 15px;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+    padding: 15px;
+  }
+
+  .action-btn {
+    width: 100%;
+  }
+
+  .preview-image,
+  .preview-video {
+    max-height: 60vh;
+  }
+}

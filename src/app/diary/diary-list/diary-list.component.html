@@ -1,0 +1,55 @@
+<div class="diary-container">
+  <header class="diary-header">
+    <h1>Personal Diary</h1>
+    <div class="user-info">
+      <span>{{ userEmail() }}</span>
+      <button (click)="logout()" class="logout-button">Logout</button>
+    </div>
+  </header>
+
+  <div class="diary-content">
+    <div class="date-navigation">
+      <button
+        (click)="goToPreviousDate()"
+        [disabled]="!currentItem()?.previousDate"
+        class="nav-button"
+      >
+        ← Previous
+      </button>
+
+      <input
+        type="date"
+        [value]="currentDate()"
+        (change)="onDateChange($event)"
+        class="date-picker"
+      />
+
+      <button
+        (click)="goToNextDate()"
+        [disabled]="!currentItem()?.nextDate"
+        class="nav-button"
+      >
+        Next →
+      </button>
+    </div>
+
+    @if (isLoading()) {
+      <div class="loading">Loading...</div>
+    } @else if (currentItem()) {
+      <div class="diary-entry">
+        <h2>{{ currentItem()?.title || 'No entry for this date' }}</h2>
+        <div class="entry-body">
+          {{ currentItem()?.body || 'Start writing your diary entry...' }}
+        </div>
+        @if (currentItem()?.tags && currentItem()!.tags!.length > 0) {
+          <div class="tags">
+            @for (tag of currentItem()!.tags; track tag) {
+              <span class="tag">{{ tag }}</span>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>
+

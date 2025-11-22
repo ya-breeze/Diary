@@ -1,0 +1,194 @@
+<div class="diary-container">
+  <header class="diary-header">
+    <h1>Personal Diary</h1>
+    <div class="user-info">
+      <span>{{ userEmail() }}</span>
+      <button (click)="logout()" class="logout-button">Logout</button>
+    </div>
+  </header>
+
+  <div class="diary-content">
+    <div class="date-navigation">
+      <button
+        (click)="goToPreviousDate()"
+        [disabled]="!currentItem()?.previousDate"
+        class="nav-button"
+      >
+        ← Previous
+      </button>
+
+      <input
+        type="date"
+        [value]="currentDate()"
+        (change)="onDateChange($event)"
+        class="date-picker"
+      />
+
+      <button
+        (click)="goToNextDate()"
+        [disabled]="!currentItem()?.nextDate"
+        class="nav-button"
+      >
+        Next →
+      </button>
+    </div>
+
+    @if (isLoading()) {
+    <div class="loading">Loading...</div>
+    } @else {
+    <form [formGroup]="diaryForm" class="diary-form">
+      <div class="form-group">
+        <label for="title">Title</label>
+        <input
+          id="title"
+          type="text"
+          formControlName="title"
+          placeholder="Enter a title for this entry..."
+          class="title-input"
+          [class.invalid]="
+            diaryForm.get('title')?.invalid && diaryForm.get('title')?.touched
+          "
+        />
+        @if (diaryForm.get('title')?.invalid && diaryForm.get('title')?.touched)
+        {
+        <div class="field-error">
+          @if (diaryForm.get('title')?.errors?.['required']) {
+          <span>Title is required</span>
+          } @if (diaryForm.get('title')?.errors?.['maxlength']) {
+          <span>Title must be less than 200 characters</span>
+          }
+        </div>
+        }
+      </div>
+
+      <div class="form-group">
+        <label for="body">Entry</label>
+        <textarea
+          id="body"
+          formControlName="body"
+          placeholder="Write your diary entry here... (Markdown supported)"
+          class="body-textarea"
+          rows="15"
+          [class.invalid]="
+            diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched
+          "
+        ></textarea>
+        @if (diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched) {
+        <div class="field-error">
+          @if (diaryForm.get('body')?.errors?.['required']) {
+          <span>Entry content is required</span>
+          }
+        </div>
+        }
+      </div>
+
+      <div class="form-group">
+        <label for="tags">Tags</label>
+        <div class="tags-input-container">
+          <input
+            id="tags"
+            type="text"
+            [value]="tagInput()"
+            (input)="onTagInputChange($event)"
+            (keydown)="onTagInputKeydown($event)"
+            placeholder="Add a tag and press Enter..."
+            class="tag-input"
+          />
+          <button
+            type="button"
+            (click)="addTag()"
+            class="add-tag-button"
+            [disabled]="!tagInput().trim()"
+          >
+            Add Tag
+          </button>
+        </div>
+
+        @if (tags.length > 0) {
+        <div class="tags-list">
+          @for (tag of tags; track tag) {
+          <span class="tag">
+            {{ tag }}
+            <button
+              type="button"
+              (click)="removeTag(tag)"
+              class="remove-tag"
+              aria-label="Remove tag"
+            >
+              ×
+            </button>
+          </span>
+          }
+        </div>
+        }
+      </div>
+
+      <div class="form-group">
+        <div class="assets-header">
+          <label>Assets</label>
+          <button
+            type="button"
+            (click)="toggleAssetUpload()"
+            class="toggle-upload-button"
+          >
+            @if (showAssetUpload()) {
+            <span>Hide Upload</span>
+            } @else {
+            <span>+ Add Assets</span>
+            }
+          </button>
+        </div>
+
+        @if (showAssetUpload()) {
+        <div class="asset-upload-section">
+          <app-asset-upload
+            (uploadComplete)="onAssetsUploaded($event)"
+          ></app-asset-upload>
+        </div>
+        } @if (uploadedAssets().length > 0) {
+        <div class="asset-gallery-section">
+          <app-asset-gallery
+            [assets]="uploadedAssets()"
+            (assetSelected)="onAssetSelected($event)"
+            (assetDeleted)="onAssetDeleted($event)"
+          ></app-asset-gallery>
+        </div>
+        }
+      </div>
+
+      <div class="form-actions">
+        <button
+          type="button"
+          (click)="onSave()"
+          [disabled]="diaryForm.invalid || isSaving() || !diaryForm.dirty"
+          class="save-button"
+        >
+          @if (isSaving()) {
+          <span>Saving...</span>
+          } @else {
+          <span>Save Entry</span>
+          }
+        </button>
+
+        @if (saveMessage()) {
+        <div
+          class="save-message"
+          [class.success]="saveMessage().includes('success')"
+        >
+          {{ saveMessage() }}
+        </div>
+        } @if (diaryForm.dirty) {
+        <span class="unsaved-indicator">● Unsaved changes</span>
+        }
+      </div>
+    </form>
+    }
+  </div>
+</div>
+
+<app-asset-preview-modal
+  [assetPath]="previewAssetPath()"
+  (close)="closePreview()"
+  (delete)="onAssetDeleted($event)"
+  (download)="downloadAsset($event)"
+></app-asset-preview-modal>
