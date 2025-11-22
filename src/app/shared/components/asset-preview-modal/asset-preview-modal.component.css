@@ -33,6 +33,13 @@
   animation: slideUp 0.3s ease;
 }
 
+.modal-container.view-only-modal {
+  background: transparent;
+  border-radius: 0;
+  max-width: 95vw;
+  max-height: 95vh;
+}
+
 @keyframes slideUp {
   from {
     transform: translateY(50px);
@@ -82,6 +89,31 @@
   color: #333;
 }
 
+.close-button-overlay {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border: none;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  font-size: 36px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.close-button-overlay:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+  transform: scale(1.1);
+}
+
 .modal-body {
   flex: 1;
   overflow: auto;
@@ -92,11 +124,22 @@
   background-color: #f5f5f5;
 }
 
+.view-only-modal .modal-body {
+  padding: 0;
+  background-color: transparent;
+}
+
 .preview-image {
   max-width: 100%;
   max-height: 70vh;
   object-fit: contain;
   border-radius: 5px;
+}
+
+.view-only-modal .preview-image {
+  max-width: 95vw;
+  max-height: 95vh;
+  border-radius: 0;
 }
 
 .preview-video {

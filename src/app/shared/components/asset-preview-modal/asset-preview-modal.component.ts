@@ -27,6 +27,8 @@ export class AssetPreviewModalComponent {
     }
   }
 
+  @Input() viewOnly = false; // Hide edit actions in view mode
+
   @Output() close = new EventEmitter<void>();
   @Output() delete = new EventEmitter<string>();
   @Output() download = new EventEmitter<string>();

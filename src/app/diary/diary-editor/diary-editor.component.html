@@ -328,6 +328,7 @@
 
 <app-asset-preview-modal
   [assetPath]="previewAssetPath()"
+  [viewOnly]="currentMode() === 'view'"
   (close)="closePreview()"
   (delete)="onAssetDeleted($event)"
   (download)="downloadAsset($event)"

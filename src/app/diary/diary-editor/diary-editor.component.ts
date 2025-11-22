@@ -2,6 +2,7 @@ import {
   Component,
   OnInit,
   OnDestroy,
+  AfterViewChecked,
   HostListener,
   signal,
   effect,
@@ -50,7 +51,9 @@ export type EditorMode = "view" | "edit";
   templateUrl: "./diary-editor.component.html",
   styleUrl: "./diary-editor.component.css",
 })
-export class DiaryEditorComponent implements OnInit, OnDestroy {
+export class DiaryEditorComponent
+  implements OnInit, OnDestroy, AfterViewChecked
+{
   diaryForm: FormGroup;
   currentDate = signal<string>("");
   currentItem = signal<DiaryItem | null>(null);
@@ -175,9 +178,47 @@ export class DiaryEditorComponent implements OnInit, OnDestroy {
       });
   }
 
+  ngAfterViewChecked(): void {
+    // Add click handlers to images in view mode
+    if (this.currentMode() === "view") {
+      this.attachImageClickHandlers();
+    }
+  }
+
   ngOnDestroy(): void {
     this.shortcutsSubscription?.unsubscribe();
     this.bodySubscription?.unsubscribe();
+  }
+
+  private attachImageClickHandlers(): void {
+    const viewBody = document.querySelector(".view-body");
+    if (!viewBody) return;
+
+    const images = viewBody.querySelectorAll("img");
+    images.forEach((img) => {
+      // Remove existing listener if any
+      const clone = img.cloneNode(true) as HTMLImageElement;
+      img.parentNode?.replaceChild(clone, img);
+
+      // Add click handler
+      clone.style.cursor = "pointer";
+      clone.addEventListener("click", (event) => {
+        event.preventDefault();
+        const src = clone.getAttribute("src");
+        if (src) {
+          // Extract just the filename from the URL
+          // URL format: http://localhost:8080/v1/assets/9232aa57-eab9-4b2f-975b-3bfd6d421474.jpg
+          const filename = src.split("/").pop();
+          if (filename) {
+            this.openImagePreview(filename);
+          }
+        }
+      });
+    });
+  }
+
+  private openImagePreview(imagePath: string): void {
+    this.previewAssetPath.set(imagePath);
   }
 
   handleShortcutAction(action: string): void {
