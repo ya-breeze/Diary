@@ -1,4 +1,10 @@
-import { Component, EventEmitter, Output, signal } from "@angular/core";
+import {
+  Component,
+  EventEmitter,
+  Output,
+  signal,
+  ChangeDetectionStrategy,
+} from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { AssetService } from "../../../core/services/asset.service";
 
@@ -16,6 +22,7 @@ export interface UploadedAsset {
   imports: [CommonModule],
   templateUrl: "./asset-upload.component.html",
   styleUrl: "./asset-upload.component.css",
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AssetUploadComponent {
   @Output() uploadComplete = new EventEmitter<string[]>();

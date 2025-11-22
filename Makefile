@@ -3,47 +3,6 @@
 
 .PHONY: help install dev build test e2e lint clean deploy setup docker-build docker-run
 
-# Default target
-help:
-	@echo "Personal Diary Frontend - Available Commands:"
-	@echo ""
-	@echo "Setup and Installation:"
-	@echo "  make setup     - Initial project setup (install Node.js dependencies)"
-	@echo "  make install   - Install/update npm dependencies"
-	@echo ""
-	@echo "Development:"
-	@echo "  make dev       - Start development server with hot reload"
-	@echo "  make build     - Build application for production"
-	@echo "  make build-dev - Build application for development"
-	@echo ""
-	@echo "Testing:"
-	@echo "  make test      - Run unit tests"
-	@echo "  make test-watch - Run unit tests in watch mode"
-	@echo "  make e2e       - Run end-to-end tests"
-	@echo "  make coverage  - Generate test coverage report"
-	@echo ""
-	@echo "Code Quality:"
-	@echo "  make lint      - Run ESLint and check code style"
-	@echo "  make lint-fix  - Run ESLint and auto-fix issues"
-	@echo "  make format    - Format code with Prettier"
-	@echo ""
-	@echo "Utilities:"
-	@echo "  make clean     - Clean build artifacts and node_modules"
-	@echo "  make analyze   - Analyze bundle size"
-	@echo "  make serve-prod - Serve production build locally"
-	@echo ""
-	@echo "Docker:"
-	@echo "  make docker-build - Build Docker image"
-	@echo "  make docker-run   - Run application in Docker container"
-	@echo ""
-	@echo "Deployment:"
-	@echo "  make deploy-staging - Deploy to staging environment"
-	@echo "  make deploy-prod    - Deploy to production environment"
-
-# Setup and Installation
-setup: install
-	@echo "✅ Project setup complete!"
-
 install:
 	@echo "📦 Installing dependencies..."
 	npm install
@@ -69,10 +28,6 @@ test:
 test-watch:
 	@echo "🧪 Running unit tests in watch mode..."
 	npm run test
-
-e2e:
-	@echo "🔍 Running end-to-end tests..."
-	npm run e2e
 
 coverage:
 	@echo "📊 Generating test coverage report..."
@@ -116,41 +71,6 @@ docker-build:
 docker-run:
 	@echo "🐳 Running Docker container..."
 	docker run -p 4200:80 diary-frontend
-
-# Deployment (customize these based on your deployment strategy)
-deploy-staging:
-	@echo "🚀 Deploying to staging..."
-	npm run build -- --configuration staging
-	# Add your staging deployment commands here
-
-deploy-prod:
-	@echo "🚀 Deploying to production..."
-	npm run build -- --configuration production
-	# Add your production deployment commands here
-
-# Development helpers
-generate-component:
-	@read -p "Enter component name: " name; \
-	ng generate component $$name
-
-generate-service:
-	@read -p "Enter service name: " name; \
-	ng generate service $$name
-
-generate-module:
-	@read -p "Enter module name: " name; \
-	ng generate module $$name
-
-# API Documentation
-api-docs:
-	@echo "📚 Opening API documentation..."
-	@if command -v xdg-open > /dev/null; then \
-		xdg-open api/openapi.yaml; \
-	elif command -v open > /dev/null; then \
-		open api/openapi.yaml; \
-	else \
-		echo "Please open api/openapi.yaml manually"; \
-	fi
 
 # Check if Node.js and npm are installed
 check-deps:

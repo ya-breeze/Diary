@@ -1,4 +1,10 @@
-import { Component, EventEmitter, Input, Output } from "@angular/core";
+import {
+  Component,
+  EventEmitter,
+  Input,
+  Output,
+  ChangeDetectionStrategy,
+} from "@angular/core";
 import { CommonModule } from "@angular/common";
 import {
   KeyboardShortcutsService,
@@ -11,6 +17,7 @@ import {
   imports: [CommonModule],
   templateUrl: "./keyboard-shortcuts-help.component.html",
   styleUrl: "./keyboard-shortcuts-help.component.css",
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class KeyboardShortcutsHelpComponent {
   @Input() isOpen = false;
@@ -36,4 +43,3 @@ export class KeyboardShortcutsHelpComponent {
     }
   }
 }
-

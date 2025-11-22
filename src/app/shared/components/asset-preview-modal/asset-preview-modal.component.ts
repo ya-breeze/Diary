@@ -5,6 +5,7 @@ import {
   EventEmitter,
   signal,
   effect,
+  ChangeDetectionStrategy,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { AssetService } from "../../../core/services/asset.service";
@@ -15,6 +16,7 @@ import { AssetService } from "../../../core/services/asset.service";
   imports: [CommonModule],
   templateUrl: "./asset-preview-modal.component.html",
   styleUrl: "./asset-preview-modal.component.css",
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AssetPreviewModalComponent {
   @Input() set assetPath(value: string | null) {

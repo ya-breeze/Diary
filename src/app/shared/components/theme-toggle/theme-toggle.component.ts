@@ -1,4 +1,4 @@
-import { Component } from "@angular/core";
+import { Component, ChangeDetectionStrategy } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { ThemeService } from "../../../core/services/theme.service";
 
@@ -8,6 +8,7 @@ import { ThemeService } from "../../../core/services/theme.service";
   imports: [CommonModule],
   templateUrl: "./theme-toggle.component.html",
   styleUrl: "./theme-toggle.component.css",
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ThemeToggleComponent {
   constructor(public themeService: ThemeService) {}
@@ -16,4 +17,3 @@ export class ThemeToggleComponent {
     this.themeService.toggleTheme();
   }
 }
-

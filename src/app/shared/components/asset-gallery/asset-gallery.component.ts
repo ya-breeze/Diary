@@ -1,4 +1,11 @@
-import { Component, Input, Output, EventEmitter, signal } from "@angular/core";
+import {
+  Component,
+  Input,
+  Output,
+  EventEmitter,
+  signal,
+  ChangeDetectionStrategy,
+} from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { AssetService } from "../../../core/services/asset.service";
 
@@ -14,6 +21,7 @@ export interface GalleryAsset {
   imports: [CommonModule],
   templateUrl: "./asset-gallery.component.html",
   styleUrl: "./asset-gallery.component.css",
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AssetGalleryComponent {
   @Input() set assets(value: string[]) {

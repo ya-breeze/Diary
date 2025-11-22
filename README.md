@@ -39,26 +39,28 @@ A modern Angular 20 application for managing personal diary entries with authent
 - **Enhanced Features**
 
   - Markdown preview with live rendering
-  - Toggle between edit and preview modes
+  - Toggle between edit and preview modes (Ctrl+P)
   - GitHub-flavored markdown styling
   - Search functionality by text and tags
   - Search results page with clickable entries
   - Quick navigation to search from editor
+
+- **UI/UX Improvements**
+
+  - Responsive design for mobile, tablet, and desktop
+  - Loading spinners and progress indicators
+  - Toast notifications for user feedback
+  - Dark/light theme toggle with system preference detection
+  - Comprehensive keyboard shortcuts
+  - Accessibility improvements (ARIA labels, keyboard navigation)
 
 - **Core Infrastructure**
   - HTTP interceptors for auth and error handling
   - Service layer for API communication
   - TypeScript models for type safety
   - Environment-based configuration
-
-### Planned 🚧
-
-- Markdown editor with live preview
-- Search functionality with filters
-- Asset upload and management
-- Calendar view for navigation
-- Dark/light theme
-- Keyboard shortcuts
+  - OnPush change detection for performance
+  - Comprehensive unit test coverage (94.83%)
 
 ## Tech Stack
 
@@ -120,6 +122,36 @@ make test-watch
 make coverage
 ```
 
+### Test Credentials
+
+For testing the application with the backend at `localhost:8080`:
+
+- **Email**: `test@test.com`
+- **Password**: `test`
+
+## Keyboard Shortcuts
+
+The application includes comprehensive keyboard shortcuts for efficient navigation:
+
+| Shortcut   | Action                       |
+| ---------- | ---------------------------- |
+| `Ctrl + S` | Save current diary entry     |
+| `Alt + ←`  | Navigate to previous day     |
+| `Alt + →`  | Navigate to next day         |
+| `Ctrl + P` | Toggle markdown preview      |
+| `Ctrl + F` | Open search                  |
+| `/`        | Show keyboard shortcuts help |
+| `Esc`      | Close modals/dialogs         |
+
+## Theme Support
+
+The application supports both light and dark themes:
+
+- **Auto-detection**: Automatically detects system preference on first load
+- **Manual toggle**: Click the theme toggle button in the header
+- **Persistence**: Theme preference is saved to localStorage
+- **Smooth transitions**: All theme changes are animated
+
 ## Project Structure
 
 ```
@@ -127,14 +159,23 @@ src/app/
 ├── core/                    # Singleton services, guards, interceptors
 │   ├── guards/             # Route guards (auth)
 │   ├── interceptors/       # HTTP interceptors (auth, error)
-│   └── services/           # Core services (auth, diary, asset)
+│   └── services/           # Core services (auth, diary, asset, theme, toast, keyboard)
 ├── shared/                 # Shared models and utilities
+│   ├── components/         # Reusable components
+│   │   ├── asset-gallery/
+│   │   ├── asset-upload/
+│   │   ├── asset-preview-modal/
+│   │   ├── keyboard-shortcuts-help/
+│   │   ├── loading-spinner/
+│   │   ├── theme-toggle/
+│   │   └── toast-container/
 │   └── models/             # TypeScript interfaces
 ├── auth/                   # Authentication feature
 │   └── login/              # Login component
 ├── diary/                  # Diary feature
 │   ├── diary-list/         # Diary list component
-│   └── diary-editor/       # Diary editor component
+│   ├── diary-editor/       # Diary editor component
+│   └── diary-search/       # Search component
 ├── app.ts                  # Root component
 ├── app.config.ts           # Application configuration
 └── app.routes.ts           # Route definitions
@@ -170,11 +211,13 @@ The application integrates with a backend API defined in `api/openapi.yaml`:
 
 - `POST /v1/authorize` - User authentication
 - `GET /v1/user` - Get user profile
-- `GET /v1/items` - List diary items
+- `GET /v1/items` - List diary items (with search support)
 - `GET /v1/items/{date}` - Get diary item by date
 - `PUT /v1/items/{date}` - Create/update diary item
-- `POST /v1/assets` - Upload asset
+- `POST /v1/assets` - Upload single asset
 - `POST /v1/assets/batch` - Batch upload assets
+- `GET /v1/assets/{path}` - Download asset
+- `DELETE /v1/assets/{path}` - Delete asset
 
 ## Development Commands
 
