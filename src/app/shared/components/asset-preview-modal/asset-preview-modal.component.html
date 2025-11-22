@@ -17,18 +17,19 @@
       ×
     </button>
 
-    @if (hasMultipleImages && assetType() === 'image') {
+    @if (hasMultipleImages && (assetType() === 'image' || assetType() ===
+    'video')) {
     <button
       (click)="navigatePrevious.emit()"
       class="nav-button nav-button-left"
-      aria-label="Previous image"
+      aria-label="Previous media"
     >
       ‹
     </button>
     <button
       (click)="navigateNext.emit()"
       class="nav-button nav-button-right"
-      aria-label="Next image"
+      aria-label="Next media"
     >
       ›
     </button>
@@ -44,7 +45,13 @@
         [style.cursor]="viewOnly ? 'pointer' : 'default'"
       />
       } @else if (assetType() === 'video') {
-      <video [src]="assetUrl()" controls class="preview-video">
+      <video
+        [src]="assetUrl()"
+        controls
+        class="preview-video"
+        (click)="onImageClick($event)"
+        [style.cursor]="viewOnly ? 'pointer' : 'default'"
+      >
         Your browser does not support the video tag.
       </video>
       } @else {

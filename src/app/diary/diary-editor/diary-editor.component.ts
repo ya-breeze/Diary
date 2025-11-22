@@ -67,8 +67,8 @@ export class DiaryEditorComponent
   showMarkdownPreview = signal<boolean>(false);
   showKeyboardHelp = signal<boolean>(false);
   currentMode = signal<EditorMode>("view"); // Default to view mode
-  imageList = signal<string[]>([]); // List of all images in current entry
-  currentImageIndex = signal<number>(0); // Current image index in the list
+  mediaList = signal<string[]>([]); // List of all images and videos in current entry
+  currentMediaIndex = signal<number>(0); // Current media index in the list
   private shortcutsSubscription?: Subscription;
   private bodySubscription?: Subscription;
   private cursorPosition: { start: number; end: number } | null = null;
@@ -197,21 +197,46 @@ export class DiaryEditorComponent
     if (!viewBody) return;
 
     const images = viewBody.querySelectorAll("img");
+    const videos = viewBody.querySelectorAll("video");
 
-    // Build list of image filenames
-    const imageFilenames: string[] = [];
+    // Build list of all media (images and videos) filenames
+    const mediaFilenames: string[] = [];
+    const mediaElements: (HTMLImageElement | HTMLVideoElement)[] = [];
+
+    // Add images
     images.forEach((img) => {
       const src = img.getAttribute("src");
       if (src) {
         const filename = src.split("/").pop();
         if (filename) {
-          imageFilenames.push(filename);
+          mediaFilenames.push(filename);
+          mediaElements.push(img);
         }
       }
     });
-    this.imageList.set(imageFilenames);
 
-    images.forEach((img, index) => {
+    // Add videos
+    videos.forEach((video) => {
+      const source = video.querySelector("source");
+      if (source) {
+        const src = source.getAttribute("src");
+        if (src) {
+          const filename = src.split("/").pop();
+          if (filename) {
+            mediaFilenames.push(filename);
+            mediaElements.push(video);
+          }
+        }
+      }
+    });
+
+    this.mediaList.set(mediaFilenames);
+
+    // Add click handlers to images
+    images.forEach((img) => {
+      // Find the index in the combined media list
+      const mediaIndex = mediaElements.indexOf(img);
+
       // Remove existing listener if any
       const clone = img.cloneNode(true) as HTMLImageElement;
       img.parentNode?.replaceChild(clone, img);
@@ -226,8 +251,34 @@ export class DiaryEditorComponent
           // URL format: http://localhost:8080/v1/assets/9232aa57-eab9-4b2f-975b-3bfd6d421474.jpg
           const filename = src.split("/").pop();
           if (filename) {
-            this.currentImageIndex.set(index);
+            this.currentMediaIndex.set(mediaIndex);
             this.openImagePreview(filename);
+          }
+        }
+      });
+    });
+
+    // Add click handlers to videos
+    videos.forEach((video) => {
+      const mediaIndex = mediaElements.indexOf(video);
+
+      // Remove existing listener if any
+      const clone = video.cloneNode(true) as HTMLVideoElement;
+      video.parentNode?.replaceChild(clone, video);
+
+      // Add click handler
+      clone.style.cursor = "pointer";
+      clone.addEventListener("click", (event) => {
+        event.preventDefault();
+        const source = clone.querySelector("source");
+        if (source) {
+          const src = source.getAttribute("src");
+          if (src) {
+            const filename = src.split("/").pop();
+            if (filename) {
+              this.currentMediaIndex.set(mediaIndex);
+              this.openImagePreview(filename);
+            }
           }
         }
       });
@@ -239,18 +290,18 @@ export class DiaryEditorComponent
   }
 
   navigateImage(direction: "next" | "previous"): void {
-    const images = this.imageList();
-    if (images.length === 0) return;
+    const media = this.mediaList();
+    if (media.length === 0) return;
 
-    let newIndex = this.currentImageIndex();
+    let newIndex = this.currentMediaIndex();
     if (direction === "next") {
-      newIndex = (newIndex + 1) % images.length;
+      newIndex = (newIndex + 1) % media.length;
     } else {
-      newIndex = (newIndex - 1 + images.length) % images.length;
+      newIndex = (newIndex - 1 + media.length) % media.length;
     }
 
-    this.currentImageIndex.set(newIndex);
-    this.previewAssetPath.set(images[newIndex]);
+    this.currentMediaIndex.set(newIndex);
+    this.previewAssetPath.set(media[newIndex]);
   }
 
   handleShortcutAction(action: string): void {
