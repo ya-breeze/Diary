@@ -184,7 +184,7 @@ src/app/
 
 ### API Endpoints
 
-Update the API URL in environment files:
+The application uses different configurations for development and production:
 
 **Development** (`src/environments/environment.ts`):
 
@@ -195,14 +195,43 @@ export const environment = {
 };
 ```
 
+- Makes direct requests to the backend at `http://localhost:8080`
+- Backend must be running on `http://localhost:8080`
+- Backend must have proper CORS headers configured
+
 **Production** (`src/environments/environment.prod.ts`):
 
 ```typescript
 export const environment = {
   production: true,
-  apiUrl: "/v1",
+  apiUrl: "http://truenas.local:8880/v1",
 };
 ```
+
+- Makes direct requests to the backend at `http://truenas.local:8880`
+
+**Required CORS Headers** (for both development and production):
+
+- `Access-Control-Allow-Origin: <frontend-origin>` (specific origin, not `*`)
+- `Access-Control-Allow-Credentials: true`
+- `Access-Control-Allow-Headers: Content-Type, Authorization`
+- `Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS`
+
+### Cookie-Based Authentication
+
+The application uses **dual authentication**:
+
+1. **JWT Bearer Token** - For API requests (stored in localStorage)
+2. **HTTP-only Cookies** - For media/asset requests (set by backend)
+
+All HTTP requests include `withCredentials: true` to ensure cookies are sent and received properly.
+
+**Important**: The backend must set cookies with appropriate attributes:
+
+- `HttpOnly` - Prevents JavaScript access
+- `SameSite=Lax` or `SameSite=None; Secure` - For cross-site requests
+- `Path=/` - Available for all routes
+- Appropriate `Max-Age` or `Expires`
 
 ## API Integration
 

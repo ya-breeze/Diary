@@ -43,6 +43,12 @@ export class AuthService {
     this.removeToken();
     this.isAuthenticated.set(false);
     this.currentUserSubject.next(null);
+
+    // Note: HTTP-only cookies set by the server cannot be cleared from JavaScript.
+    // The server should handle cookie expiration/invalidation on its end.
+    // Cookies will be automatically cleared when they expire or when the server
+    // sends a Set-Cookie header with an expired date.
+
     this.router.navigate(["/login"]);
   }
 
