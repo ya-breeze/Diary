@@ -29,8 +29,13 @@ import { AssetPreviewModalComponent } from "../../shared/components/asset-previe
 import { LoadingSpinnerComponent } from "../../shared/components/loading-spinner/loading-spinner.component";
 import { KeyboardShortcutsHelpComponent } from "../../shared/components/keyboard-shortcuts-help/keyboard-shortcuts-help.component";
 import { ThemeToggleComponent } from "../../shared/components/theme-toggle/theme-toggle.component";
+import { AssetsPanelComponent } from "../../shared/components/assets-panel/assets-panel.component";
 import { marked } from "marked";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
+import {
+  extractAssetsFromMarkdown,
+  appendAssetsToMarkdown,
+} from "../../shared/utils/markdown-parser";
 
 export type EditorMode = "view" | "edit";
 
@@ -47,6 +52,7 @@ export type EditorMode = "view" | "edit";
     LoadingSpinnerComponent,
     KeyboardShortcutsHelpComponent,
     ThemeToggleComponent,
+    AssetsPanelComponent,
   ],
   templateUrl: "./diary-editor.component.html",
   styleUrl: "./diary-editor.component.css",
@@ -79,6 +85,11 @@ export class DiaryEditorComponent
     const processedBody = this.processAssetLinks(body);
     const html = marked.parse(processedBody, { async: false }) as string;
     return this.sanitizer.bypassSecurityTrustHtml(html);
+  });
+  // Computed signal for assets in current entry
+  currentAssets = computed<string[]>(() => {
+    const body = this.bodyText();
+    return extractAssetsFromMarkdown(body);
   });
 
   @HostListener("window:keydown", ["$event"])
@@ -654,5 +665,33 @@ export class DiaryEditorComponent
 
   downloadAsset(path: string): void {
     window.open(path, "_blank");
+  }
+
+  onBatchUpload(files: File[]): void {
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    // Upload files using batch endpoint
+    this.assetService.uploadAssetsBatch(files).subscribe({
+      next: (response) => {
+        // Extract saved filenames from the response
+        const savedNames = response.files.map((file) => file.savedName);
+
+        // Append asset references to the body text
+        const currentBody = this.diaryForm.get("body")?.value || "";
+        const newBody = appendAssetsToMarkdown(currentBody, savedNames);
+        this.diaryForm.patchValue({ body: newBody });
+        this.diaryForm.markAsDirty();
+
+        this.toastService.success(
+          `${response.count} asset(s) uploaded and added to entry!`
+        );
+      },
+      error: (error) => {
+        console.error("Error uploading assets:", error);
+        this.toastService.error("Error uploading assets. Please try again.");
+      },
+    });
   }
 }

@@ -134,194 +134,205 @@
     </div>
     } @else {
     <!-- EDIT MODE -->
-    <form
-      [formGroup]="diaryForm"
-      class="diary-form"
-      aria-label="Diary entry form"
-    >
-      <div class="form-group">
-        <label for="title">Title</label>
-        <input
-          id="title"
-          type="text"
-          formControlName="title"
-          placeholder="Enter a title for this entry..."
-          class="title-input"
-          [class.invalid]="
-            diaryForm.get('title')?.invalid && diaryForm.get('title')?.touched
-          "
-          aria-required="true"
-          [attr.aria-invalid]="
-            diaryForm.get('title')?.invalid && diaryForm.get('title')?.touched
-          "
-          aria-describedby="title-error"
-        />
-        @if (diaryForm.get('title')?.invalid && diaryForm.get('title')?.touched)
-        {
-        <div class="field-error" id="title-error" role="alert">
-          @if (diaryForm.get('title')?.errors?.['required']) {
-          <span>Title is required</span>
-          } @if (diaryForm.get('title')?.errors?.['maxlength']) {
-          <span>Title must be less than 200 characters</span>
-          }
-        </div>
-        }
-      </div>
-
-      <div class="form-group">
-        <div class="editor-header">
-          <label for="body">Entry</label>
-          <button
-            type="button"
-            (click)="toggleMarkdownPreview()"
-            class="preview-toggle-button"
-            [attr.aria-pressed]="showMarkdownPreview()"
-            [attr.aria-label]="
-              showMarkdownPreview()
-                ? 'Switch to edit mode'
-                : 'Switch to preview mode'
-            "
-          >
-            @if (showMarkdownPreview()) {
-            <span>📝 Edit</span>
-            } @else {
-            <span>👁️ Preview</span>
-            }
-          </button>
-        </div>
-
-        @if (!showMarkdownPreview()) {
-        <textarea
-          id="body"
-          formControlName="body"
-          placeholder="Write your diary entry here... (Markdown supported)"
-          class="body-textarea"
-          rows="15"
-          [class.invalid]="
-            diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched
-          "
-          aria-required="true"
-          [attr.aria-invalid]="
-            diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched
-          "
-          aria-describedby="body-error"
-        ></textarea>
-        } @else {
-        <div
-          class="markdown-preview"
-          [innerHTML]="markdownHtml()"
-          role="region"
-          aria-label="Markdown preview"
-        ></div>
-        } @if (diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched)
-        {
-        <div class="field-error" id="body-error" role="alert">
-          @if (diaryForm.get('body')?.errors?.['required']) {
-          <span>Entry content is required</span>
-          }
-        </div>
-        }
-      </div>
-
-      <div class="form-group">
-        <label for="tags">Tags</label>
-        <div class="tags-input-container">
+    <div class="edit-mode-container">
+      <form
+        [formGroup]="diaryForm"
+        class="diary-form"
+        aria-label="Diary entry form"
+      >
+        <div class="form-group">
+          <label for="title">Title</label>
           <input
-            id="tags"
+            id="title"
             type="text"
-            [value]="tagInput()"
-            (input)="onTagInputChange($event)"
-            (keydown)="onTagInputKeydown($event)"
-            placeholder="Add a tag and press Enter..."
-            class="tag-input"
-            aria-label="Enter tag name"
-            aria-describedby="tags-help"
+            formControlName="title"
+            placeholder="Enter a title for this entry..."
+            class="title-input"
+            [class.invalid]="
+              diaryForm.get('title')?.invalid && diaryForm.get('title')?.touched
+            "
+            aria-required="true"
+            [attr.aria-invalid]="
+              diaryForm.get('title')?.invalid && diaryForm.get('title')?.touched
+            "
+            aria-describedby="title-error"
           />
-          <button
-            type="button"
-            (click)="addTag()"
-            class="add-tag-button"
-            [disabled]="!tagInput().trim()"
-            aria-label="Add tag to entry"
-          >
-            Add Tag
-          </button>
+          @if (diaryForm.get('title')?.invalid &&
+          diaryForm.get('title')?.touched) {
+          <div class="field-error" id="title-error" role="alert">
+            @if (diaryForm.get('title')?.errors?.['required']) {
+            <span>Title is required</span>
+            } @if (diaryForm.get('title')?.errors?.['maxlength']) {
+            <span>Title must be less than 200 characters</span>
+            }
+          </div>
+          }
         </div>
-        <span id="tags-help" class="sr-only"
-          >Press Enter or click Add Tag button to add a tag</span
-        >
 
-        @if (tags.length > 0) {
-        <div class="tags-list" role="list" aria-label="Current tags">
-          @for (tag of tags; track tag) {
-          <span class="tag" role="listitem">
-            {{ tag }}
+        <div class="form-group">
+          <div class="editor-header">
+            <label for="body">Entry</label>
             <button
               type="button"
-              (click)="removeTag(tag)"
-              class="remove-tag"
-              [attr.aria-label]="'Remove tag ' + tag"
+              (click)="toggleMarkdownPreview()"
+              class="preview-toggle-button"
+              [attr.aria-pressed]="showMarkdownPreview()"
+              [attr.aria-label]="
+                showMarkdownPreview()
+                  ? 'Switch to edit mode'
+                  : 'Switch to preview mode'
+              "
             >
-              ×
+              @if (showMarkdownPreview()) {
+              <span>📝 Edit</span>
+              } @else {
+              <span>👁️ Preview</span>
+              }
             </button>
-          </span>
+          </div>
+
+          @if (!showMarkdownPreview()) {
+          <textarea
+            id="body"
+            formControlName="body"
+            placeholder="Write your diary entry here... (Markdown supported)"
+            class="body-textarea"
+            rows="15"
+            [class.invalid]="
+              diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched
+            "
+            aria-required="true"
+            [attr.aria-invalid]="
+              diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched
+            "
+            aria-describedby="body-error"
+          ></textarea>
+          } @else {
+          <div
+            class="markdown-preview"
+            [innerHTML]="markdownHtml()"
+            role="region"
+            aria-label="Markdown preview"
+          ></div>
+          } @if (diaryForm.get('body')?.invalid &&
+          diaryForm.get('body')?.touched) {
+          <div class="field-error" id="body-error" role="alert">
+            @if (diaryForm.get('body')?.errors?.['required']) {
+            <span>Entry content is required</span>
+            }
+          </div>
           }
         </div>
-        }
-      </div>
 
-      <div class="form-group">
-        <div class="assets-header">
-          <label>Assets</label>
+        <div class="form-group">
+          <label for="tags">Tags</label>
+          <div class="tags-input-container">
+            <input
+              id="tags"
+              type="text"
+              [value]="tagInput()"
+              (input)="onTagInputChange($event)"
+              (keydown)="onTagInputKeydown($event)"
+              placeholder="Add a tag and press Enter..."
+              class="tag-input"
+              aria-label="Enter tag name"
+              aria-describedby="tags-help"
+            />
+            <button
+              type="button"
+              (click)="addTag()"
+              class="add-tag-button"
+              [disabled]="!tagInput().trim()"
+              aria-label="Add tag to entry"
+            >
+              Add Tag
+            </button>
+          </div>
+          <span id="tags-help" class="sr-only"
+            >Press Enter or click Add Tag button to add a tag</span
+          >
+
+          @if (tags.length > 0) {
+          <div class="tags-list" role="list" aria-label="Current tags">
+            @for (tag of tags; track tag) {
+            <span class="tag" role="listitem">
+              {{ tag }}
+              <button
+                type="button"
+                (click)="removeTag(tag)"
+                class="remove-tag"
+                [attr.aria-label]="'Remove tag ' + tag"
+              >
+                ×
+              </button>
+            </span>
+            }
+          </div>
+          }
+        </div>
+
+        <div class="form-group">
+          <div class="assets-header">
+            <label>Assets</label>
+            <button
+              type="button"
+              (click)="toggleAssetUpload()"
+              class="toggle-upload-button"
+            >
+              @if (showAssetUpload()) {
+              <span>Hide Upload</span>
+              } @else {
+              <span>+ Add Assets</span>
+              }
+            </button>
+          </div>
+
+          @if (showAssetUpload()) {
+          <div class="asset-upload-section">
+            <app-asset-upload
+              (uploadComplete)="onAssetsUploaded($event)"
+            ></app-asset-upload>
+          </div>
+          } @if (uploadedAssets().length > 0) {
+          <div class="asset-gallery-section">
+            <app-asset-gallery
+              [assets]="uploadedAssets()"
+              (assetSelected)="onAssetSelected($event)"
+              (assetDeleted)="onAssetDeleted($event)"
+            ></app-asset-gallery>
+          </div>
+          }
+        </div>
+
+        <div class="form-actions">
           <button
             type="button"
-            (click)="toggleAssetUpload()"
-            class="toggle-upload-button"
+            (click)="onSave()"
+            [disabled]="diaryForm.invalid || isSaving() || !diaryForm.dirty"
+            class="save-button"
           >
-            @if (showAssetUpload()) {
-            <span>Hide Upload</span>
+            @if (isSaving()) {
+            <span>💾 Saving...</span>
             } @else {
-            <span>+ Add Assets</span>
+            <span>💾 Save Entry</span>
             }
           </button>
-        </div>
 
-        @if (showAssetUpload()) {
-        <div class="asset-upload-section">
-          <app-asset-upload
-            (uploadComplete)="onAssetsUploaded($event)"
-          ></app-asset-upload>
-        </div>
-        } @if (uploadedAssets().length > 0) {
-        <div class="asset-gallery-section">
-          <app-asset-gallery
-            [assets]="uploadedAssets()"
-            (assetSelected)="onAssetSelected($event)"
-            (assetDeleted)="onAssetDeleted($event)"
-          ></app-asset-gallery>
-        </div>
-        }
-      </div>
-
-      <div class="form-actions">
-        <button
-          type="button"
-          (click)="onSave()"
-          [disabled]="diaryForm.invalid || isSaving() || !diaryForm.dirty"
-          class="save-button"
-        >
-          @if (isSaving()) {
-          <span>💾 Saving...</span>
-          } @else {
-          <span>💾 Save Entry</span>
+          @if (diaryForm.dirty) {
+          <span class="unsaved-indicator">● Unsaved changes</span>
           }
-        </button>
+        </div>
+      </form>
 
-        @if (diaryForm.dirty) {
-        <span class="unsaved-indicator">● Unsaved changes</span>
-        }
-      </div>
-    </form>
+      <!-- Assets Panel -->
+      <aside class="assets-panel-container">
+        <app-assets-panel
+          [assets]="currentAssets()"
+          (assetClick)="onAssetSelected($event)"
+          (uploadAssets)="onBatchUpload($event)"
+        ></app-assets-panel>
+      </aside>
+    </div>
     } }
   </main>
 </div>

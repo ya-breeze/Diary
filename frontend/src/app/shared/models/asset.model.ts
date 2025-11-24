@@ -2,12 +2,19 @@ export interface AssetUploadResponse {
   filename: string;
 }
 
+export interface AssetsBatchFile {
+  originalName: string;
+  savedName: string;
+  size: number;
+  contentType?: string;
+}
+
 export interface AssetsBatchResponse {
-  filenames: string[];
+  files: AssetsBatchFile[];
+  count: number;
 }
 
 export interface Asset {
   path: string;
   url: string;
 }
-
