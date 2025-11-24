@@ -1,0 +1,343 @@
+<div class="diary-container">
+  <header class="diary-header" role="banner">
+    <div class="header-left">
+      <h1>Personal Diary</h1>
+      <span
+        class="mode-indicator"
+        [class.view-mode]="currentMode() === 'view'"
+        [class.edit-mode]="currentMode() === 'edit'"
+      >
+        {{ currentMode() === "view" ? "👁️ View Mode" : "✏️ Edit Mode" }}
+      </span>
+    </div>
+    <nav class="header-actions" aria-label="Main navigation">
+      <button
+        type="button"
+        (click)="toggleMode()"
+        class="mode-toggle-button"
+        [attr.aria-label]="
+          currentMode() === 'view'
+            ? 'Switch to edit mode'
+            : 'Switch to view mode'
+        "
+        title="Toggle mode (Ctrl+E)"
+      >
+        @if (currentMode() === 'view') {
+        <span>✏️ Edit</span>
+        } @else {
+        <span>👁️ View</span>
+        }
+      </button>
+      <app-theme-toggle></app-theme-toggle>
+      <button
+        type="button"
+        (click)="toggleKeyboardHelp()"
+        class="help-button"
+        aria-label="Show keyboard shortcuts"
+        title="Keyboard shortcuts (/)"
+      >
+        ⌨️
+      </button>
+      <a
+        routerLink="/diary/search"
+        class="search-link"
+        aria-label="Search diary entries"
+      >
+        🔍 Search
+      </a>
+      <div class="user-info">
+        <span aria-label="Current user email">{{ userEmail() }}</span>
+        <button
+          (click)="logout()"
+          class="logout-button"
+          aria-label="Logout from application"
+        >
+          Logout
+        </button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="diary-content" role="main">
+    <nav class="date-navigation" aria-label="Date navigation">
+      <button
+        (click)="goToPreviousDate()"
+        [disabled]="!currentItem()?.previousDate"
+        class="nav-button"
+        aria-label="Go to previous diary entry"
+        [attr.aria-disabled]="!currentItem()?.previousDate"
+      >
+        ← Previous
+      </button>
+
+      <input
+        type="date"
+        [value]="currentDate()"
+        (change)="onDateChange($event)"
+        class="date-picker"
+        aria-label="Select diary entry date"
+      />
+
+      <button
+        (click)="goToNextDate()"
+        [disabled]="!currentItem()?.nextDate"
+        class="nav-button"
+        aria-label="Go to next diary entry"
+        [attr.aria-disabled]="!currentItem()?.nextDate"
+      >
+        Next →
+      </button>
+    </nav>
+
+    @if (isLoading()) {
+    <app-loading-spinner [size]="60" message="Loading diary entry..." />
+    } @else { @if (currentMode() === 'view') {
+    <!-- VIEW MODE -->
+    <div
+      class="view-mode-container"
+      role="article"
+      aria-label="Diary entry view"
+    >
+      <div class="view-entry">
+        <h2 class="view-title">
+          {{ currentItem()?.title || "Untitled Entry" }}
+        </h2>
+
+        @if (currentItem()?.tags && currentItem()!.tags!.length > 0) {
+        <div class="view-tags" role="list" aria-label="Entry tags">
+          @for (tag of currentItem()!.tags; track tag) {
+          <span class="view-tag" role="listitem">{{ tag }}</span>
+          }
+        </div>
+        }
+
+        <div
+          class="view-body markdown-preview"
+          [innerHTML]="markdownHtml()"
+          role="region"
+          aria-label="Entry content"
+        ></div>
+
+        @if (!currentItem()?.body || currentItem()?.body === '') {
+        <div class="empty-entry-message">
+          <p>This entry is empty.</p>
+          <button
+            type="button"
+            (click)="switchToEditMode()"
+            class="edit-empty-button"
+          >
+            ✏️ Start Writing
+          </button>
+        </div>
+        }
+      </div>
+    </div>
+    } @else {
+    <!-- EDIT MODE -->
+    <form
+      [formGroup]="diaryForm"
+      class="diary-form"
+      aria-label="Diary entry form"
+    >
+      <div class="form-group">
+        <label for="title">Title</label>
+        <input
+          id="title"
+          type="text"
+          formControlName="title"
+          placeholder="Enter a title for this entry..."
+          class="title-input"
+          [class.invalid]="
+            diaryForm.get('title')?.invalid && diaryForm.get('title')?.touched
+          "
+          aria-required="true"
+          [attr.aria-invalid]="
+            diaryForm.get('title')?.invalid && diaryForm.get('title')?.touched
+          "
+          aria-describedby="title-error"
+        />
+        @if (diaryForm.get('title')?.invalid && diaryForm.get('title')?.touched)
+        {
+        <div class="field-error" id="title-error" role="alert">
+          @if (diaryForm.get('title')?.errors?.['required']) {
+          <span>Title is required</span>
+          } @if (diaryForm.get('title')?.errors?.['maxlength']) {
+          <span>Title must be less than 200 characters</span>
+          }
+        </div>
+        }
+      </div>
+
+      <div class="form-group">
+        <div class="editor-header">
+          <label for="body">Entry</label>
+          <button
+            type="button"
+            (click)="toggleMarkdownPreview()"
+            class="preview-toggle-button"
+            [attr.aria-pressed]="showMarkdownPreview()"
+            [attr.aria-label]="
+              showMarkdownPreview()
+                ? 'Switch to edit mode'
+                : 'Switch to preview mode'
+            "
+          >
+            @if (showMarkdownPreview()) {
+            <span>📝 Edit</span>
+            } @else {
+            <span>👁️ Preview</span>
+            }
+          </button>
+        </div>
+
+        @if (!showMarkdownPreview()) {
+        <textarea
+          id="body"
+          formControlName="body"
+          placeholder="Write your diary entry here... (Markdown supported)"
+          class="body-textarea"
+          rows="15"
+          [class.invalid]="
+            diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched
+          "
+          aria-required="true"
+          [attr.aria-invalid]="
+            diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched
+          "
+          aria-describedby="body-error"
+        ></textarea>
+        } @else {
+        <div
+          class="markdown-preview"
+          [innerHTML]="markdownHtml()"
+          role="region"
+          aria-label="Markdown preview"
+        ></div>
+        } @if (diaryForm.get('body')?.invalid && diaryForm.get('body')?.touched)
+        {
+        <div class="field-error" id="body-error" role="alert">
+          @if (diaryForm.get('body')?.errors?.['required']) {
+          <span>Entry content is required</span>
+          }
+        </div>
+        }
+      </div>
+
+      <div class="form-group">
+        <label for="tags">Tags</label>
+        <div class="tags-input-container">
+          <input
+            id="tags"
+            type="text"
+            [value]="tagInput()"
+            (input)="onTagInputChange($event)"
+            (keydown)="onTagInputKeydown($event)"
+            placeholder="Add a tag and press Enter..."
+            class="tag-input"
+            aria-label="Enter tag name"
+            aria-describedby="tags-help"
+          />
+          <button
+            type="button"
+            (click)="addTag()"
+            class="add-tag-button"
+            [disabled]="!tagInput().trim()"
+            aria-label="Add tag to entry"
+          >
+            Add Tag
+          </button>
+        </div>
+        <span id="tags-help" class="sr-only"
+          >Press Enter or click Add Tag button to add a tag</span
+        >
+
+        @if (tags.length > 0) {
+        <div class="tags-list" role="list" aria-label="Current tags">
+          @for (tag of tags; track tag) {
+          <span class="tag" role="listitem">
+            {{ tag }}
+            <button
+              type="button"
+              (click)="removeTag(tag)"
+              class="remove-tag"
+              [attr.aria-label]="'Remove tag ' + tag"
+            >
+              ×
+            </button>
+          </span>
+          }
+        </div>
+        }
+      </div>
+
+      <div class="form-group">
+        <div class="assets-header">
+          <label>Assets</label>
+          <button
+            type="button"
+            (click)="toggleAssetUpload()"
+            class="toggle-upload-button"
+          >
+            @if (showAssetUpload()) {
+            <span>Hide Upload</span>
+            } @else {
+            <span>+ Add Assets</span>
+            }
+          </button>
+        </div>
+
+        @if (showAssetUpload()) {
+        <div class="asset-upload-section">
+          <app-asset-upload
+            (uploadComplete)="onAssetsUploaded($event)"
+          ></app-asset-upload>
+        </div>
+        } @if (uploadedAssets().length > 0) {
+        <div class="asset-gallery-section">
+          <app-asset-gallery
+            [assets]="uploadedAssets()"
+            (assetSelected)="onAssetSelected($event)"
+            (assetDeleted)="onAssetDeleted($event)"
+          ></app-asset-gallery>
+        </div>
+        }
+      </div>
+
+      <div class="form-actions">
+        <button
+          type="button"
+          (click)="onSave()"
+          [disabled]="diaryForm.invalid || isSaving() || !diaryForm.dirty"
+          class="save-button"
+        >
+          @if (isSaving()) {
+          <span>💾 Saving...</span>
+          } @else {
+          <span>💾 Save Entry</span>
+          }
+        </button>
+
+        @if (diaryForm.dirty) {
+        <span class="unsaved-indicator">● Unsaved changes</span>
+        }
+      </div>
+    </form>
+    } }
+  </main>
+</div>
+
+<app-asset-preview-modal
+  [assetPath]="previewAssetPath()"
+  [viewOnly]="currentMode() === 'view'"
+  [hasMultipleImages]="mediaList().length > 1"
+  (close)="closePreview()"
+  (delete)="onAssetDeleted($event)"
+  (download)="downloadAsset($event)"
+  (navigateNext)="navigateImage('next')"
+  (navigatePrevious)="navigateImage('previous')"
+></app-asset-preview-modal>
+
+<app-keyboard-shortcuts-help
+  [isOpen]="showKeyboardHelp()"
+  (close)="toggleKeyboardHelp()"
+></app-keyboard-shortcuts-help>

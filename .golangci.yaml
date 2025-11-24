@@ -1,0 +1,37 @@
+linters:
+  enable-all: true
+  disable:
+    - tenv # deprecated
+    # disabled
+    - wsl
+    - godot
+    - gci # no idea what it's
+    - nlreturn
+    - mnd # annoying at this point
+    - tagalign # annoying at this point
+    - ireturn
+    - exhaustruct # annoying at this point
+    - depguard # seems strange
+    - paralleltest # seems strange
+    - godox # annoying at this point
+    - intrange # annoying at this point
+    - nestif # annoying at this point
+    - revive # doesn't work with ginkgo imports
+    - err113 # annoying at this point
+    - nilerr # false alarms
+    - wrapcheck # later
+    - nilnil # later
+    - varnamelen # too strict
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+  lll:
+    line-length: 140
+
+issues:
+  exclude-dirs:
+    - pkg/generated/goserver
+    - pkg/generated/goclient

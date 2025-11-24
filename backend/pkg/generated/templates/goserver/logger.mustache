@@ -1,0 +1,61 @@
+{{>partial_header}}
+package {{packageName}}
+
+import (
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/ya-breeze/diary.be/pkg/server/common"
+)
+
+// statusRecorder wraps http.ResponseWriter to capture the status code
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (sr *statusRecorder) WriteHeader(code int) {
+	sr.status = code
+	sr.ResponseWriter.WriteHeader(code)
+}
+
+func Logger(inner http.Handler, name string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		// Default status to 200 OK unless overridden by handler
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+
+		inner.ServeHTTP(rec, r)
+
+		// Extract user ID from context if available
+		userID := ""
+		if uid := r.Context().Value(common.UserIDKey); uid != nil {
+			if uidStr, ok := uid.(string); ok {
+				userID = uidStr
+			}
+		}
+
+		if userID != "" {
+			log.Printf(
+				"%s %s %s %d %s userID=%s",
+				r.Method,
+				r.RequestURI,
+				name,
+				rec.status,
+				time.Since(start),
+				userID,
+			)
+		} else {
+			log.Printf(
+				"%s %s %s %d %s",
+				r.Method,
+				r.RequestURI,
+				name,
+				rec.status,
+				time.Since(start),
+			)
+		}
+	})
+}

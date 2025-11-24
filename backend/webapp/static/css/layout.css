@@ -1,0 +1,886 @@
+.diary-image {
+    max-width: 100%;              /* Responsive: never exceed container */
+    height: auto;                 /* Maintain aspect ratio */
+    display: block;               /* Remove inline spacing */
+    margin: 0.5rem 0;            /* Consistent vertical spacing */
+    border-radius: 0.375rem;      /* Subtle rounded corners */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* Subtle depth */
+    transition: all 0.3s ease-in-out; /* Smooth transitions when supported */
+    width: 50%;                   /* Default fallback width (no-JS) */
+}
+
+/* ==========================================================================
+   Progressive Enhancement and No-JS Fallbacks
+   ========================================================================== */
+
+/**
+ * Hide layout controls when JavaScript is disabled
+ * This ensures a clean interface for users without JS support
+ */
+.no-js .layout-toggle-container {
+    display: none;
+}
+
+/**
+ * Informational message for users without JavaScript
+ * Provides context about reduced functionality
+ */
+.no-js .js-disabled-message {
+    display: block;
+    background-color: #fff3cd;    /* Light yellow background */
+    border: 1px solid #ffeaa7;   /* Subtle border */
+    color: #856404;              /* Dark yellow text */
+    padding: 0.75rem 1rem;       /* Comfortable padding */
+    border-radius: 0.375rem;     /* Consistent border radius */
+    margin-bottom: 1rem;         /* Space below message */
+    font-size: 0.875rem;         /* Slightly smaller text */
+}
+
+/**
+ * Hide the no-JS message by default (shown only when .no-js class is present)
+ */
+.js-disabled-message {
+    display: none;
+}
+
+/* ==========================================================================
+   Layout Mode Classes
+   ========================================================================== */
+
+/**
+ * Full layout mode: Images display at 100% width
+ * Applied when user selects full-width layout
+ */
+.layout-full .diary-image {
+    width: 100%;                 /* Full container width */
+    max-width: 100%;            /* Ensure no overflow */
+}
+
+/**
+ * Narrow layout mode: Images display at 30% width
+ * Applied when user selects narrow layout (default)
+ */
+.layout-narrow .diary-image {
+    width: 30%;                 /* 30% of container width */
+    max-width: 30%;            /* Ensure consistent sizing */
+}
+
+/* Layout toggle buttons container - compact inline design */
+.layout-toggle-container {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 0;
+    justify-content: flex-end;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.layout-toggle-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-right: 0.25rem;
+    white-space: nowrap;
+}
+
+/* Layout toggle buttons - compact design */
+.layout-toggle-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    border: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+    color: #495057;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    min-width: auto;
+    white-space: nowrap;
+}
+
+.layout-toggle-btn:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+    color: #495057;
+    text-decoration: none;
+}
+
+.layout-toggle-btn.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: #ffffff;
+}
+
+.layout-toggle-btn:focus {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+}
+
+/* Icons for layout buttons - smaller for compact design */
+.layout-toggle-btn .bi {
+    font-size: 0.875rem;
+}
+
+/* Responsive design for different screen sizes */
+
+/* Large tablets and small desktops (992px and down) */
+@media (max-width: 992px) {
+    /* Keep header elements on same line but allow wrapping if needed */
+    .diary-page-header .d-flex {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .layout-toggle-container {
+        justify-content: flex-end;
+        gap: 0.25rem;
+    }
+
+    .date-navigation {
+        flex: 1;
+        text-align: left;
+    }
+}
+
+/* Tablets (768px and down) */
+@media (max-width: 768px) {
+    /* Adjust image sizes for tablet viewing */
+    .layout-narrow .diary-image {
+        width: 60%;
+        max-width: 60%;
+    }
+
+    .layout-full .diary-image {
+        width: 90%;
+        max-width: 90%;
+    }
+
+    /* Keep layout controls inline and compact */
+    .layout-toggle-container {
+        justify-content: flex-end;
+        gap: 0.125rem;
+    }
+
+    .layout-toggle-label {
+        font-size: 0.7rem;
+        margin-right: 0.125rem;
+    }
+
+    /* Ultra-compact icon-only buttons on tablets */
+    .layout-toggle-btn {
+        padding: 0.25rem;
+        font-size: 0.7rem;
+        min-width: auto;
+        width: auto;
+        aspect-ratio: 1;
+        justify-content: center;
+    }
+
+    .layout-toggle-btn .bi {
+        font-size: 0.875rem;
+    }
+
+    /* Better spacing for content */
+    .diary-content-wrapper {
+        padding: 0 1rem;
+    }
+
+    /* Adjust date navigation for tablets */
+    .date-navigation .btn {
+        padding: 0.5rem 0.75rem;
+    }
+
+    .current-date {
+        font-size: 1.1rem;
+        margin: 0 1rem;
+    }
+}
+
+/* Mobile phones (576px and down) */
+@media (max-width: 576px) {
+    /* Mobile-optimized image sizes */
+    .layout-narrow .diary-image {
+        width: 80%;
+        max-width: 80%;
+    }
+
+    .layout-full .diary-image {
+        width: 95%;
+        max-width: 95%;
+    }
+
+    /* Minimal icon-only buttons on mobile */
+    .layout-toggle-container {
+        justify-content: flex-end;
+        gap: 0.125rem;
+    }
+
+    .layout-toggle-btn {
+        padding: 0.1875rem;
+        font-size: 0.65rem;
+        min-width: auto;
+        width: auto;
+        aspect-ratio: 1;
+        justify-content: center;
+    }
+
+    .layout-toggle-label {
+        font-size: 0.65rem;
+        margin-right: 0.125rem;
+    }
+
+    .layout-toggle-btn .bi {
+        font-size: 0.8rem;
+    }
+
+    /* Compact date navigation */
+    .date-navigation {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .date-navigation .btn {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .current-date {
+        font-size: 1rem;
+        margin: 0 0.5rem;
+        text-align: center;
+    }
+
+    /* Improve content spacing on mobile */
+    .diary-content-wrapper {
+        padding: 0 0.5rem;
+    }
+
+    .diary-entry-title {
+        font-size: 1.5rem;
+        text-align: center;
+    }
+
+    /* Better empty state on mobile */
+    .diary-empty-state {
+        text-align: center;
+        padding: 2rem 1rem;
+    }
+}
+
+/* Extra small devices (480px and down) */
+@media (max-width: 480px) {
+    .layout-narrow .diary-image {
+        width: 90%;
+        max-width: 90%;
+    }
+
+    .layout-full .diary-image {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* Minimize spacing on very small screens */
+    .diary-page-header .d-flex {
+        gap: 0.25rem;
+    }
+
+    .layout-toggle-container {
+        gap: 0.0625rem;
+    }
+
+    .layout-toggle-btn {
+        font-size: 0.6rem;
+        padding: 0.125rem;
+        aspect-ratio: 1;
+        justify-content: center;
+    }
+
+    .layout-toggle-label {
+        font-size: 0.6rem;
+        margin-right: 0.0625rem;
+    }
+
+    .layout-toggle-btn .bi {
+        font-size: 0.75rem;
+    }
+
+    /* Compact navigation */
+    .date-navigation .btn {
+        padding: 0.25rem 0.375rem;
+    }
+
+    .current-date {
+        font-size: 0.9rem;
+    }
+}
+
+/* Very narrow screens (360px and down) - Ultra compact layout */
+@media (max-width: 360px) {
+    .layout-toggle-container {
+        gap: 0.0625rem;
+    }
+
+    .layout-toggle-btn {
+        font-size: 0.55rem;
+        padding: 0.0625rem;
+        aspect-ratio: 1;
+        justify-content: center;
+    }
+
+    .layout-toggle-label {
+        font-size: 0.55rem;
+        margin-right: 0.0625rem;
+    }
+
+    .layout-toggle-btn .bi {
+        font-size: 0.7rem;
+    }
+
+    .diary-page-header .d-flex {
+        gap: 0.125rem;
+    }
+}
+
+/* Landscape orientation adjustments */
+@media (max-height: 500px) and (orientation: landscape) {
+    .diary-page-header {
+        margin-bottom: 0.5rem;
+    }
+
+    .layout-toggle-container {
+        flex-direction: row;
+        gap: 0.25rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .layout-toggle-label {
+        margin-right: 0.25rem;
+        font-size: 0.75rem;
+    }
+
+    .layout-toggle-btn {
+        padding: 0.125rem 0.375rem;
+        font-size: 0.75rem;
+    }
+}
+
+/* Animation for smooth transitions */
+@media (prefers-reduced-motion: no-preference) {
+    .diary-image {
+        transition: width 0.3s ease-in-out, max-width 0.3s ease-in-out;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .layout-toggle-btn {
+        border-width: 2px;
+    }
+    
+    .layout-toggle-btn.active {
+        border-color: #ffffff;
+    }
+}
+
+/* Enhanced focus management for accessibility */
+.layout-toggle-btn:focus {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+.layout-toggle-btn:focus-visible {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Ensure focus is visible even in high contrast mode */
+@media (prefers-contrast: high) {
+    .layout-toggle-btn:focus,
+    .layout-toggle-btn:focus-visible {
+        outline: 3px solid;
+        outline-offset: 2px;
+    }
+}
+
+/* Keyboard navigation support */
+.layout-toggle-btn[tabindex="0"] {
+    cursor: pointer;
+}
+
+.layout-toggle-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Screen reader only content */
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+/* Image container improvements */
+.diary-content img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Override default image styles when layout classes are applied */
+.layout-full img,
+.layout-narrow img {
+    width: inherit;
+    max-width: inherit;
+}
+
+/* Ensure images in links maintain layout */
+.layout-full a img,
+.layout-narrow a img {
+    width: 100%;
+    max-width: 100%;
+}
+
+.layout-narrow a img {
+    width: 100%;
+    max-width: 100%;
+}
+
+/* Container for main content with layout classes */
+.diary-main-content {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Loading state for layout changes */
+.layout-changing {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.layout-changing .diary-image {
+    filter: blur(1px);
+}
+
+/* Additional responsive styles for new template structure */
+.diary-home-page {
+    min-height: calc(100vh - 200px);
+}
+
+.diary-page-header {
+    position: sticky;
+    top: 0;
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    z-index: 100;
+    padding: 1rem 0;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.diary-entry-content {
+    line-height: 1.6;
+    font-size: 1rem;
+}
+
+.diary-empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+    margin: 2rem 0;
+}
+
+/* Print styles */
+@media print {
+    .diary-page-header,
+    .layout-toggle-container,
+    .date-navigation {
+        display: none;
+    }
+
+    .diary-image {
+        width: 100% !important;
+        max-width: 100% !important;
+        page-break-inside: avoid;
+    }
+
+    .diary-entry-content {
+        font-size: 12pt;
+        line-height: 1.4;
+    }
+}
+
+/* Dark mode support (if implemented in the future) */
+@media (prefers-color-scheme: dark) {
+    .diary-page-header {
+        background-color: rgba(33, 37, 41, 0.95);
+        border-bottom-color: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Keep the empty-state card light for readability even in dark mode */
+    .diary-empty-state {
+        background-color: #ffffff;
+        color: #212529;
+    }
+}
+
+/* Fallbacks for older browsers */
+
+/* IE11 and older browser support */
+.layout-toggle-btn {
+    /* Fallback for browsers without flexbox */
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Fallback for browsers without CSS custom properties */
+.diary-image {
+    /* Explicit fallback widths */
+    width: 50%; /* Default fallback */
+}
+
+.layout-full .diary-image {
+    width: 100% !important; /* Force override for older browsers */
+}
+
+.layout-narrow .diary-image {
+    width: 30% !important; /* Force override for older browsers */
+}
+
+/* Fallback for browsers without backdrop-filter */
+.diary-page-header {
+    background-color: #ffffff; /* Solid fallback */
+    background-color: rgba(255, 255, 255, 0.95); /* Progressive enhancement */
+}
+
+/* Fallback for browsers without CSS Grid or Flexbox */
+.layout-toggle-container {
+    /* Fallback layout using inline-block */
+    text-align: center;
+}
+
+.layout-toggle-container > * {
+    display: inline-block;
+    vertical-align: middle;
+    margin: 0 0.25rem;
+}
+
+/* Error state styles */
+.layout-error {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 0.75rem 1rem;
+    border-radius: 0.375rem;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+}
+
+/* Reduced motion fallback */
+@media (prefers-reduced-motion: reduce) {
+    .diary-image,
+    .layout-toggle-btn,
+    .diary-page-header {
+        transition: none !important;
+        animation: none !important;
+    }
+
+    .layout-changing {
+        opacity: 1 !important;
+        filter: none !important;
+    }
+}
+
+/* High contrast mode improvements */
+@media (prefers-contrast: high) {
+    .layout-toggle-btn {
+        border-width: 2px !important;
+        border-style: solid !important;
+    }
+
+    .layout-toggle-btn.active {
+        background-color: #000000 !important;
+        color: #ffffff !important;
+        border-color: #000000 !important;
+    }
+
+    .diary-image {
+        border: 1px solid #000000;
+    }
+}
+
+/* ==========================================================================
+   Search Results Styles
+   ========================================================================== */
+
+/* Search page specific styles */
+.diary-search-page {
+    min-height: calc(100vh - 200px);
+}
+
+.search-header h1 {
+    color: #495057;
+    font-weight: 600;
+}
+
+.search-header .text-muted {
+    font-size: 0.9rem;
+}
+
+/* Search results container */
+.search-results {
+    max-width: 100%;
+}
+
+/* Individual diary entry cards */
+.diary-entry-card,
+.diary-search-page .diary-entry-card,
+.search-results .diary-entry-card {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    color: #495057 !important;
+}
+
+.diary-entry-card:hover,
+.diary-search-page .diary-entry-card:hover,
+.search-results .diary-entry-card:hover {
+    border-color: #0d6efd;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+}
+
+/* Entry header styles */
+.diary-entry-header {
+    border-bottom: 1px solid #f8f9fa;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+}
+
+.diary-entry-title {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.diary-entry-title a {
+    color: #495057 !important;
+    transition: color 0.2s ease-in-out;
+}
+
+.diary-entry-title a:hover {
+    color: #0d6efd !important;
+}
+
+.diary-entry-title time {
+    color: #0d6efd;
+}
+
+/* Tags styling */
+.diary-entry-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.diary-entry-tags .badge {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 1rem;
+}
+
+/* Entry preview content */
+.diary-entry-preview {
+    line-height: 1.6;
+}
+
+.diary-entry-body {
+    color: #6c757d !important;
+    font-size: 0.95rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Entry footer with action buttons */
+.diary-entry-footer {
+    border-top: 1px solid #f8f9fa;
+    padding-top: 1rem;
+}
+
+.diary-entry-footer .btn {
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+}
+
+/* Empty state for search results */
+.diary-empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    background-color: #f8f9fa;
+    border-radius: 0.5rem;
+    margin: 2rem 0;
+}
+
+.diary-empty-state .display-1 {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+/* Responsive adjustments for search results */
+@media (max-width: 768px) {
+    .diary-entry-card {
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .diary-entry-title {
+        font-size: 1.1rem;
+    }
+
+    .diary-entry-footer .d-flex {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .diary-entry-footer .btn {
+        width: 100%;
+    }
+
+    .search-header .d-flex {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .diary-entry-card {
+        padding: 0.75rem;
+        border-radius: 0.375rem;
+    }
+
+    .diary-entry-title {
+        font-size: 1rem;
+    }
+
+    .diary-entry-tags .badge {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .diary-empty-state {
+        padding: 2rem 1rem;
+    }
+
+    .diary-empty-state .display-1 {
+        font-size: 3rem;
+    }
+}
+
+/* Force white background for search results even in dark mode */
+@media (prefers-color-scheme: dark) {
+    .diary-entry-card,
+    .diary-search-page .diary-entry-card,
+    .search-results .diary-entry-card {
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        border-color: #e9ecef !important;
+        color: #495057 !important;
+    }
+
+    .diary-entry-card:hover,
+    .diary-search-page .diary-entry-card:hover,
+    .search-results .diary-entry-card:hover {
+        border-color: #0d6efd !important;
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+    }
+
+    .diary-entry-title a {
+        color: #495057 !important;
+    }
+
+    .diary-entry-title a:hover {
+        color: #0d6efd !important;
+    }
+
+    .diary-entry-body {
+        color: #6c757d !important;
+    }
+
+    .diary-entry-header,
+    .diary-entry-footer {
+        border-color: #f8f9fa !important;
+    }
+}
+
+/* Print styles for search results */
+@media print {
+    .diary-entry-card {
+        border: 1px solid #000;
+        box-shadow: none;
+        page-break-inside: avoid;
+        margin-bottom: 1rem;
+    }
+
+    .diary-entry-footer {
+        display: none;
+    }
+
+    .search-header {
+        border-bottom: 2px solid #000;
+        padding-bottom: 1rem;
+        margin-bottom: 2rem;
+    }
+}
+
+/* Ultra-specific override to ensure white background for search results */
+.diary-search-page .search-results .diary-entry-card,
+.diary-search-page .search-results article.diary-entry-card,
+article.diary-entry-card {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+}
+
+.diary-search-page .search-results .diary-entry-card:hover,
+.diary-search-page .search-results article.diary-entry-card:hover,
+article.diary-entry-card:hover {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+}
+
+/* Force white background in all color schemes */
+@media (prefers-color-scheme: dark) {
+    .diary-search-page .search-results .diary-entry-card,
+    .diary-search-page .search-results article.diary-entry-card,
+    article.diary-entry-card {
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+    }
+
+    .diary-search-page .search-results .diary-entry-card:hover,
+    .diary-search-page .search-results article.diary-entry-card:hover,
+    article.diary-entry-card:hover {
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+    }
+}
