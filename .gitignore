@@ -1,2 +1,25 @@
+# Backend
+backend/bin/diary
 diary.db
 diary-assets/*
+
+# Frontend
+frontend/dist/
+frontend/node_modules/
+frontend/.nyc_output/
+frontend/coverage/
+frontend/.angular/
+frontend/.vscode/
+frontend/.idea/
+frontend/.DS_Store
+frontend/*.log
+frontend/*.tmp
+frontend/*.swp
+frontend/*.swo
+frontend/*.sublime-workspace
+frontend/*.sublime-project
+frontend/*.iml
+frontend/*.ipr
+frontend/*.iws
+frontend/*.log
+frontend/*.pid
