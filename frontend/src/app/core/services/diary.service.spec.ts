@@ -10,6 +10,7 @@ import {
   DiaryItemsListResponse,
 } from "../../shared/models";
 import { environment } from "../../../environments/environment";
+import { ConfigService } from "./config.service";
 
 describe("DiaryService", () => {
   let service: DiaryService;
@@ -30,8 +31,14 @@ describe("DiaryService", () => {
   };
 
   beforeEach(() => {
+    const mockConfigService = {
+      getApiUrl: () => environment.apiUrl,
+      getConfig: () => ({ apiUrl: environment.apiUrl }),
+    };
+
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
+      providers: [{ provide: ConfigService, useValue: mockConfigService }],
     });
 
     service = TestBed.inject(DiaryService);

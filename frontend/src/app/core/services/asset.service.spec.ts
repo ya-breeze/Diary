@@ -6,18 +6,27 @@ import {
 import { AssetService } from "./asset.service";
 import { AssetsBatchResponse } from "../../shared/models";
 import { environment } from "../../../environments/environment";
+import { ConfigService } from "./config.service";
 
 describe("AssetService", () => {
   let service: AssetService;
   let httpMock: HttpTestingController;
+  let configService: ConfigService;
 
   beforeEach(() => {
+    const mockConfigService = {
+      getApiUrl: () => environment.apiUrl,
+      getConfig: () => ({ apiUrl: environment.apiUrl }),
+    };
+
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
+      providers: [{ provide: ConfigService, useValue: mockConfigService }],
     });
 
     service = TestBed.inject(AssetService);
     httpMock = TestBed.inject(HttpTestingController);
+    configService = TestBed.inject(ConfigService);
   });
 
   afterEach(() => {
@@ -56,12 +65,27 @@ describe("AssetService", () => {
     ];
 
     const mockResponse: AssetsBatchResponse = {
-      filenames: ["uploads/file1-uuid.jpg", "uploads/file2-uuid.png"],
+      files: [
+        {
+          originalName: "file1.jpg",
+          savedName: "uploads/file1-uuid.jpg",
+          size: 1024,
+          contentType: "image/jpeg",
+        },
+        {
+          originalName: "file2.png",
+          savedName: "uploads/file2-uuid.png",
+          size: 2048,
+          contentType: "image/png",
+        },
+      ],
+      count: 2,
     };
 
     service.uploadAssetsBatch(mockFiles).subscribe((response) => {
       expect(response).toEqual(mockResponse);
-      expect(response.filenames.length).toBe(2);
+      expect(response.files.length).toBe(2);
+      expect(response.count).toBe(2);
       done();
     });
 

@@ -7,6 +7,7 @@ import { Router } from "@angular/router";
 import { AuthService } from "./auth.service";
 import { User, AuthData, AuthResponse } from "../../shared/models";
 import { environment } from "../../../environments/environment";
+import { ConfigService } from "./config.service";
 
 describe("AuthService", () => {
   let service: AuthService;
@@ -25,6 +26,11 @@ describe("AuthService", () => {
   };
 
   beforeEach(() => {
+    const mockConfigService = {
+      getApiUrl: () => environment.apiUrl,
+      getConfig: () => ({ apiUrl: environment.apiUrl }),
+    };
+
     routerSpy = jasmine.createSpyObj("Router", ["navigate"]);
     localStorageSpy = jasmine.createSpyObj("localStorage", [
       "getItem",
@@ -39,7 +45,11 @@ describe("AuthService", () => {
 
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
-      providers: [AuthService, { provide: Router, useValue: routerSpy }],
+      providers: [
+        AuthService,
+        { provide: Router, useValue: routerSpy },
+        { provide: ConfigService, useValue: mockConfigService },
+      ],
     });
 
     service = TestBed.inject(AuthService);
