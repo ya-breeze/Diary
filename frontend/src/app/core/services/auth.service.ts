@@ -2,15 +2,17 @@ import { Injectable, signal } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
 import { Router } from "@angular/router";
 import { Observable, BehaviorSubject, tap, of, catchError, map } from "rxjs";
-import { environment } from "../../../environments/environment";
 import { User, AuthData, AuthResponse } from "../../shared/models";
+import { ConfigService } from "./config.service";
 
 @Injectable({
   providedIn: "root",
 })
 export class AuthService {
   private readonly TOKEN_KEY = "diary_auth_token";
-  private readonly apiUrl = environment.apiUrl;
+  private get apiUrl(): string {
+    return this.configService.getApiUrl();
+  }
 
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
@@ -18,7 +20,11 @@ export class AuthService {
   public isAuthenticated = signal<boolean>(false);
   private authCheckInProgress = false;
 
-  constructor(private http: HttpClient, private router: Router) {
+  constructor(
+    private http: HttpClient,
+    private router: Router,
+    private configService: ConfigService
+  ) {
     // Don't automatically load profile on initialization
     // Let the guard handle it to avoid race conditions
     const token = this.getToken();

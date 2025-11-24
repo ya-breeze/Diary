@@ -1,41 +1,53 @@
-import { Injectable, signal } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, BehaviorSubject, tap } from 'rxjs';
-import { environment } from '../../../environments/environment';
-import { DiaryItem, DiaryItemRequest, DiaryItemsListResponse } from '../../shared/models';
+import { Injectable, signal } from "@angular/core";
+import { HttpClient, HttpParams } from "@angular/common/http";
+import { Observable, BehaviorSubject, tap } from "rxjs";
+import {
+  DiaryItem,
+  DiaryItemRequest,
+  DiaryItemsListResponse,
+} from "../../shared/models";
+import { ConfigService } from "./config.service";
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: "root",
 })
 export class DiaryService {
-  private readonly apiUrl = environment.apiUrl;
-  
+  private get apiUrl(): string {
+    return this.configService.getApiUrl();
+  }
+
   private currentItemSubject = new BehaviorSubject<DiaryItem | null>(null);
   public currentItem$ = this.currentItemSubject.asObservable();
-  
+
   public currentDate = signal<string>(this.getTodayDate());
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private configService: ConfigService) {}
 
-  getItems(date?: string, search?: string, tags?: string[]): Observable<DiaryItemsListResponse> {
+  getItems(
+    date?: string,
+    search?: string,
+    tags?: string[]
+  ): Observable<DiaryItemsListResponse> {
     let params = new HttpParams();
-    
+
     if (date) {
-      params = params.set('date', date);
+      params = params.set("date", date);
     }
     if (search) {
-      params = params.set('search', search);
+      params = params.set("search", search);
     }
     if (tags && tags.length > 0) {
-      params = params.set('tags', tags.join(','));
+      params = params.set("tags", tags.join(","));
     }
 
-    return this.http.get<DiaryItemsListResponse>(`${this.apiUrl}/items`, { params });
+    return this.http.get<DiaryItemsListResponse>(`${this.apiUrl}/items`, {
+      params,
+    });
   }
 
   getItemByDate(date: string): Observable<DiaryItemsListResponse> {
     return this.getItems(date).pipe(
-      tap(response => {
+      tap((response) => {
         if (response.items.length > 0) {
           this.currentItemSubject.next(response.items[0]);
           this.currentDate.set(date);
@@ -43,9 +55,9 @@ export class DiaryService {
           // Create empty item for this date
           const emptyItem: DiaryItem = {
             date,
-            title: '',
-            body: '',
-            tags: []
+            title: "",
+            body: "",
+            tags: [],
           };
           this.currentItemSubject.next(emptyItem);
           this.currentDate.set(date);
@@ -56,13 +68,16 @@ export class DiaryService {
 
   saveItem(item: DiaryItemRequest): Observable<DiaryItem> {
     return this.http.put<DiaryItem>(`${this.apiUrl}/items`, item).pipe(
-      tap(savedItem => {
+      tap((savedItem) => {
         this.currentItemSubject.next(savedItem);
       })
     );
   }
 
-  searchItems(searchText: string, tags?: string[]): Observable<DiaryItemsListResponse> {
+  searchItems(
+    searchText: string,
+    tags?: string[]
+  ): Observable<DiaryItemsListResponse> {
     return this.getItems(undefined, searchText, tags);
   }
 
@@ -72,7 +87,6 @@ export class DiaryService {
 
   private getTodayDate(): string {
     const today = new Date();
-    return today.toISOString().split('T')[0];
+    return today.toISOString().split("T")[0];
   }
 }
-

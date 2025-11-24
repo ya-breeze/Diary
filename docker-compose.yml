@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # Backend - Go API
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: diary-backend
+    restart: unless-stopped
+    environment:
+      # Default environment variables - can be overridden
+      GB_USERS: ${GB_USERS:-test@test.com:JDJhJDEwJC9sVWJpTlBYVlZvcU9ZNUxIZmhqYi4vUnRuVkJNaEw4MTQ2VUdFSXRDeE9Ib0ZoVkRLR3pl}
+      GB_DBPATH: ${GB_DBPATH:-/data/diary.db}
+      GB_ASSETPATH: ${GB_ASSETPATH:-/data/diary-assets}
+      GB_ALLOWEDORIGINS: ${GB_ALLOWEDORIGINS:-http://localhost,http://localhost:80,http://localhost:8080}
+      GB_JWTSECRET: ${GB_JWTSECRET:-}
+      GB_ISSUER: ${GB_ISSUER:-diary}
+      GB_PORT: ${GB_PORT:-8080}
+      GB_DISABLEIMPORTERS: ${GB_DISABLEIMPORTERS:-true}
+      GB_MAXPERFILESIZEMB: ${GB_MAXPERFILESIZEMB:-200}
+      GB_MAXBATCHFILES: ${GB_MAXBATCHFILES:-100}
+      GB_MAXBATCHTOTALSIZEMB: ${GB_MAXBATCHTOTALSIZEMB:-1000}
+    volumes:
+      # External volume for database and assets
+      - ${DIARY_DATA_PATH:-./diary-data}:/data
+    networks:
+      - diary-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/web/about"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend - Angular with Nginx
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: diary-frontend
+    restart: unless-stopped
+    environment:
+      # API URL for runtime configuration
+      # Use relative path when behind nginx proxy, or full URL for direct access
+      API_URL: ${API_URL:-/v1}
+    depends_on:
+      - backend
+    networks:
+      - diary-network
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: diary-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      # Uncomment for SSL certificates
+      # - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - diary-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  diary-network:
+    driver: bridge
+
+volumes:
+  diary-data:
+

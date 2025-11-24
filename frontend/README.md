@@ -93,13 +93,15 @@ make install
 ### Development
 
 ```bash
-# Start development server
+# Start development server with proxy
 npm start
 # or
 make dev
 
 # The app will be available at http://localhost:4200/
 ```
+
+**Note**: The development server uses a proxy configuration to avoid CORS issues. All `/v1` and `/web` requests are automatically proxied to `http://localhost:8080`. See [DEVELOPMENT.md](DEVELOPMENT.md) for details.
 
 ### Build
 
@@ -191,31 +193,42 @@ The application uses different configurations for development and production:
 ```typescript
 export const environment = {
   production: false,
-  apiUrl: "http://localhost:8080/v1",
+  apiUrl: "/v1", // Proxied to backend via proxy.conf.json
 };
 ```
 
-- Makes direct requests to the backend at `http://localhost:8080`
+- Uses Angular dev server proxy to avoid CORS issues
+- Proxy forwards `/v1` and `/web` requests to `http://localhost:8080`
 - Backend must be running on `http://localhost:8080`
-- Backend must have proper CORS headers configured
+- See [DEVELOPMENT.md](DEVELOPMENT.md) for proxy configuration details
 
 **Production** (`src/environments/environment.prod.ts`):
 
 ```typescript
 export const environment = {
   production: true,
-  apiUrl: "http://truenas.local:8880/v1",
+  apiUrl: "/v1", // Will be overridden by runtime config from /assets/config.json
 };
 ```
 
-- Makes direct requests to the backend at `http://truenas.local:8880`
+- Uses runtime configuration from `/assets/config.json`
+- Config is generated at container startup from `API_URL` environment variable
+- Default: `/v1` (relative path, works behind Nginx proxy)
+- Can be customized via Docker environment variables
 
-**Required CORS Headers** (for both development and production):
+**Docker Deployment**:
 
-- `Access-Control-Allow-Origin: <frontend-origin>` (specific origin, not `*`)
-- `Access-Control-Allow-Credentials: true`
-- `Access-Control-Allow-Headers: Content-Type, Authorization`
-- `Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS`
+The frontend uses runtime configuration in Docker. Set the `API_URL` environment variable:
+
+```bash
+# In .env file
+API_URL=/v1
+
+# Or override at runtime
+API_URL=https://api.example.com/v1 docker compose up -d
+```
+
+See [../DOCKER.md](../DOCKER.md) for Docker deployment details.
 
 ### Cookie-Based Authentication
 

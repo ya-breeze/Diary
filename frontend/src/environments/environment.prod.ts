@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: "http://truenas.local:8880/v1",
+  apiUrl: "/v1", // Will be overridden by runtime config from /assets/config.json
 };

@@ -10,8 +10,6 @@ build:
 	@cd ${ROOT_DIR}/backend/cmd && go build -o ../bin/diary
 	@echo "🚀 Building frontend..."
 	@cd ${ROOT_DIR}/frontend && npm run build
-	@echo "🚀 Building Docker image..."
-	@docker build -t diary .
 	@echo "✅ Build complete"
 
 .PHONY: run-backend
@@ -117,10 +115,6 @@ test:
 watch:
 	@cd ${ROOT_DIR}/backend && ginkgo watch -r
 
-.PHONE: compose
-compose:
-	@docker-compose up --build
-
 .PHONE: check-deps
 check-deps:
 	@echo "🔍 Checking backend dependencies..."
@@ -130,10 +124,13 @@ check-deps:
 	@command -v node >/dev/null 2>&1 || { echo "❌ Node.js is required but not installed. Please install Node.js first."; exit 1; }
 	@command -v npm >/dev/null 2>&1 || { echo "❌ npm is required but not installed. Please install npm first."; exit 1; }
 	@command -v npx >/dev/null 2>&1 || { echo "❌ npx is required but not installed. Please install npx first."; exit 1; }
-	@echo "✅ Node.js and npm are installed"
 	@node --version
 	@npm --version
 	@npx --version
+	@echo "🔍 Checking Docker dependencies..."
+	@command -v docker >/dev/null 2>&1 || { echo "❌ Docker is required but not installed. Please install Docker first."; exit 1; }
+	@docker --version
+	@echo "✅ Dependencies check complete"
 
 .PHONE: install
 install: check-deps
@@ -159,3 +156,48 @@ analyze:
 		npm run build -- --stats-json; \
 		npx webpack-bundle-analyzer dist/stats.json
 	@echo "✅ Analysis complete"
+
+# ============================================
+# Docker Compose Commands
+# ============================================
+
+.PHONY: docker-build
+docker-build:
+	@echo "🐳 Building Docker images..."
+	@docker compose build
+	@echo "✅ Docker build complete"
+
+.PHONY: docker-up
+docker-up:
+	@echo "🐳 Starting Docker containers..."
+	@docker compose up -d
+	@echo "✅ Docker containers started"
+	@echo "📱 Application available at http://localhost"
+
+.PHONY: docker-down
+docker-down:
+	@echo "🐳 Stopping Docker containers..."
+	@docker compose down
+	@echo "✅ Docker containers stopped"
+
+.PHONY: docker-logs
+docker-logs:
+	@docker compose logs -f
+
+.PHONY: docker-restart
+docker-restart:
+	@echo "🐳 Restarting Docker containers..."
+	@docker compose restart
+	@echo "✅ Docker containers restarted"
+
+.PHONY: docker-clean
+docker-clean:
+	@echo "🐳 Cleaning Docker containers and volumes..."
+	@docker compose down -v
+	@echo "✅ Docker cleanup complete"
+
+.PHONY: compose
+compose: docker-build docker-up
+	@echo "🎉 Docker Compose deployment complete!"
+	@echo "📱 Access the application at http://localhost"
+	@echo "📚 See DOCKER.md for more information"
