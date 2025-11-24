@@ -217,14 +217,28 @@ var _ = Describe("Search Integration Flow", func() {
 				Expect(searchResult.Items[0].Date).To(Equal("2024-01-11"))
 			})
 
-			It("should return empty results when date has no item", func() {
+			It("should return empty item with navigation dates when date has no item", func() {
 				// Search for date with no item
 				searchResult, httpResp, err := setup.APIClient.ItemsAPI.GetItems(context.Background()).Date("2024-01-20").Execute()
 				Expect(err).ToNot(HaveOccurred())
 				Expect(httpResp.StatusCode).To(Equal(http.StatusOK))
 
-				Expect(searchResult.Items).To(BeEmpty())
-				Expect(searchResult.TotalCount).To(Equal(int32(0)))
+				// Should return one empty item with the requested date
+				Expect(searchResult.Items).To(HaveLen(1))
+				Expect(searchResult.TotalCount).To(Equal(int32(1)))
+
+				emptyItem := searchResult.Items[0]
+				Expect(emptyItem.Date).To(Equal("2024-01-20"))
+				Expect(emptyItem.Title).To(Equal(""))
+				Expect(emptyItem.Body).To(Equal(""))
+
+				// Navigation dates should be populated based on existing entries
+				// In this test, there are entries on 2024-01-10, 2024-01-11, 2024-01-12, 2024-01-13
+				// So for 2024-01-20, previousDate should be 2024-01-13 and nextDate should not be set
+				Expect(emptyItem.PreviousDate.IsSet()).To(BeTrue())
+				prevDate := emptyItem.PreviousDate.Get()
+				Expect(*prevDate).To(Equal("2024-01-13"))
+				Expect(emptyItem.NextDate.IsSet()).To(BeFalse())
 			})
 		})
 

@@ -93,15 +93,63 @@ var _ = Describe("ItemsAPIService", func() {
 		})
 
 		Context("when item does not exist (backward compatibility with date filter)", func() {
-			It("should return empty list with 200 status", func() {
+			It("should return empty item with navigation dates for the requested date", func() {
 				response, err := service.GetItems(ctx, testDate, "", "")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(response.Code).To(Equal(200))
 
 				itemsListResponse, ok := response.Body.(goserver.ItemsListResponse)
 				Expect(ok).To(BeTrue())
-				Expect(itemsListResponse.Items).To(BeEmpty())
-				Expect(itemsListResponse.TotalCount).To(Equal(int32(0)))
+				Expect(itemsListResponse.Items).To(HaveLen(1))
+				Expect(itemsListResponse.TotalCount).To(Equal(int32(1)))
+
+				// Verify the empty item has the correct date and empty content
+				item := itemsListResponse.Items[0]
+				Expect(item.Date).To(Equal(testDate))
+				Expect(item.Title).To(Equal(""))
+				Expect(item.Body).To(Equal(""))
+				Expect(item.Tags).To(Equal([]string{}))
+			})
+
+			Context("when previous and next items exist", func() {
+				BeforeEach(func() {
+					// Create previous item
+					prevItem := &models.Item{
+						UserID: userID,
+						Date:   "2024-01-14",
+						Title:  "Previous Item",
+						Body:   "Previous content",
+					}
+					Expect(storage.PutItem(userID, prevItem)).To(Succeed())
+
+					// Create next item
+					nextItem := &models.Item{
+						UserID: userID,
+						Date:   "2024-01-16",
+						Title:  "Next Item",
+						Body:   "Next content",
+					}
+					Expect(storage.PutItem(userID, nextItem)).To(Succeed())
+				})
+
+				It("should include navigation dates even for empty item", func() {
+					response, err := service.GetItems(ctx, testDate, "", "")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(response.Code).To(Equal(200))
+
+					itemsListResponse, ok := response.Body.(goserver.ItemsListResponse)
+					Expect(ok).To(BeTrue())
+					Expect(itemsListResponse.Items).To(HaveLen(1))
+
+					item := itemsListResponse.Items[0]
+					Expect(item.Date).To(Equal(testDate))
+					Expect(item.Title).To(Equal(""))
+					Expect(item.Body).To(Equal(""))
+					Expect(item.PreviousDate).ToNot(BeNil())
+					Expect(*item.PreviousDate).To(Equal("2024-01-14"))
+					Expect(item.NextDate).ToNot(BeNil())
+					Expect(*item.NextDate).To(Equal("2024-01-16"))
+				})
 			})
 		})
 

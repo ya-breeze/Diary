@@ -48,8 +48,20 @@ var _ = Describe("Home Navigation Fix", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(httpResp.StatusCode).To(Equal(http.StatusOK))
 
-				// Should have an empty list since there's no entry for this date
-				Expect(fetched.Items).To(BeEmpty())
+				// Should have one empty item with navigation dates populated
+				Expect(fetched.Items).To(HaveLen(1))
+				emptyItem := fetched.Items[0]
+				Expect(emptyItem.Date).To(Equal("2024-01-11"))
+				Expect(emptyItem.Title).To(Equal(""))
+				Expect(emptyItem.Body).To(Equal(""))
+
+				// The empty item should have navigation dates
+				Expect(emptyItem.PreviousDate.IsSet()).To(BeTrue())
+				previousDate := emptyItem.PreviousDate.Get()
+				Expect(*previousDate).To(Equal("2024-01-10"))
+				Expect(emptyItem.NextDate.IsSet()).To(BeTrue())
+				nextDate := emptyItem.NextDate.Get()
+				Expect(*nextDate).To(Equal("2024-01-12"))
 
 				// But we can verify the navigation works by checking an actual existing entry
 				// which should have navigation dates populated correctly
@@ -61,11 +73,11 @@ var _ = Describe("Home Navigation Fix", func() {
 				// The existing entry should have both previous and next dates
 				item := existingEntry.Items[0]
 				Expect(item.PreviousDate.IsSet()).To(BeTrue())
-				previousDate := item.PreviousDate.Get()
-				Expect(*previousDate).To(Equal("2024-01-10"))
+				prevDate := item.PreviousDate.Get()
+				Expect(*prevDate).To(Equal("2024-01-10"))
 				Expect(item.NextDate.IsSet()).To(BeTrue())
-				nextDate := item.NextDate.Get()
-				Expect(*nextDate).To(Equal("2024-01-13"))
+				nxtDate := item.NextDate.Get()
+				Expect(*nxtDate).To(Equal("2024-01-13"))
 			})
 		})
 

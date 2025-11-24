@@ -74,6 +74,20 @@ func (s *ItemsAPIServiceImpl) GetItems(
 		s.addNavigationDates(&responseItems[i], userID, item.Date)
 	}
 
+	// Special case: when filtering by a specific date and no items found,
+	// return an empty item with navigation dates to enable Previous/Next buttons
+	if date != "" && len(items) == 0 {
+		emptyItem := goserver.ItemsResponse{
+			Date:  date,
+			Title: "",
+			Body:  "",
+			Tags:  []string{},
+		}
+		s.addNavigationDates(&emptyItem, userID, date)
+		responseItems = []goserver.ItemsResponse{emptyItem}
+		totalCount = 1
+	}
+
 	// Create the list response
 	response := goserver.ItemsListResponse{
 		Items:      responseItems,

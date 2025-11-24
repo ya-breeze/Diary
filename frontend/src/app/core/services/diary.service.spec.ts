@@ -114,9 +114,21 @@ describe("DiaryService", () => {
     req.flush(mockListResponse);
   });
 
-  it("should create empty item when no item exists for date", (done) => {
+  it("should handle empty item returned by backend for non-existent date", (done) => {
     const date = "2024-01-20";
-    const emptyResponse: DiaryItemsListResponse = { items: [], totalCount: 0 };
+    const emptyItemResponse: DiaryItemsListResponse = {
+      items: [
+        {
+          date: date,
+          title: "",
+          body: "",
+          tags: [],
+          previousDate: "2024-01-14",
+          nextDate: "2024-01-16",
+        },
+      ],
+      totalCount: 1,
+    };
 
     service.getItemByDate(date).subscribe(() => {
       const currentItem = service.getCurrentItem();
@@ -124,6 +136,8 @@ describe("DiaryService", () => {
       expect(currentItem?.title).toBe("");
       expect(currentItem?.body).toBe("");
       expect(currentItem?.tags).toEqual([]);
+      expect(currentItem?.previousDate).toBe("2024-01-14");
+      expect(currentItem?.nextDate).toBe("2024-01-16");
       done();
     });
 
@@ -132,7 +146,7 @@ describe("DiaryService", () => {
         req.url === `${environment.apiUrl}/items` &&
         req.params.get("date") === date
     );
-    req.flush(emptyResponse);
+    req.flush(emptyItemResponse);
   });
 
   it("should save item and update current item", (done) => {
