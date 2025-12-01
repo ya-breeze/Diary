@@ -15,6 +15,7 @@ services:
       GB_ASSETPATH: ${GB_ASSETPATH:-/data/diary-assets}
       GB_ALLOWEDORIGINS: ${GB_ALLOWEDORIGINS:-http://localhost,http://localhost:80,http://localhost:8080}
       GB_JWTSECRET: ${GB_JWTSECRET:-}
+      GB_SESSION_SECRET: ${GB_SESSION_SECRET:-}
       GB_ISSUER: ${GB_ISSUER:-diary}
       GB_PORT: ${GB_PORT:-8080}
       GB_DISABLEIMPORTERS: ${GB_DISABLEIMPORTERS:-true}

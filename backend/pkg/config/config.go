@@ -48,14 +48,6 @@ func InitiateConfig(cfgFile string) (*Config, error) {
 		return nil, err
 	}
 
-	// Validate required security configuration
-	if cfg.SessionSecret == "" {
-		return nil, fmt.Errorf("GB_SESSION_SECRET environment variable is required for security")
-	}
-	if len(cfg.SessionSecret) < 32 {
-		return nil, fmt.Errorf("GB_SESSION_SECRET must be at least 32 characters long for security")
-	}
-
 	if cfg.Verbose {
 		fmt.Printf("Config: %+v\n", cfg)
 	}
