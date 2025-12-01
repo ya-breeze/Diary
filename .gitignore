@@ -1,4 +1,5 @@
 # Backend
+bin/diary
 backend/bin/diary
 diary.db
 diary-assets/*

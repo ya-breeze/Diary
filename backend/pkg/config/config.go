@@ -11,6 +11,7 @@ import (
 type Config struct {
 	Users                       string `mapstructure:"users" default:""`
 	JWTSecret                   string `mapstructure:"jwt_secret" default:""`
+	SessionSecret               string `mapstructure:"session_secret" default:""`
 	Verbose                     bool   `mapstructure:"verbose" default:"false"`
 	Port                        int    `mapstructure:"port" default:"8080"`
 	DBPath                      string `mapstructure:"dbpath" default:":memory:"`
@@ -45,6 +46,15 @@ func InitiateConfig(cfgFile string) (*Config, error) {
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, err
 	}
+
+	// Validate required security configuration
+	if cfg.SessionSecret == "" {
+		return nil, fmt.Errorf("GB_SESSION_SECRET environment variable is required for security")
+	}
+	if len(cfg.SessionSecret) < 32 {
+		return nil, fmt.Errorf("GB_SESSION_SECRET must be at least 32 characters long for security")
+	}
+
 	if cfg.Verbose {
 		fmt.Printf("Config: %+v\n", cfg)
 	}

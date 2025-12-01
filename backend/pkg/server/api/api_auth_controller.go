@@ -29,7 +29,7 @@ func NewCustomAuthAPIController(
 		errorHandler: goserver.DefaultErrorHandler,
 		logger:       logger,
 		cfg:          cfg,
-		cookies:      sessions.NewCookieStore([]byte("SESSION_KEY")),
+		cookies:      sessions.NewCookieStore([]byte(cfg.SessionSecret)),
 	}
 }
 

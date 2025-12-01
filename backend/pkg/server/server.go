@@ -80,6 +80,11 @@ func Serve(
 		cfg.JWTSecret = auth.GenerateRandomString(32)
 	}
 
+	if cfg.SessionSecret == "" {
+		logger.Warn("Session secret is not set. Creating random secret...")
+		cfg.SessionSecret = auth.GenerateRandomString(64)
+	}
+
 	logger.Info("Starting GeekBudget server...")
 
 	if cfg.Users != "" {

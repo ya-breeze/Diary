@@ -36,7 +36,7 @@ func NewWebAppRouter(
 		logger:       logger,
 		cfg:          cfg,
 		db:           db,
-		cookies:      sessions.NewCookieStore([]byte("SESSION_KEY")),
+		cookies:      sessions.NewCookieStore([]byte(cfg.SessionSecret)),
 		authService:  controllers.AuthAPIService,
 		itemsService: controllers.ItemsAPIService,
 	}

@@ -31,9 +31,10 @@ var _ = Describe("AuthAPIService", func() {
 	BeforeEach(func() {
 		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		cfg = &config.Config{
-			DBPath:    ":memory:",
-			Issuer:    "test-issuer",
-			JWTSecret: "test-secret-key-for-jwt-tokens",
+			DBPath:        ":memory:",
+			Issuer:        "test-issuer",
+			JWTSecret:     "test-secret-key-for-jwt-tokens",
+			SessionSecret: "test-session-secret-key-minimum-32-characters-long",
 		}
 		storage = database.NewStorage(logger, cfg)
 		Expect(storage.Open()).To(Succeed())
