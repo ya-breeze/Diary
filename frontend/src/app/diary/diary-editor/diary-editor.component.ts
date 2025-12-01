@@ -32,6 +32,7 @@ import { ThemeToggleComponent } from "../../shared/components/theme-toggle/theme
 import { AssetsPanelComponent } from "../../shared/components/assets-panel/assets-panel.component";
 import { marked } from "marked";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
+import DOMPurify from "dompurify";
 import {
   extractAssetsFromMarkdown,
   appendAssetsToMarkdown,
@@ -84,7 +85,52 @@ export class DiaryEditorComponent
     // Replace asset references with full URLs
     const processedBody = this.processAssetLinks(body);
     const html = marked.parse(processedBody, { async: false }) as string;
-    return this.sanitizer.bypassSecurityTrustHtml(html);
+    // Sanitize HTML using DOMPurify to prevent XSS attacks
+    // Whitelist safe HTML tags and attributes commonly used in markdown
+    const sanitizedHtml = DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: [
+        "p",
+        "br",
+        "strong",
+        "em",
+        "u",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "ul",
+        "ol",
+        "li",
+        "blockquote",
+        "code",
+        "pre",
+        "a",
+        "img",
+        "video",
+        "source",
+        "table",
+        "thead",
+        "tbody",
+        "tr",
+        "th",
+        "td",
+        "hr",
+      ],
+      ALLOWED_ATTR: [
+        "href",
+        "title",
+        "src",
+        "alt",
+        "controls",
+        "type",
+        "colspan",
+        "rowspan",
+      ],
+      ALLOW_DATA_ATTR: false,
+    });
+    return this.sanitizer.bypassSecurityTrustHtml(sanitizedHtml);
   });
   // Computed signal for assets in current entry
   currentAssets = computed<string[]>(() => {
