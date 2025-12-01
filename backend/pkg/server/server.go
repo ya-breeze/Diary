@@ -149,7 +149,9 @@ func upsertUser(storage database.Storage, username, hashedPassword string, logge
 }
 
 func createMiddlewares(logger *slog.Logger, cfg *config.Config) []mux.MiddlewareFunc {
+	rateLimiterStore := NewRateLimiterStore()
 	return []mux.MiddlewareFunc{
+		RateLimitMiddleware(logger, rateLimiterStore, cfg.DisableRateLimit),
 		AuthMiddleware(logger, cfg),
 	}
 }

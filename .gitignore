@@ -24,3 +24,6 @@ frontend/*.ipr
 frontend/*.iws
 frontend/*.log
 frontend/*.pid
+
+# Other
+.vscode/*

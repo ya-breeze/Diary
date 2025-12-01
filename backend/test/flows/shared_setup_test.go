@@ -51,12 +51,13 @@ func SetupTestEnvironment() *SharedTestSetup {
 	Expect(err).NotTo(HaveOccurred())
 
 	setup.Cfg = &config.Config{
-		Port:          0, // Use random available port
-		DBPath:        ":memory:",
-		AssetPath:     setup.TempDir,
-		Issuer:        "test-issuer",
-		JWTSecret:     "test-secret-key-for-jwt-tokens",
-		SessionSecret: "test-session-secret-key-minimum-32-characters-long",
+		Port:             0, // Use random available port
+		DBPath:           ":memory:",
+		AssetPath:        setup.TempDir,
+		Issuer:           "test-issuer",
+		JWTSecret:        "test-secret-key-for-jwt-tokens",
+		SessionSecret:    "test-session-secret-key-minimum-32-characters-long",
+		DisableRateLimit: true, // Disable rate limiting for tests
 	}
 
 	setup.Storage = database.NewStorage(setup.Logger, setup.Cfg)

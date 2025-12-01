@@ -1,6 +1,6 @@
 module github.com/ya-breeze/diary.be
 
-go 1.24
+go 1.24.0
 
 require (
 	github.com/dusted-go/logging v1.3.0
@@ -203,6 +203,7 @@ require (
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
+	golang.org/x/time v0.14.0 // indirect
 	golang.org/x/tools v0.36.0 // indirect
 	golang.org/x/tools/go/expect v0.1.1-deprecated // indirect
 	golang.org/x/tools/go/packages/packagestest v0.1.1-deprecated // indirect

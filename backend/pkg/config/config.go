@@ -21,6 +21,7 @@ type Config struct {
 	Issuer                      string `mapstructure:"issuer" default:"diary"`
 	CookieName                  string `mapstructure:"cookiename" default:"diarycookie"`
 	AllowedOrigins              string `mapstructure:"allowedorigins" default:"http://localhost:4200,http://localhost:8080"`
+	DisableRateLimit            bool   `mapstructure:"disableratelimit" default:"false"`
 
 	// Batch upload limits
 	MaxPerFileSizeMB    int `mapstructure:"maxperfilesizemb" default:"200"`
