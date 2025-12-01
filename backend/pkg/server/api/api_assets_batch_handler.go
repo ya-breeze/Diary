@@ -54,7 +54,17 @@ func (r *AssetsBatchRouter) handleBatch(w http.ResponseWriter, req *http.Request
 	}
 
 	limits := assets.ComputeBatchLimits(r.cfg)
-	assets.EnforceBodySize(w, req, limits.MaxBatchTotalBytes)
+	r.logger.Info("Batch upload request received",
+		"userID", userID,
+		"contentLength", req.ContentLength,
+		"contentType", req.Header.Get("Content-Type"),
+		"contentEncoding", req.Header.Get("Content-Encoding"),
+		"transferEncoding", req.TransferEncoding,
+		"maxBatchTotalBytes", limits.MaxBatchTotalBytes,
+	)
+	// Note: We don't use EnforceBodySize here because ParseMultipartForm
+	// handles size limits internally via its maxMemory parameter.
+	// Using MaxBytesReader before ParseMultipartForm can cause "unexpected EOF" errors.
 
 	if err := req.ParseMultipartForm(limits.MaxBatchTotalBytes); err != nil {
 		r.logger.Error("Failed to parse multipart form",

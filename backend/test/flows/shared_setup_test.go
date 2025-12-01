@@ -57,7 +57,8 @@ func SetupTestEnvironment() *SharedTestSetup {
 		Issuer:           "test-issuer",
 		JWTSecret:        "test-secret-key-for-jwt-tokens",
 		SessionSecret:    "test-session-secret-key-minimum-32-characters-long",
-		DisableRateLimit: true, // Disable rate limiting for tests
+		DisableRateLimit: true,  // Disable rate limiting for tests
+		CookieSecure:     false, // Allow HTTP for tests
 	}
 
 	setup.Storage = database.NewStorage(setup.Logger, setup.Cfg)

@@ -57,8 +57,9 @@ func (c *CustomAuthAPIController) setSessionToken(w http.ResponseWriter, req *ht
 		return err
 	}
 	session.Values["token"] = token
-	// Allow to use without HTTPS - for local network
-	session.Options.Secure = false
+	// Use configured Secure flag (defaults to true for production security)
+	// Set to false only for local development without HTTPS
+	session.Options.Secure = c.cfg.CookieSecure
 	session.Options.SameSite = http.SameSiteLaxMode
 	session.Options.HttpOnly = true
 	session.Options.Path = "/"

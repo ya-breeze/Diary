@@ -17,8 +17,9 @@ run-backend:
 	@cd ${ROOT_DIR}/backend/cmd && go build -o ../bin/diary
 	@GB_USERS=test@test.com:JDJhJDEwJC9sVWJpTlBYVlZvcU9ZNUxIZmhqYi4vUnRuVkJNaEw4MTQ2VUdFSXRDeE9Ib0ZoVkRLR3pl,test:JDJhJDEwJC9sVWJpTlBYVlZvcU9ZNUxIZmhqYi4vUnRuVkJNaEw4MTQ2VUdFSXRDeE9Ib0ZoVkRLR3pl \
 	GB_DISABLEIMPORTERS=true \
+	GB_COOKIE_SECURE=false \
 	GB_DBPATH=$(ROOT_DIR)diary-data/diary.db \
-	GB_ASSETPATH=$(ROOT_DIR)/diary-assets \
+	GB_ASSETPATH=$(ROOT_DIR)diary-data/diary-assets \
 	${ROOT_DIR}/backend/bin/diary server
 
 .PHONY: run-frontend
@@ -170,7 +171,7 @@ docker-build:
 .PHONY: docker-up
 docker-up:
 	@echo "🐳 Starting Docker containers..."
-	@docker compose up -d
+	@GB_COOKIE_SECURE=false docker compose up -d
 	@echo "✅ Docker containers started"
 	@echo "📱 Application available at http://localhost"
 
@@ -187,7 +188,7 @@ docker-logs:
 .PHONY: docker-restart
 docker-restart:
 	@echo "🐳 Restarting Docker containers..."
-	@docker compose restart
+	@GB_COOKIE_SECURE=false docker compose restart
 	@echo "✅ Docker containers restarted"
 
 .PHONY: docker-clean

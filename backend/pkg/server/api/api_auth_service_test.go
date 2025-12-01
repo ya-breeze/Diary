@@ -35,6 +35,7 @@ var _ = Describe("AuthAPIService", func() {
 			Issuer:        "test-issuer",
 			JWTSecret:     "test-secret-key-for-jwt-tokens",
 			SessionSecret: "test-session-secret-key-minimum-32-characters-long",
+			CookieSecure:  false, // Allow HTTP for tests
 		}
 		storage = database.NewStorage(logger, cfg)
 		Expect(storage.Open()).To(Succeed())

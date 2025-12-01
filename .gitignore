@@ -2,7 +2,7 @@
 bin/diary
 backend/bin/diary
 diary.db
-diary-assets/*
+diary-data/*
 
 # Frontend
 frontend/dist/
@@ -27,3 +27,4 @@ frontend/*.pid
 
 # Other
 .vscode/*
+backend/pkg/server/webapp/upload_handler.go
