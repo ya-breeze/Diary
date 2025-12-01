@@ -27,12 +27,6 @@ services:
       - ${DIARY_DATA_PATH:-./diary-data}:/data
     networks:
       - diary-network
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/web/about"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
   # Frontend - Angular with Nginx
   frontend:
