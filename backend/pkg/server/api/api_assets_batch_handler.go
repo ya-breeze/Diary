@@ -48,6 +48,7 @@ func (r *AssetsBatchRouter) Routes() goserver.Routes {
 func (r *AssetsBatchRouter) handleBatch(w http.ResponseWriter, req *http.Request) {
 	userID, _ := req.Context().Value(common.UserIDKey).(string)
 	if userID == "" {
+		r.logger.Error("Batch upload unauthorized - no user ID in context")
 		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
@@ -56,6 +57,10 @@ func (r *AssetsBatchRouter) handleBatch(w http.ResponseWriter, req *http.Request
 	assets.EnforceBodySize(w, req, limits.MaxBatchTotalBytes)
 
 	if err := req.ParseMultipartForm(limits.MaxBatchTotalBytes); err != nil {
+		r.logger.Error("Failed to parse multipart form",
+			"userID", userID,
+			"error", err,
+			"maxSize", limits.MaxBatchTotalBytes)
 		writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid multipart form: %v", err))
 		return
 	}
@@ -63,33 +68,55 @@ func (r *AssetsBatchRouter) handleBatch(w http.ResponseWriter, req *http.Request
 	files := req.MultipartForm.File["assets"]
 	r.logger.Info("Batch upload request", "userID", userID, "files", len(files))
 	if code, err := r.prevalidate(files, limits); err != nil {
+		r.logger.Error("Batch upload validation failed",
+			"userID", userID,
+			"fileCount", len(files),
+			"statusCode", code,
+			"error", err)
 		writeJSONError(w, code, err.Error())
 		return
 	}
 
 	resp, code, err := r.saveAllFiles(userID, files, limits)
 	if err != nil {
+		r.logger.Error("Failed to save batch files",
+			"userID", userID,
+			"fileCount", len(files),
+			"statusCode", code,
+			"error", err)
 		writeJSONError(w, code, err.Error())
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		r.logger.Error("failed to encode response", "error", err)
+		r.logger.Error("failed to encode response", "error", err, "userID", userID)
 		writeJSONError(w, http.StatusInternalServerError, "failed to encode response")
 	}
+
+	r.logger.Info("Batch upload completed successfully",
+		"userID", userID,
+		"filesUploaded", resp.Count)
 }
 
 func (r *AssetsBatchRouter) prevalidate(files []*multipart.FileHeader, limits assets.BatchLimits) (int, error) {
 	if len(files) == 0 {
+		r.logger.Warn("Batch upload validation failed: no files provided")
 		return http.StatusBadRequest, errors.New("missing assets")
 	}
 	if limits.MaxBatchFiles > 0 && len(files) > limits.MaxBatchFiles {
+		r.logger.Warn("Batch upload validation failed: too many files",
+			"fileCount", len(files),
+			"maxFiles", limits.MaxBatchFiles)
 		return http.StatusRequestEntityTooLarge, errors.New("too many files in batch")
 	}
 	var totalSize int64
-	for _, fh := range files {
+	for i, fh := range files {
 		if err := assets.ValidateExtension(fh.Filename); err != nil {
+			r.logger.Warn("Batch upload validation failed: invalid file extension",
+				"fileIndex", i,
+				"filename", fh.Filename,
+				"error", err)
 			return http.StatusBadRequest, err
 		}
 		if fh.Size > 0 {
@@ -97,6 +124,9 @@ func (r *AssetsBatchRouter) prevalidate(files []*multipart.FileHeader, limits as
 		}
 	}
 	if limits.MaxBatchTotalBytes > 0 && totalSize > limits.MaxBatchTotalBytes {
+		r.logger.Warn("Batch upload validation failed: total size exceeded",
+			"totalSize", totalSize,
+			"maxSize", limits.MaxBatchTotalBytes)
 		return http.StatusRequestEntityTooLarge, errors.New("batch total size exceeded")
 	}
 	return 0, nil
@@ -115,13 +145,24 @@ func (r *AssetsBatchRouter) saveAllFiles(
 	created := make([]string, 0, len(files))
 	resp := AssetsBatchResponse{Files: make([]AssetsBatchFile, 0, len(files))}
 
-	for _, fh := range files {
+	for i, fh := range files {
 		if limits.MaxPerFileBytes > 0 && fh.Size > limits.MaxPerFileBytes {
+			r.logger.Error("File too large in batch upload",
+				"userID", userID,
+				"fileIndex", i,
+				"filename", fh.Filename,
+				"fileSize", fh.Size,
+				"maxSize", limits.MaxPerFileBytes)
 			rollback(created)
 			return AssetsBatchResponse{}, http.StatusRequestEntityTooLarge, errors.New("file too large")
 		}
 		src, err := fh.Open()
 		if err != nil {
+			r.logger.Error("Failed to open file part in batch upload",
+				"userID", userID,
+				"fileIndex", i,
+				"filename", fh.Filename,
+				"error", err)
 			rollback(created)
 			return AssetsBatchResponse{}, http.StatusBadRequest, fmt.Errorf("failed to open part: %w", err)
 		}
@@ -130,6 +171,12 @@ func (r *AssetsBatchRouter) saveAllFiles(
 			return assets.SaveFileAtomically(userAssetPath, fh, src, "")
 		}()
 		if err != nil {
+			r.logger.Error("Failed to save file atomically in batch upload",
+				"userID", userID,
+				"fileIndex", i,
+				"filename", fh.Filename,
+				"targetPath", userAssetPath,
+				"error", err)
 			rollback(created)
 			return AssetsBatchResponse{}, http.StatusInternalServerError, fmt.Errorf("failed to save file: %w", err)
 		}
