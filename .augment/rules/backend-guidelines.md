@@ -256,7 +256,6 @@ make run
 
 # Manual run with custom configuration
 GB_USERS=test@test.com:JDJhJDEwJC9sVWJpTlBYVlZvcU9ZNUxIZmhqYi4vUnRuVkJNaEw4MTQ2VUdFSXRDeE9Ib0ZoVkRLR3pl \
-GB_DISABLEIMPORTERS=true \
 GB_DBPATH=$(pwd)/diary.db \
 GB_ASSETPATH=$(pwd)/diary-assets \
 ./bin/diary server

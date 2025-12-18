@@ -16,7 +16,6 @@ build:
 run-backend:
 	@cd ${ROOT_DIR}/backend/cmd && go build -o ../bin/diary
 	@GB_USERS=test@test.com:JDJhJDEwJC9sVWJpTlBYVlZvcU9ZNUxIZmhqYi4vUnRuVkJNaEw4MTQ2VUdFSXRDeE9Ib0ZoVkRLR3pl,test:JDJhJDEwJC9sVWJpTlBYVlZvcU9ZNUxIZmhqYi4vUnRuVkJNaEw4MTQ2VUdFSXRDeE9Ib0ZoVkRLR3pl \
-	GB_DISABLEIMPORTERS=true \
 	GB_COOKIE_SECURE=false \
 	GB_DBPATH=$(ROOT_DIR)diary-data/diary.db \
 	GB_ASSETPATH=$(ROOT_DIR)diary-data/diary-assets \

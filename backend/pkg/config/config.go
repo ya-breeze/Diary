@@ -16,7 +16,6 @@ type Config struct {
 	Port                        int    `mapstructure:"port" default:"8080"`
 	DBPath                      string `mapstructure:"dbpath" default:":memory:"`
 	AssetPath                   string `mapstructure:"assetpath" default:"/tmp/diary-assets"`
-	DisableImporters            bool   `mapstructure:"disableimporters" default:"false"`
 	DisableCurrenciesRatesFetch bool   `mapstructure:"disablecurrenciesratesfetch" default:"false"`
 	Issuer                      string `mapstructure:"issuer" default:"diary"`
 	CookieName                  string `mapstructure:"cookiename" default:"diarycookie"`

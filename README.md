@@ -108,4 +108,3 @@ The application consists of two main components:
 | `GB_MAXPERFILESIZEMB`    | Maximum size per uploaded file (MB)          | `25`                    |
 | `GB_MAXBATCHFILES`       | Maximum number of files per batch upload     | `10`                    |
 | `GB_MAXBATCHTOTALSIZEMB` | Maximum total size per batch upload (MB)     | `100`                   |
-| `GB_DISABLEIMPORTERS`    | Disable automatic data importers             | `false`                 |

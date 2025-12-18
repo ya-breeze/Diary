@@ -99,7 +99,6 @@ Default credentials:
 | `GB_JWTSECRET`           | JWT signing secret (auto-generated if empty) | -                    |
 | `GB_ISSUER`              | JWT issuer identifier                        | diary                |
 | `GB_PORT`                | Backend port (inside container)              | 8080                 |
-| `GB_DISABLEIMPORTERS`    | Disable automatic importers                  | true                 |
 | `GB_MAXPERFILESIZEMB`    | Max file size (MB)                           | 200                  |
 | `GB_MAXBATCHFILES`       | Max files per batch                          | 100                  |
 | `GB_MAXBATCHTOTALSIZEMB` | Max batch size (MB)                          | 1000                 |
