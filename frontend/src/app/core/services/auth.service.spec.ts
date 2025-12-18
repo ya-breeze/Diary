@@ -102,8 +102,13 @@ describe("AuthService", () => {
   it("should logout and clear token", () => {
     service.logout();
 
+    const req = httpMock.expectOne(`${environment.apiUrl}/logout`);
+    expect(req.request.method).toBe("POST");
+    req.flush({});
+
     expect(localStorageSpy.removeItem).toHaveBeenCalledWith("diary_auth_token");
-    expect(service.isAuthenticated()).toBe(false);
+    expect(service.getCurrentUser()).toBeNull();
+    expect(service.isAuthenticated()).toBeFalse();
     expect(routerSpy.navigate).toHaveBeenCalledWith(["/login"]);
   });
 

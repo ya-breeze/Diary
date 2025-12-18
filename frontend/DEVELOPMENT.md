@@ -107,8 +107,7 @@ make run-backend
 ```bash
 cd backend
 GB_USERS=test@test.com:JDJhJDEwJC9sVWJpTlBYVlZvcU9ZNUxIZmhqYi4vUnRuVkJNaEw4MTQ2VUdFSXRDeE9Ib0ZoVkRLR3pl \
-GB_DBPATH=../diary.db \
-GB_ASSETPATH=../diary-assets \
+GB_DATAPATH=../diary-data \
 go run cmd/main.go server
 ```
 

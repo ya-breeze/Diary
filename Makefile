@@ -17,8 +17,7 @@ run-backend:
 	@cd ${ROOT_DIR}/backend/cmd && go build -o ../bin/diary
 	@GB_USERS=test@test.com:JDJhJDEwJC9sVWJpTlBYVlZvcU9ZNUxIZmhqYi4vUnRuVkJNaEw4MTQ2VUdFSXRDeE9Ib0ZoVkRLR3pl,test:JDJhJDEwJC9sVWJpTlBYVlZvcU9ZNUxIZmhqYi4vUnRuVkJNaEw4MTQ2VUdFSXRDeE9Ib0ZoVkRLR3pl \
 	GB_COOKIE_SECURE=false \
-	GB_DBPATH=$(ROOT_DIR)diary-data/diary.db \
-	GB_ASSETPATH=$(ROOT_DIR)diary-data/diary-assets \
+	GB_DATAPATH=$(ROOT_DIR)diary-data \
 	${ROOT_DIR}/backend/bin/diary server
 
 .PHONY: run-frontend
@@ -108,7 +107,7 @@ test:
 		go tool github.com/onsi/ginkgo/v2/ginkgo -r
 	@echo "🚀 Running frontend tests..."
 	@cd ${ROOT_DIR}/frontend; \
-		CHROME_BIN=chromium npm run test -- --watch=false --browsers=ChromeHeadless
+		npm run test -- --watch=false --browsers=ChromeHeadless
 	@echo "✅ Tests complete"
 
 .PHONY: watch

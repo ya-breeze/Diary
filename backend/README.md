@@ -92,8 +92,7 @@ Default credentials:
 Environment variables:
 
 - `GB_USERS` - User credentials
-- `GB_DBPATH` - Database path
-- `GB_ASSETPATH` - Assets path
+- `GB_DATAPATH` - Data directory path
 - `GB_ALLOWEDORIGINS` - Comma-separated list of allowed CORS origins (default: `http://localhost:3000`)
 - `GB_MAXPERFILESIZEMB` - Max size per uploaded file in MB (default 25)
 - `GB_MAXBATCHFILES` - Max number of files per batch (default 10)

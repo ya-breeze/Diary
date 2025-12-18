@@ -1,4 +1,4 @@
 export const environment = {
   production: false,
-  apiUrl: "/api", // Proxied to backend via proxy.conf.json
+  apiUrl: "/api/v1", // Proxied to backend via proxy.conf.json
 };

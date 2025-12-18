@@ -45,15 +45,23 @@ export class AuthService {
   }
 
   logout(): void {
+    this.http.post(`${this.apiUrl}/logout`, {}).subscribe({
+      next: () => {
+        console.log("Logged out from server");
+      },
+      error: (err) => {
+        console.warn("Failed to log out from server", err);
+      },
+      complete: () => {
+        this.finishLogout();
+      }
+    });
+  }
+
+  private finishLogout(): void {
     this.removeToken();
     this.isAuthenticated.set(false);
     this.currentUserSubject.next(null);
-
-    // Note: HTTP-only cookies set by the server cannot be cleared from JavaScript.
-    // The server should handle cookie expiration/invalidation on its end.
-    // Cookies will be automatically cleared when they expire or when the server
-    // sends a Set-Cookie header with an expired date.
-
     this.router.navigate(["/login"]);
   }
 
@@ -76,7 +84,8 @@ export class AuthService {
       },
       error: (error) => {
         console.error("Failed to load user profile:", error);
-        this.logout();
+        console.error("Failed to load user profile:", error);
+        this.finishLogout();
       },
     });
   }

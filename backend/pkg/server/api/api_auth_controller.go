@@ -41,6 +41,11 @@ func (c *CustomAuthAPIController) Routes() goserver.Routes {
 			Pattern:     "/v1/authorize",
 			HandlerFunc: c.Authorize,
 		},
+		"Logout": goserver.Route{
+			Method:      strings.ToUpper("Post"),
+			Pattern:     "/v1/logout",
+			HandlerFunc: c.Logout,
+		},
 	}
 }
 
@@ -57,6 +62,16 @@ func (c *CustomAuthAPIController) setSessionToken(w http.ResponseWriter, req *ht
 		return err
 	}
 	session.Values["token"] = token
+	// Ensure option fields are set from config
+	c.configureSessionOptions(session)
+
+	if err := session.Save(req, w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *CustomAuthAPIController) configureSessionOptions(session *sessions.Session) {
 	// Use configured Secure flag (defaults to true for production security)
 	// Set to false only for local development without HTTPS
 	session.Options.Secure = c.cfg.CookieSecure
@@ -64,10 +79,6 @@ func (c *CustomAuthAPIController) setSessionToken(w http.ResponseWriter, req *ht
 	session.Options.HttpOnly = true
 	session.Options.Path = "/"
 	session.Options.MaxAge = 24 * 60 * 60 // 24 hours
-	if err := session.Save(req, w); err != nil {
-		return err
-	}
-	return nil
 }
 
 // Authorize - validate user/password and return token
@@ -109,4 +120,37 @@ func (c *CustomAuthAPIController) Authorize(w http.ResponseWriter, r *http.Reque
 
 	// If no error, encode the body and the result code
 	_ = goserver.EncodeJSONResponse(result.Body, &result.Code, w)
+}
+
+// clearSessionToken clears the session cookie
+func (c *CustomAuthAPIController) clearSessionToken(w http.ResponseWriter, req *http.Request) error {
+	cookieName := c.cfg.CookieName
+	if cookieName == "" {
+		cookieName = "diarycookie"
+	}
+
+	session, err := c.cookies.Get(req, cookieName)
+	if err != nil {
+		return err
+	}
+
+	c.configureSessionOptions(session)
+	session.Options.MaxAge = -1
+
+	if err := session.Save(req, w); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Logout - clear session cookie
+func (c *CustomAuthAPIController) Logout(w http.ResponseWriter, r *http.Request) {
+	if err := c.clearSessionToken(w, r); err != nil {
+		c.logger.Error("Failed to clear session cookie", "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	c.logger.Info("User logged out, cookie cleared")
+	w.WriteHeader(http.StatusOK)
 }

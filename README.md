@@ -100,8 +100,7 @@ The application consists of two main components:
 | Variable                 | Description                                  | Default                 |
 | ------------------------ | -------------------------------------------- | ----------------------- |
 | `GB_USERS`               | User credentials (email:bcrypt_hash)         | Required                |
-| `GB_DBPATH`              | SQLite database file path                    | `./diary.db`            |
-| `GB_ASSETPATH`           | Directory for storing uploaded assets        | `./diary-assets`        |
+| `GB_DATAPATH`          | Directory for storing data (DB and assets)   | `./diary-data`          |
 | `GB_JWTSECRET`           | Secret key for JWT token signing             | Auto-generated          |
 | `GB_ISSUER`              | JWT issuer identifier                        | `diary-backend`         |
 | `GB_ALLOWEDORIGINS`      | Comma-separated list of allowed CORS origins | `http://localhost:3000` |

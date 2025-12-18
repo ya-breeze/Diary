@@ -93,8 +93,7 @@ Default credentials:
 | Variable                 | Description                                  | Default              |
 | ------------------------ | -------------------------------------------- | -------------------- |
 | `GB_USERS`               | User credentials (email:bcrypt_hash)         | test@test.com:...    |
-| `GB_DBPATH`              | Database path (inside container)             | /data/diary.db       |
-| `GB_ASSETPATH`           | Assets path (inside container)               | /data/diary-assets   |
+| `GB_DATAPATH`            | Data directory path (inside container)       | /data                |
 | `GB_ALLOWEDORIGINS`      | CORS allowed origins (comma-separated)       | http://localhost,... |
 | `GB_JWTSECRET`           | JWT signing secret (auto-generated if empty) | -                    |
 | `GB_ISSUER`              | JWT issuer identifier                        | diary                |

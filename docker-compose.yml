@@ -11,8 +11,7 @@ services:
     environment:
       # Default environment variables - can be overridden
       GB_USERS: ${GB_USERS:-test@test.com:JDJhJDEwJC9sVWJpTlBYVlZvcU9ZNUxIZmhqYi4vUnRuVkJNaEw4MTQ2VUdFSXRDeE9Ib0ZoVkRLR3pl}
-      GB_DBPATH: ${GB_DBPATH:-/data/diary.db}
-      GB_ASSETPATH: ${GB_ASSETPATH:-/data/diary-assets}
+      GB_DATAPATH: ${GB_DATAPATH:-/data}
       GB_ALLOWEDORIGINS: ${GB_ALLOWEDORIGINS:-http://localhost,http://localhost:80,http://localhost:8080}
       GB_JWTSECRET: ${GB_JWTSECRET:-}
       GB_SESSION_SECRET: ${GB_SESSION_SECRET:-}
@@ -38,7 +37,7 @@ services:
     environment:
       # API URL for runtime configuration
       # Use relative path when behind nginx proxy, or full URL for direct access
-      API_URL: ${API_URL:-/v1}
+      API_URL: ${API_URL:-/api/v1}
     depends_on:
       - backend
     networks:
