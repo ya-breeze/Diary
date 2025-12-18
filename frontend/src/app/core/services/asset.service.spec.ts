@@ -6,27 +6,19 @@ import {
 import { AssetService } from "./asset.service";
 import { AssetsBatchResponse } from "../../shared/models";
 import { environment } from "../../../environments/environment";
-import { ConfigService } from "./config.service";
 
 describe("AssetService", () => {
   let service: AssetService;
   let httpMock: HttpTestingController;
-  let configService: ConfigService;
 
   beforeEach(() => {
-    const mockConfigService = {
-      getApiUrl: () => environment.apiUrl,
-      getConfig: () => ({ apiUrl: environment.apiUrl }),
-    };
-
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
-      providers: [{ provide: ConfigService, useValue: mockConfigService }],
+      providers: [],
     });
 
     service = TestBed.inject(AssetService);
     httpMock = TestBed.inject(HttpTestingController);
-    configService = TestBed.inject(ConfigService);
   });
 
   afterEach(() => {
@@ -98,8 +90,7 @@ describe("AssetService", () => {
 
   it("should generate correct asset URL for web display", () => {
     const path = "test-image.jpg";
-    const baseUrl = environment.apiUrl.replace("/v1", "");
-    const expectedUrl = `${baseUrl}/web/assets/${path}`;
+    const expectedUrl = `/web/assets/${path}`;
 
     const url = service.getAssetUrl(path);
 

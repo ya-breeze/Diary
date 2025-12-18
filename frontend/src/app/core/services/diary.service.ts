@@ -6,14 +6,14 @@ import {
   DiaryItemRequest,
   DiaryItemsListResponse,
 } from "../../shared/models";
-import { ConfigService } from "./config.service";
+import { environment } from "../../../environments/environment";
 
 @Injectable({
   providedIn: "root",
 })
 export class DiaryService {
   private get apiUrl(): string {
-    return this.configService.getApiUrl();
+    return environment.apiUrl;
   }
 
   private currentItemSubject = new BehaviorSubject<DiaryItem | null>(null);
@@ -21,7 +21,7 @@ export class DiaryService {
 
   public currentDate = signal<string>(this.getTodayDate());
 
-  constructor(private http: HttpClient, private configService: ConfigService) {}
+  constructor(private http: HttpClient) {}
 
   getItems(
     date?: string,

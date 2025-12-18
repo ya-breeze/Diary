@@ -20,6 +20,9 @@ RUN npm run build
 # Final stage - Nginx to serve static files
 FROM nginx:alpine
 
+# Install gettext for envsubst
+RUN apk add --no-cache gettext
+
 # Remove default nginx config
 RUN rm -rf /usr/share/nginx/html/*
 

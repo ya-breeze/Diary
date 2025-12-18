@@ -2,21 +2,17 @@ import { Injectable } from "@angular/core";
 import { HttpClient } from "@angular/common/http";
 import { Observable } from "rxjs";
 import { AssetUploadResponse, AssetsBatchResponse } from "../../shared/models";
-import { ConfigService } from "./config.service";
+import { environment } from "../../../environments/environment";
 
 @Injectable({
   providedIn: "root",
 })
 export class AssetService {
   private get apiUrl(): string {
-    return this.configService.getApiUrl();
+    return environment.apiUrl;
   }
 
-  private get baseUrl(): string {
-    return this.apiUrl.replace("/v1", "");
-  }
-
-  constructor(private http: HttpClient, private configService: ConfigService) {}
+  constructor(private http: HttpClient) {}
 
   uploadAsset(file: File): Observable<string> {
     const formData = new FormData();
@@ -41,7 +37,7 @@ export class AssetService {
 
   getAssetUrl(path: string): string {
     // For rendering in markdown/HTML, use the web assets path
-    return `${this.baseUrl}/web/assets/${path}`;
+    return `/web/assets/${path}`;
   }
 
   getAssetApiUrl(path: string): string {

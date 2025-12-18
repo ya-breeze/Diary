@@ -3,7 +3,7 @@ import { HttpClient } from "@angular/common/http";
 import { Router } from "@angular/router";
 import { Observable, BehaviorSubject, tap, of, catchError, map } from "rxjs";
 import { User, AuthData, AuthResponse } from "../../shared/models";
-import { ConfigService } from "./config.service";
+import { environment } from "../../../environments/environment";
 
 @Injectable({
   providedIn: "root",
@@ -11,7 +11,7 @@ import { ConfigService } from "./config.service";
 export class AuthService {
   private readonly TOKEN_KEY = "diary_auth_token";
   private get apiUrl(): string {
-    return this.configService.getApiUrl();
+    return environment.apiUrl;
   }
 
   private currentUserSubject = new BehaviorSubject<User | null>(null);
@@ -22,8 +22,7 @@ export class AuthService {
 
   constructor(
     private http: HttpClient,
-    private router: Router,
-    private configService: ConfigService
+    private router: Router
   ) {
     // Don't automatically load profile on initialization
     // Let the guard handle it to avoid race conditions
