@@ -46,11 +46,11 @@ var _ = Describe("AssetsAPIService", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		cfg = &config.Config{
-			AssetPath: tempDir,
+			DataPath: tempDir,
 		}
 
 		// Create user directory and test file
-		userDir := filepath.Join(tempDir, userID)
+		userDir := filepath.Join(tempDir, config.AssetsDirName, userID)
 		err = os.MkdirAll(userDir, 0o755)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -98,7 +98,7 @@ var _ = Describe("AssetsAPIService", func() {
 		Context("when accessing files in subdirectories", func() {
 			BeforeEach(func() {
 				// Create a subdirectory with a file
-				subDir := filepath.Join(tempDir, userID, "images")
+				subDir := filepath.Join(tempDir, config.AssetsDirName, userID, "images")
 				err := os.MkdirAll(subDir, 0o755)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -126,7 +126,7 @@ var _ = Describe("AssetsAPIService", func() {
 
 			It("should handle nested subdirectories", func() {
 				// Create deeper nesting
-				deepDir := filepath.Join(tempDir, userID, "docs", "2023", "reports")
+				deepDir := filepath.Join(tempDir, config.AssetsDirName, userID, "docs", "2023", "reports")
 				err := os.MkdirAll(deepDir, 0o755)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -172,7 +172,7 @@ var _ = Describe("AssetsAPIService", func() {
 		Context("when path points to a directory", func() {
 			It("should return bad request", func() {
 				// Create a subdirectory
-				subDir := filepath.Join(tempDir, userID, "emptydir")
+				subDir := filepath.Join(tempDir, config.AssetsDirName, userID, "emptydir")
 				err := os.MkdirAll(subDir, 0o755)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -242,7 +242,7 @@ var _ = Describe("AssetsAPIService", func() {
 					Expect(strings.Contains(filename, "-")).To(BeTrue(), "Filename should contain UUID format")
 
 					// Verify the file was actually saved
-					savedFilePath := filepath.Join(tempDir, userID, filename)
+					savedFilePath := filepath.Join(tempDir, config.AssetsDirName, userID, filename)
 					Expect(savedFilePath).To(BeAnExistingFile())
 
 					// Verify the content was saved correctly
@@ -271,7 +271,7 @@ var _ = Describe("AssetsAPIService", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					// Verify directory doesn't exist initially
-					newUserDir := filepath.Join(tempDir, newUserID)
+					newUserDir := filepath.Join(tempDir, config.AssetsDirName, newUserID)
 					Expect(newUserDir).NotTo(BeAnExistingFile())
 
 					response, err := service.UploadAsset(newCtx, tempFile)

@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/ya-breeze/diary.be/pkg/auth"
+	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/generated/goclient"
 )
 
@@ -112,7 +113,7 @@ var _ = Describe("Login and Missing Asset Flow", func() {
 				userID, err := auth.CheckJWT(authResponse.Token, setup.Cfg.Issuer, setup.Cfg.JWTSecret)
 				Expect(err).ToNot(HaveOccurred())
 
-				userAssetDir := filepath.Join(setup.TempDir, userID)
+				userAssetDir := filepath.Join(setup.TempDir, config.AssetsDirName, userID)
 				err = os.MkdirAll(userAssetDir, 0o755)
 				Expect(err).ToNot(HaveOccurred())
 

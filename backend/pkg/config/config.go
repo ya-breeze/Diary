@@ -14,8 +14,7 @@ type Config struct {
 	SessionSecret               string `mapstructure:"session_secret" default:""`
 	Verbose                     bool   `mapstructure:"verbose" default:"false"`
 	Port                        int    `mapstructure:"port" default:"8080"`
-	DBPath                      string `mapstructure:"dbpath" default:":memory:"`
-	AssetPath                   string `mapstructure:"assetpath" default:"/tmp/diary-assets"`
+	DataPath                    string `mapstructure:"datapath" default:"./diary-data"`
 	DisableCurrenciesRatesFetch bool   `mapstructure:"disablecurrenciesratesfetch" default:"false"`
 	Issuer                      string `mapstructure:"issuer" default:"diary"`
 	CookieName                  string `mapstructure:"cookiename" default:"diarycookie"`

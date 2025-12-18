@@ -23,6 +23,7 @@ var _ = Describe("SyncAPIService", func() {
 		storage database.Storage
 		ctx     context.Context
 		userID  string
+		tempDir string
 	)
 
 	// Create context outside of BeforeEach to avoid fatcontext linting issue
@@ -31,8 +32,13 @@ var _ = Describe("SyncAPIService", func() {
 
 	BeforeEach(func() {
 		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+		var err error
+		tempDir, err = os.MkdirTemp("", "sync_test")
+		Expect(err).NotTo(HaveOccurred())
+
 		cfg := &config.Config{
-			DBPath: ":memory:",
+			DataPath: tempDir,
 		}
 		storage = database.NewStorage(logger, cfg)
 		Expect(storage.Open()).To(Succeed())
@@ -42,6 +48,7 @@ var _ = Describe("SyncAPIService", func() {
 
 	AfterEach(func() {
 		storage.Close()
+		os.RemoveAll(tempDir)
 	})
 
 	Describe("GetChanges", func() {

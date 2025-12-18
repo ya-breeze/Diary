@@ -26,12 +26,17 @@ var _ = Describe("AuthAPIService", func() {
 		testEmail  string
 		testPass   string
 		hashedPass string
+		tempDir    string
 	)
 
 	BeforeEach(func() {
 		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		var err error
+		tempDir, err = os.MkdirTemp("", "auth_test")
+		Expect(err).NotTo(HaveOccurred())
+
 		cfg = &config.Config{
-			DBPath:        ":memory:",
+			DataPath:      tempDir,
 			Issuer:        "test-issuer",
 			JWTSecret:     "test-secret-key-for-jwt-tokens",
 			SessionSecret: "test-session-secret-key-minimum-32-characters-long",
@@ -56,6 +61,7 @@ var _ = Describe("AuthAPIService", func() {
 
 	AfterEach(func() {
 		storage.Close()
+		os.RemoveAll(tempDir)
 	})
 
 	Describe("Authorize", func() {

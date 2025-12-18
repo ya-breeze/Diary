@@ -5,10 +5,12 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/ya-breeze/diary.be/pkg/config"
 )
 
 var _ = Describe("Batch Upload Assets Flow", func() {
@@ -28,7 +30,10 @@ var _ = Describe("Batch Upload Assets Flow", func() {
 
 			// Create temp files
 			mkFile := func(suffix string, content []byte) *os.File {
-				f, err := os.CreateTemp("", "batch_*."+suffix)
+				userAssetDir := filepath.Join(setup.TempDir, config.AssetsDirName)
+				err := os.MkdirAll(userAssetDir, 0755)
+				Expect(err).ToNot(HaveOccurred())
+				f, err := os.CreateTemp(userAssetDir, "batch_*."+suffix)
 				Expect(err).ToNot(HaveOccurred())
 				_, err = f.Write(content)
 				Expect(err).ToNot(HaveOccurred())

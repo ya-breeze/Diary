@@ -151,7 +151,7 @@ func (r *AssetsBatchRouter) saveAllFiles(
 	int,
 	error,
 ) {
-	userAssetPath := filepath.Join(r.cfg.AssetPath, userID)
+	userAssetPath := filepath.Join(r.cfg.DataPath, config.AssetsDirName, userID)
 	created := make([]string, 0, len(files))
 	resp := AssetsBatchResponse{Files: make([]AssetsBatchFile, 0, len(files))}
 

@@ -60,6 +60,7 @@ var _ = Describe("ItemsAPIService", func() {
 		ctx      context.Context
 		userID   string
 		testDate string
+		tempDir  string
 	)
 
 	// Create context outside of BeforeEach to avoid fatcontext linting issue
@@ -69,8 +70,12 @@ var _ = Describe("ItemsAPIService", func() {
 
 	BeforeEach(func() {
 		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		var err error
+		tempDir, err = os.MkdirTemp("", "items_test")
+		Expect(err).NotTo(HaveOccurred())
+
 		cfg := &config.Config{
-			DBPath: ":memory:",
+			DataPath: tempDir,
 		}
 		storage = database.NewStorage(logger, cfg)
 		Expect(storage.Open()).To(Succeed())
@@ -80,6 +85,7 @@ var _ = Describe("ItemsAPIService", func() {
 
 	AfterEach(func() {
 		storage.Close()
+		os.RemoveAll(tempDir)
 	})
 
 	Describe("GetItems", func() {

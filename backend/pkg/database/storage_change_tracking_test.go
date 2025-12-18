@@ -19,12 +19,17 @@ var _ = Describe("Storage Change Tracking", func() {
 		logger   *slog.Logger
 		userID   string
 		testItem *models.Item
+		tempDir  string
 	)
 
 	BeforeEach(func() {
 		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		var err error
+		tempDir, err = os.MkdirTemp("", "changes_test")
+		Expect(err).NotTo(HaveOccurred())
+
 		cfg := &config.Config{
-			DBPath: ":memory:",
+			DataPath: tempDir,
 		}
 		storage = database.NewStorage(logger, cfg)
 		Expect(storage.Open()).To(Succeed())
@@ -41,6 +46,7 @@ var _ = Describe("Storage Change Tracking", func() {
 
 	AfterEach(func() {
 		storage.Close()
+		os.RemoveAll(tempDir)
 	})
 
 	Describe("CreateChangeRecord", func() {

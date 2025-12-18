@@ -91,7 +91,7 @@ func (s *AssetsAPIServiceImpl) validateAndCleanPath(path, userID string) (string
 // validateAssetPath constructs and validates the asset path is within user directory
 func (s *AssetsAPIServiceImpl) validateAssetPath(cleanPath, userID string) (string, *goserver.ImplResponse) {
 	// Construct the full path to the user's asset
-	userAssetBasePath := filepath.Join(s.cfg.AssetPath, userID)
+	userAssetBasePath := filepath.Join(s.cfg.DataPath, config.AssetsDirName, userID)
 	userAssetPath := filepath.Join(userAssetBasePath, cleanPath)
 
 	// Ensure the resolved path is still within the user's asset directory
@@ -161,7 +161,7 @@ func (s *AssetsAPIServiceImpl) UploadAsset(ctx context.Context, asset *os.File) 
 	defer asset.Close()
 
 	// Create user asset directory if it doesn't exist
-	userAssetPath := filepath.Join(s.cfg.AssetPath, userID)
+	userAssetPath := filepath.Join(s.cfg.DataPath, config.AssetsDirName, userID)
 	if err := os.MkdirAll(userAssetPath, 0o755); err != nil {
 		s.logger.Error("Failed to create user asset directory", "error", err, "path", userAssetPath, "userID", userID)
 		return goserver.Response(http.StatusInternalServerError, nil), nil

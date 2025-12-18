@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/server/assets"
 )
 
@@ -33,7 +34,7 @@ func (r *WebAppRouter) uploadHandler(w http.ResponseWriter, req *http.Request) {
 	defer asset.Close()
 
 	// Save the file to the server
-	userAssetPath := filepath.Join(r.cfg.AssetPath, userID)
+	userAssetPath := filepath.Join(r.cfg.DataPath, config.AssetsDirName, userID)
 	if err = os.MkdirAll(userAssetPath, 0o755); err != nil {
 		r.logger.Error("Failed to create directory", "error", err, "path", userAssetPath)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -82,7 +83,7 @@ func (r *WebAppRouter) uploadBatchHandler(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	userAssetPath := filepath.Join(r.cfg.AssetPath, userID)
+	userAssetPath := filepath.Join(r.cfg.DataPath, config.AssetsDirName, userID)
 	if err = os.MkdirAll(userAssetPath, 0o755); err != nil {
 		r.logger.Error("Failed to create directory", "error", err, "path", userAssetPath)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

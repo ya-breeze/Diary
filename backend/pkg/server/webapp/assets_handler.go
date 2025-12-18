@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+
+	"github.com/ya-breeze/diary.be/pkg/config"
 )
 
 func (r *WebAppRouter) assetsHandler(w http.ResponseWriter, req *http.Request) {
@@ -14,7 +16,7 @@ func (r *WebAppRouter) assetsHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	userAsset := filepath.Join(r.cfg.AssetPath, userID, strings.TrimPrefix(req.URL.Path, "/web/assets/"))
+	userAsset := filepath.Join(r.cfg.DataPath, config.AssetsDirName, userID, strings.TrimPrefix(req.URL.Path, "/web/assets/"))
 	r.logger.Info("Serving asset", "path", userAsset)
 	http.ServeFile(w, req, userAsset)
 }

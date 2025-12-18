@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -65,9 +66,10 @@ func NewStorage(logger *slog.Logger, cfg *config.Config) Storage {
 }
 
 func (s *storage) Open() error {
-	s.log.Info("Opening database", "path", s.cfg.DBPath)
+	dbPath := filepath.Join(s.cfg.DataPath, config.DBFilename)
+	s.log.Info("Opening database", "path", dbPath)
 	var err error
-	s.db, err = openSqlite(s.log, s.cfg.DBPath, s.cfg.Verbose)
+	s.db, err = openSqlite(s.log, dbPath, s.cfg.Verbose)
 	if err != nil {
 		s.log.Error("failed to connect database", "error", err)
 		panic("failed to connect database")
