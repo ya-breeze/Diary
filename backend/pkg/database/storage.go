@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -71,6 +72,26 @@ func (s *storage) Open() error {
 	var err error
 	s.db, err = openSqlite(s.log, dbPath, s.cfg.Verbose)
 	if err != nil {
+		if strings.Contains(err.Error(), "no such file or directory") {
+			// Check if the directory exists
+			dir := filepath.Dir(dbPath)
+			if _, statErr := os.Stat(dir); os.IsNotExist(statErr) {
+				s.log.Error("database directory does not exist", "dir", dir)
+			} else {
+				s.log.Error("database file not found in directory", "path", dbPath)
+				// List files in the directory to help debugging
+				if files, readErr := os.ReadDir(dir); readErr == nil {
+					var fileNames []string
+					for i, f := range files {
+						if i >= 5 {
+							break
+						}
+						fileNames = append(fileNames, f.Name())
+					}
+					s.log.Info("files in database directory", "files", fileNames)
+				}
+			}
+		}
 		s.log.Error("failed to connect database", "error", err)
 		panic("failed to connect database")
 	}
