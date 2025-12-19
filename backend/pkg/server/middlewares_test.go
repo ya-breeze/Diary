@@ -9,12 +9,115 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/gorilla/sessions"
+	"github.com/ya-breeze/diary.be/pkg/auth"
+	"github.com/ya-breeze/diary.be/pkg/config"
 )
 
 func TestMiddlewares(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Middlewares")
 }
+
+var _ = Describe("AuthMiddleware", func() {
+	var (
+		logger    *slog.Logger
+		cfg       *config.Config
+		jwtSecret string
+		issuer    string
+	)
+
+	BeforeEach(func() {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		jwtSecret = "secret"
+		issuer = "issuer"
+		cfg = &config.Config{
+			JWTSecret:     jwtSecret,
+			Issuer:        issuer,
+			CookieName:    "diarycookie",
+			SessionSecret: "session-secret",
+		}
+	})
+
+	Context("when authenticating requests", func() {
+		It("should allow request with valid Authorization header", func() {
+			middleware := AuthMiddleware(logger, cfg)
+			handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			token, err := auth.CreateJWT("user123", issuer, jwtSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			req := httptest.NewRequest("GET", "/v1/items", nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+			w := httptest.NewRecorder()
+
+			handler.ServeHTTP(w, req)
+			Expect(w.Code).To(Equal(http.StatusOK))
+		})
+
+		It("should allow request with valid Session Cookie", func() {
+			middleware := AuthMiddleware(logger, cfg)
+			handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			token, err := auth.CreateJWT("user123", issuer, jwtSecret)
+			Expect(err).NotTo(HaveOccurred())
+
+			req := httptest.NewRequest("GET", "/v1/media/123", nil)
+
+			// Set up the cookie
+			store := sessions.NewCookieStore([]byte(cfg.SessionSecret))
+			session, _ := store.Get(req, cfg.CookieName)
+			session.Values["token"] = token
+
+			// We need to encode the cookie and set it in the request header
+			// The easiest way is to use the store to save it to a response recorder, then steal the cookie
+			rec := httptest.NewRecorder()
+			session.Save(req, rec)
+
+			// Copy the Set-Cookie header to the Cookie header of the request
+			for _, cookie := range rec.Result().Cookies() {
+				req.AddCookie(cookie)
+			}
+
+			w := httptest.NewRecorder()
+
+			handler.ServeHTTP(w, req)
+			Expect(w.Code).To(Equal(http.StatusOK))
+		})
+
+		It("should reject request with no auth", func() {
+			middleware := AuthMiddleware(logger, cfg)
+			handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			req := httptest.NewRequest("GET", "/v1/items", nil)
+			w := httptest.NewRecorder()
+
+			handler.ServeHTTP(w, req)
+			Expect(w.Code).To(Equal(http.StatusUnauthorized))
+		})
+
+		It("should reject request with invalid token", func() {
+			middleware := AuthMiddleware(logger, cfg)
+			handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+
+			req := httptest.NewRequest("GET", "/v1/items", nil)
+			req.Header.Set("Authorization", "Bearer invalid-token")
+			w := httptest.NewRecorder()
+
+			handler.ServeHTTP(w, req)
+			Expect(w.Code).To(Equal(http.StatusUnauthorized))
+		})
+	})
+})
 
 var _ = Describe("RateLimitMiddleware", func() {
 	var (

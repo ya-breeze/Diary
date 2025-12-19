@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"github.com/ya-breeze/diary.be/pkg/auth"
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/server/common"
@@ -17,6 +18,9 @@ import (
 )
 
 func AuthMiddleware(logger *slog.Logger, cfg *config.Config) mux.MiddlewareFunc {
+	// Initialize cookie store
+	cookieStore := sessions.NewCookieStore([]byte(cfg.SessionSecret))
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(writer http.ResponseWriter, req *http.Request) {
 			log.Printf(
@@ -37,30 +41,45 @@ func AuthMiddleware(logger *slog.Logger, cfg *config.Config) mux.MiddlewareFunc 
 				return
 			}
 
-			checkToken(logger, cfg.Issuer, cfg.JWTSecret, next, writer, req)
+			checkToken(logger, cfg.Issuer, cfg.JWTSecret, cfg.CookieName, cookieStore, next, writer, req)
 		})
 	}
 }
 
 func checkToken(
-	logger *slog.Logger, issuer, jwtSecret string, next http.Handler,
-	writer http.ResponseWriter, req *http.Request,
+	logger *slog.Logger, issuer, jwtSecret, cookieName string, cookieStore *sessions.CookieStore,
+	next http.Handler, writer http.ResponseWriter, req *http.Request,
 ) {
-	// Authorization logic - only check Authorization header
+	var token string
+
+	// 1. Try Authorization header
 	authHeader := req.Header.Get("Authorization")
-	if authHeader == "" {
+	if authHeader != "" {
+		authHeaderParts := strings.Split(authHeader, " ")
+		if len(authHeaderParts) == 2 && authHeaderParts[0] == "Bearer" {
+			token = authHeaderParts[1]
+		}
+	}
+
+	// 2. Try Session Cookie if header is missing
+	if token == "" {
+		if cookieName == "" {
+			cookieName = "diarycookie"
+		}
+		if session, err := cookieStore.Get(req, cookieName); err == nil {
+			if t, ok := session.Values["token"].(string); ok {
+				token = t
+			}
+		}
+	}
+
+	if token == "" {
 		http.Error(writer, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	authHeaderParts := strings.Split(authHeader, " ")
-	if len(authHeaderParts) != 2 || authHeaderParts[0] != "Bearer" {
-		http.Error(writer, "Invalid authorization header", http.StatusUnauthorized)
-		return
-	}
-	bearerToken := authHeaderParts[1]
 
 	// Parse the token
-	userID, err := auth.CheckJWT(bearerToken, issuer, jwtSecret)
+	userID, err := auth.CheckJWT(token, issuer, jwtSecret)
 	if err != nil {
 		logger.With("err", err).Warn("Invalid token")
 		http.Error(writer, "Invalid token", http.StatusUnauthorized)
@@ -68,7 +87,7 @@ func checkToken(
 	}
 
 	// Log successful authentication with user ID
-	logger.Info("Request authenticated", "userID", userID, "source", "header", "path", req.URL.Path, "method", req.Method)
+	logger.Info("Request authenticated", "userID", userID, "path", req.URL.Path, "method", req.Method)
 
 	req = req.WithContext(context.WithValue(req.Context(), common.UserIDKey, userID))
 	next.ServeHTTP(writer, req)
