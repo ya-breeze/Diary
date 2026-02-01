@@ -46,7 +46,6 @@ func AssertItemsRequestRequired(obj ItemsRequest) error {
 	elements := map[string]interface{}{
 		"date":  obj.Date,
 		"title": obj.Title,
-		"body":  obj.Body,
 	}
 	for name, el := range elements {
 		if isZero := IsZeroValue(el); isZero {

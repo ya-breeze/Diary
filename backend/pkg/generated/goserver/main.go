@@ -41,35 +41,41 @@ func Serve(ctx context.Context, logger *slog.Logger, cfg *config.Config,
 	}
 	logger.Info(fmt.Sprintf("Listening at port %d...", listener.Addr().(*net.TCPAddr).Port))
 
+	// Custom error handler that logs errors
+	errorHandler := func(w http.ResponseWriter, r *http.Request, err error, result *ImplResponse) {
+		logger.Error("API error", "error", err, "path", r.URL.Path, "method", r.Method)
+		DefaultErrorHandler(w, r, err, result)
+	}
+
 	AssetsAPIService := NewAssetsAPIService()
 	if controllers.AssetsAPIService != nil {
 		AssetsAPIService = controllers.AssetsAPIService
 	}
-	AssetsAPIController := NewAssetsAPIController(AssetsAPIService)
+	AssetsAPIController := NewAssetsAPIController(AssetsAPIService, WithAssetsAPIErrorHandler(errorHandler))
 
 	AuthAPIService := NewAuthAPIService()
 	if controllers.AuthAPIService != nil {
 		AuthAPIService = controllers.AuthAPIService
 	}
-	AuthAPIController := NewAuthAPIController(AuthAPIService)
+	AuthAPIController := NewAuthAPIController(AuthAPIService, WithAuthAPIErrorHandler(errorHandler))
 
 	ItemsAPIService := NewItemsAPIService()
 	if controllers.ItemsAPIService != nil {
 		ItemsAPIService = controllers.ItemsAPIService
 	}
-	ItemsAPIController := NewItemsAPIController(ItemsAPIService)
+	ItemsAPIController := NewItemsAPIController(ItemsAPIService, WithItemsAPIErrorHandler(errorHandler))
 
 	SyncAPIService := NewSyncAPIService()
 	if controllers.SyncAPIService != nil {
 		SyncAPIService = controllers.SyncAPIService
 	}
-	SyncAPIController := NewSyncAPIController(SyncAPIService)
+	SyncAPIController := NewSyncAPIController(SyncAPIService, WithSyncAPIErrorHandler(errorHandler))
 
 	UserAPIService := NewUserAPIService()
 	if controllers.UserAPIService != nil {
 		UserAPIService = controllers.UserAPIService
 	}
-	UserAPIController := NewUserAPIController(UserAPIService)
+	UserAPIController := NewUserAPIController(UserAPIService, WithUserAPIErrorHandler(errorHandler))
 
 	routers := append(extraRouters, AssetsAPIController, AuthAPIController, ItemsAPIController, SyncAPIController, UserAPIController)
 	router := NewRouter(routers...)
@@ -101,7 +107,8 @@ func Serve(ctx context.Context, logger *slog.Logger, cfg *config.Config,
 	go func() {
 		<-ctx.Done()
 		logger.Info("Shutting down server...")
-		timeout, _ := context.WithTimeout(context.Background(), 5*time.Second)
+		timeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 		server.Shutdown(timeout)
 		finishChan <- 1
 		logger.Info("Server stopped")

@@ -109,30 +109,13 @@ export default function DiaryEntryPage() {
 
       {/* Edit modal/page */}
       {isEditing && (
-        isMobile ? (
-          // Full-screen on mobile
-          <div className="fixed inset-0 z-50 bg-white dark:bg-zinc-900">
-            <EntryEditor
-              entry={entry}
-              onClose={handleCloseEdit}
-              onSave={handleSaved}
-            />
-          </div>
-        ) : (
-          // Modal on tablet/desktop
-          <Modal
-            isOpen={isEditing}
+        <div className="fixed inset-0 z-50 bg-white dark:bg-zinc-900">
+          <EntryEditor
+            entry={entry}
             onClose={handleCloseEdit}
-            fullScreenOnMobile={false}
-            className="h-[90vh] max-h-[800px] w-full max-w-3xl overflow-hidden"
-          >
-            <EntryEditor
-              entry={entry}
-              onClose={handleCloseEdit}
-              onSave={handleSaved}
-            />
-          </Modal>
-        )
+            onSave={handleSaved}
+          />
+        </div>
       )}
     </>
   );
