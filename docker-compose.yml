@@ -30,8 +30,8 @@ services:
   # Frontend - Next.js
   frontend:
     build:
-      context: .
-      dockerfile: next-frontend/Dockerfile
+      context: ./next-frontend
+      dockerfile: Dockerfile
     container_name: diary-frontend
     restart: unless-stopped
     environment:
