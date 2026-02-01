@@ -36,7 +36,7 @@ export default function LoginPage() {
     try {
       await login(data);
       router.push('/diary');
-    } catch (err) {
+    } catch {
       setSubmitError(error || 'Login failed. Please check your credentials.');
     }
   };

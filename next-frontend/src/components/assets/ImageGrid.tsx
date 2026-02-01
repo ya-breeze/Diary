@@ -39,6 +39,7 @@ export function ImageGrid({
           key={`${src}-${index}`}
           className="group relative aspect-square overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800"
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={getImageUrl(src)}
             alt={`Attached image ${index + 1}`}

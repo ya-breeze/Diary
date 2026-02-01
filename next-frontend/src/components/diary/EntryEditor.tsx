@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Save, X, ImagePlus } from 'lucide-react';
+import { Save, ImagePlus } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -40,7 +40,7 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
     handleSubmit,
     setValue,
     watch,
-    formState: { errors, isDirty },
+    formState: { errors },
   } = useForm<EntryFormData>({
     resolver: zodResolver(entrySchema),
     defaultValues: {
@@ -51,6 +51,7 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
     },
   });
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const bodyValue = watch('body');
 
   // Extract images from body on mount

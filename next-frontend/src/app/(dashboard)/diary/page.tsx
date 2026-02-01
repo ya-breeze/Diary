@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { EntryCard } from '@/components/layout';
@@ -14,7 +14,7 @@ export default function DiaryListPage() {
   const { data, isLoading } = useDiaryEntries();
   const isMobile = useIsMobile();
 
-  const entries = data?.items || [];
+  const entries = useMemo(() => data?.items || [], [data?.items]);
 
   // On desktop, redirect to first entry or today
   useEffect(() => {

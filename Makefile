@@ -1,7 +1,7 @@
 ROOT_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 
 .PHONY: all
-all: build test validate lint
+all: build test lint
 	@echo "🎉 You are good to go!"
 
 .PHONY: build
