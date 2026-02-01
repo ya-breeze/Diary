@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'My Journal',
+  title: 'Diary',
   description: 'A personal diary application',
 };
 

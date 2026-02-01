@@ -42,7 +42,7 @@ export function Sidebar({ selectedDate, onSelectEntry, className }: SidebarProps
         <div className="flex items-center gap-2 mb-4">
           <BookOpen className="h-6 w-6 text-zinc-900 dark:text-white" />
           <h1 className="text-xl font-semibold text-zinc-900 dark:text-white">
-            My Journal
+            Diary
           </h1>
         </div>
 

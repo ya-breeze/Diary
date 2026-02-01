@@ -16,11 +16,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for auth token in cookies
-  const token = request.cookies.get('diarycookie')?.value;
-
-  // For client-side auth, we'll also check localStorage via the auth store
-  // The middleware primarily handles initial navigation protection
+  // Middlewareprimarily handles initial navigation protection
   // Client-side will handle the actual auth validation
 
   return NextResponse.next();

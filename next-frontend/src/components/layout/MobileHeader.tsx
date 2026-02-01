@@ -11,7 +11,7 @@ export interface MobileHeaderProps {
 }
 
 export function MobileHeader({
-  title = 'My Journal',
+  title = 'Diary',
   onMenuClick,
   className,
   rightContent,

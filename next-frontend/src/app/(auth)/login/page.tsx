@@ -52,7 +52,7 @@ export default function LoginPage() {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-zinc-900 dark:text-white">
-            My Journal
+            Diary
           </h1>
           <p className="mt-2 text-zinc-600 dark:text-zinc-400">
             Sign in to your account
