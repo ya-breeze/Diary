@@ -27,9 +27,6 @@ run-backend:
 run-frontend:
 	@cd ${ROOT_DIR}/next-frontend && npm run dev
 
-.PHONY: run-frontend-legacy
-run-frontend-legacy:
-	@cd ${ROOT_DIR}/frontend && npm run start
 
 .PHONY: replace-templates
 replace-templates:
@@ -53,7 +50,7 @@ generate_mocks: generate
 generate:
 	@echo "🚀 Generating code from OpenAPI spec..."
 	@cd ${ROOT_DIR}/backend; \
-		rm -rf pkg/generated/goclient pkg/generated/goserver pkg/generated/angular; \
+		rm -rf pkg/generated/goclient pkg/generated/goserver; \
 		mkdir -p pkg/generated/goclient pkg/generated/goserver; \
 		docker run --rm -u 1000 -v ${HOST_PWD}:/local \
 			openapitools/openapi-generator-cli generate \

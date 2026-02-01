@@ -50,23 +50,23 @@ The application consists of two main components:
 - **Testing**: Ginkgo/Gomega
 - **Location**: `backend/`
 
-### Frontend (Angular)
+### Frontend (Next.js)
 
-- **Framework**: Angular 20+
-- **Language**: TypeScript 5.8 (strict mode)
-- **State Management**: Angular Signals + RxJS 7.8
-- **Architecture**: Standalone components (no NgModules)
-- **Testing**: Jasmine + Karma
-- **Location**: `frontend/`
+- **Framework**: Next.js 16+ (App Router)
+- **Language**: TypeScript 5+
+- **State Management**: Zustand
+- **Styling**: Tailwind CSS
+- **Testing**: Vitest / Playwright
+- **Location**: `next-frontend/`
 
 ### Layered Architecture
 
 ```
 ┌─────────────────────────────────────────┐
-│         Frontend (Angular)              │
+│         Frontend (Next.js)              │
 │  ┌─────────────────────────────────┐   │
-│  │  Components & Services          │   │
-│  │  (Signals, RxJS, HTTP)          │   │
+│  │  Components & Hooks             │   │
+│  │  (React, Zustand, Fetch)        │   │
 │  └─────────────────────────────────┘   │
 └─────────────────┬───────────────────────┘
                   │ HTTP/REST

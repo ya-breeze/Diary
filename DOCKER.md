@@ -7,7 +7,7 @@ This guide explains how to deploy the Diary application using Docker Compose wit
 The Docker Compose setup consists of three containers:
 
 1. **Backend Container**: Go API server running on port 8080 (internal)
-2. **Frontend Container**: Nginx serving Angular static files on port 4200 (internal)
+2. **Frontend Container**: Next.js server running on port 3000 (internal)
 3. **Nginx Proxy Container**: Reverse proxy listening on ports 80/443 (external)
 
 ### Request Flow
@@ -19,7 +19,7 @@ Nginx Proxy (Port 80/443)
     ↓
     ├─→ /v1/* → Backend Container (Go API)
     ├─→ /web/* → Backend Container (Web Interface)
-    └─→ /* → Frontend Container (Angular App)
+    └─→ /* → Frontend Container (Next.js App)
 ```
 
 ## Quick Start
@@ -82,11 +82,11 @@ Default credentials:
 
 ### Frontend Configuration
 
-| Variable  | Description                                  | Default |
-| --------- | -------------------------------------------- | ------- |
-| `API_URL` | API URL for frontend (runtime configuration) | /v1     |
+| Variable              | Description                       | Default |
+| --------------------- | --------------------------------- | ------- |
+| `NEXT_PUBLIC_API_URL` | API URL for frontend (browser side)| /api    |
 
-**Note**: The frontend uses runtime configuration, so you can change the API URL without rebuilding the image. Use a relative path (`/v1`) when behind the Nginx proxy, or a full URL (`http://backend:8080/v1`) for direct access.
+**Note**: The frontend uses `NEXT_PUBLIC_API_URL` to determine the API endpoint. Use a relative path (`/api`) when behind the Nginx proxy, or a full URL (`http://localhost:8080/v1`) for direct access.
 
 ### Backend Configuration
 
