@@ -57,10 +57,7 @@ func (c *CustomAuthAPIController) setSessionToken(w http.ResponseWriter, req *ht
 		cookieName = "diarycookie"
 	}
 
-	session, err := c.cookies.Get(req, cookieName)
-	if err != nil {
-		return err
-	}
+	session, _ := c.cookies.Get(req, cookieName)
 	session.Values["token"] = token
 	// Ensure option fields are set from config
 	c.configureSessionOptions(session)
@@ -129,10 +126,7 @@ func (c *CustomAuthAPIController) clearSessionToken(w http.ResponseWriter, req *
 		cookieName = "diarycookie"
 	}
 
-	session, err := c.cookies.Get(req, cookieName)
-	if err != nil {
-		return err
-	}
+	session, _ := c.cookies.Get(req, cookieName)
 
 	c.configureSessionOptions(session)
 	session.Options.MaxAge = -1

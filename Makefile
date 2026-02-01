@@ -9,7 +9,7 @@ build:
 	@echo "🚀 Building backend..."
 	@cd ${ROOT_DIR}/backend/cmd && go build -o ../bin/diary
 	@echo "🚀 Building frontend..."
-	@cd ${ROOT_DIR}/frontend && npm run build
+	@cd ${ROOT_DIR}/next-frontend && npm run build
 	@echo "✅ Build complete"
 
 .PHONY: run-backend
@@ -17,11 +17,18 @@ run-backend:
 	@cd ${ROOT_DIR}/backend/cmd && go build -o ../bin/diary
 	@GB_USERS=test@test.com:JDJhJDEwJC9sVWJpTlBYVlZvcU9ZNUxIZmhqYi4vUnRuVkJNaEw4MTQ2VUdFSXRDeE9Ib0ZoVkRLR3pl,test:JDJhJDEwJC9sVWJpTlBYVlZvcU9ZNUxIZmhqYi4vUnRuVkJNaEw4MTQ2VUdFSXRDeE9Ib0ZoVkRLR3pl \
 	GB_COOKIE_SECURE=false \
+	GB_SESSION_SECRET=dev_session_secret_continuous_stable_value \
+	GB_JWT_SECRET=dev_jwt_secret_continuous_stable_value \
 	GB_DATAPATH=$(ROOT_DIR)diary-data \
+	GB_ALLOWEDORIGINS=http://localhost:3000,http://localhost:4200,http://localhost:8080 \
 	${ROOT_DIR}/backend/bin/diary server
 
 .PHONY: run-frontend
 run-frontend:
+	@cd ${ROOT_DIR}/next-frontend && npm run dev
+
+.PHONY: run-frontend-legacy
+run-frontend-legacy:
 	@cd ${ROOT_DIR}/frontend && npm run start
 
 .PHONY: replace-templates
@@ -95,9 +102,8 @@ lint:
 		go tool github.com/golangci/golangci-lint/cmd/golangci-lint run; \
 		go tool mvdan.cc/gofumpt -l -d .
 	@echo "🚀 Linting frontend..."
-	@cd ${ROOT_DIR}/frontend; \
-		npx prettier --write "src/**/*.{ts,html,css,scss,json}"; \
-		npm run lint -- --fix
+	@cd ${ROOT_DIR}/next-frontend; \
+		npm run lint
 	@echo "✅ Lint complete"
 
 .PHONY: test
@@ -105,9 +111,6 @@ test:
 	@echo "🚀 Running backend tests..."
 	@cd ${ROOT_DIR}/backend; \
 		go tool github.com/onsi/ginkgo/v2/ginkgo -r
-	@echo "🚀 Running frontend tests..."
-	@cd ${ROOT_DIR}/frontend; \
-		npm run test -- --watch=false --browsers=ChromeHeadless
 	@echo "✅ Tests complete"
 
 .PHONY: watch
@@ -134,26 +137,24 @@ check-deps:
 .PHONE: install
 install: check-deps
 	cd ${ROOT_DIR}/backend && go mod download
-	cd ${ROOT_DIR}/frontend && npm install
+	cd ${ROOT_DIR}/next-frontend && npm install
 
 .PHONE: clean
 clean:
 	@echo "🚀 Cleaning backend..."
 	@cd ${ROOT_DIR}/backend && go clean
 	@echo "🚀 Cleaning frontend..."
-	@cd ${ROOT_DIR}/frontend; \
-		rm -rf dist/; \
+	@cd ${ROOT_DIR}/next-frontend; \
+		rm -rf .next/; \
 		rm -rf node_modules/; \
-		rm -rf coverage/; \
 		npm cache clean --force
 	@echo "✅ Clean complete"
 
 .PHONE: analyze
 analyze:
 	@echo "📈 Analyzing bundle size..."
-	@cd ${ROOT_DIR}/frontend; \
-		npm run build -- --stats-json; \
-		npx webpack-bundle-analyzer dist/stats.json
+	@cd ${ROOT_DIR}/next-frontend; \
+		ANALYZE=true npm run build
 	@echo "✅ Analysis complete"
 
 # ============================================
