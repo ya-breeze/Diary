@@ -32,6 +32,8 @@ services:
     build:
       context: ./next-frontend
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-/api}
     container_name: diary-frontend
     restart: unless-stopped
     environment:

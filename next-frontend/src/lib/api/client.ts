@@ -1,6 +1,6 @@
 import { ApiError } from '@/types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 interface FetchOptions extends Omit<RequestInit, 'body'> {
   params?: Record<string, string | undefined>;
