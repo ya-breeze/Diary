@@ -108,17 +108,8 @@ func makeMimeFix(
 	userID, oldPath, newPath, oldName, newName string,
 ) func() error {
 	return func() error {
-		// Idempotent: if target already exists, skip rename
-		if _, err := os.Stat(newPath); err == nil {
-			logger.Info("Target already exists, skipping rename", "target", newPath)
-		} else {
-			if err := os.Rename(oldPath, newPath); err != nil {
-				return fmt.Errorf("renaming %s -> %s: %w", oldPath, newPath, err)
-			}
-			logger.Info("Renamed asset file", "old", oldName, "new", newName)
-		}
-
-		// Update all diary entries for this user that reference the old filename
+		// Update all diary entries for this user that reference the old filename first,
+		// so that a partial failure never leaves the file renamed but DB still pointing to the old name.
 		items, _, err := db.GetItems(userID, database.SearchParams{SearchText: oldName})
 		if err != nil {
 			return fmt.Errorf("querying items for user %s: %w", userID, err)
@@ -134,7 +125,17 @@ func makeMimeFix(
 			logger.Info("Updated item body", "date", item.Date, "old", oldName, "new", newName)
 		}
 
-		// Also check DataPath for assets stored directly (outside DB) - not needed here
+		// Rename the file only after all DB entries have been updated successfully.
+		// Idempotent: if target already exists, skip rename.
+		if _, err := os.Stat(newPath); err == nil {
+			logger.Info("Target already exists, skipping rename", "target", newPath)
+		} else {
+			if err := os.Rename(oldPath, newPath); err != nil {
+				return fmt.Errorf("renaming %s -> %s: %w", oldPath, newPath, err)
+			}
+			logger.Info("Renamed asset file", "old", oldName, "new", newName)
+		}
+
 		_ = cfg
 		return nil
 	}

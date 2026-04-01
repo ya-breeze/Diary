@@ -21,7 +21,12 @@ type Issue struct {
 }
 
 // Fix runs the automated repair for this issue.
-func (i *Issue) Fix() error { return i.fix() }
+func (i *Issue) Fix() error {
+	if i.fix == nil {
+		return nil
+	}
+	return i.fix()
+}
 
 // Check is the interface every health check must implement.
 type Check interface {
@@ -40,9 +45,10 @@ func NewRunner(logger *slog.Logger, checks []Check) *Runner {
 }
 
 // RunForUser executes all checks and filters results to the given userID.
-// If fix is true, automated fixes are applied for matching issues.
+// If fix is true, automated fixes are applied only for that user's issues.
 func (r *Runner) RunForUser(db database.Storage, cfg *config.Config, userID string, fix bool) ([]Issue, error) {
-	all, err := r.Run(db, cfg, fix, io.Discard, false)
+	// Always run without fix to avoid touching other users' data
+	all, err := r.Run(db, cfg, false, io.Discard, false)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +56,20 @@ func (r *Runner) RunForUser(db database.Storage, cfg *config.Config, userID stri
 	for _, i := range all {
 		if i.UserID == userID {
 			filtered = append(filtered, i)
+		}
+	}
+	if fix {
+		for idx := range filtered {
+			if !filtered[idx].Fixable {
+				continue
+			}
+			if err := filtered[idx].Fix(); err != nil {
+				r.logger.Error("Fix failed", "check", filtered[idx].Check, "path", filtered[idx].Path, "error", err)
+				continue
+			}
+			r.logger.Info("Fixed", "check", filtered[idx].Check, "path", filtered[idx].Path)
+			filtered[idx].Fixable = false
+			filtered[idx].fix = nil
 		}
 	}
 	return filtered, nil

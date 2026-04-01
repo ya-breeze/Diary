@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -71,17 +72,21 @@ Exits with code 0 if no issues are found, 1 if issues exist.`,
 				return err
 			}
 
-			if len(issues) > 0 {
-				// After fixing, check if any issues remain unfixed
-				remaining := 0
-				for _, i := range issues {
-					if i.Fixable {
-						remaining++
-					}
-				}
-				if !fix || remaining > 0 {
-					os.Exit(1)
-				}
+			if len(issues) == 0 {
+				return nil
+			}
+
+			if !fix {
+				return fmt.Errorf("found %d issue(s) — run with --fix to repair fixable ones", len(issues))
+			}
+
+			// After fixing, re-scan silently to count what truly remains
+			remaining, err := runner.Run(db, cfg, false, io.Discard, false)
+			if err != nil {
+				return err
+			}
+			if len(remaining) > 0 {
+				return fmt.Errorf("%d issue(s) remain after fix", len(remaining))
 			}
 
 			return nil

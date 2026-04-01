@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"sync"
@@ -91,7 +92,10 @@ func (t *CheckerTask) GetIssues(userID string) *UserResult {
 // RunFix re-runs the named checks with fix=true for a specific user, then re-scans to get clean results.
 // If checks is empty, all checks are run.
 func (t *CheckerTask) RunFix(userID string, checks []string) (*UserResult, error) {
-	selected := selectChecks(checks)
+	selected, err := selectChecks(checks)
+	if err != nil {
+		return nil, err
+	}
 	runner := checker.NewRunner(t.logger, selected)
 
 	// First pass: apply fixes
@@ -146,22 +150,21 @@ func (t *CheckerTask) runAll() {
 	t.mu.Unlock()
 }
 
-func selectChecks(names []string) []checker.Check {
+func selectChecks(names []string) ([]checker.Check, error) {
 	if len(names) == 0 {
-		return allChecks
+		return allChecks, nil
 	}
-	nameSet := make(map[string]bool, len(names))
-	for _, n := range names {
-		nameSet[n] = true
+	known := make(map[string]checker.Check, len(allChecks))
+	for _, c := range allChecks {
+		known[c.Name()] = c
 	}
 	var selected []checker.Check
-	for _, c := range allChecks {
-		if nameSet[c.Name()] {
-			selected = append(selected, c)
+	for _, n := range names {
+		c, ok := known[n]
+		if !ok {
+			return nil, fmt.Errorf("unknown check %q (available: mime, orphans, refs)", n)
 		}
+		selected = append(selected, c)
 	}
-	if len(selected) == 0 {
-		return allChecks
-	}
-	return selected
+	return selected, nil
 }
