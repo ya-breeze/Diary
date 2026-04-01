@@ -177,6 +177,48 @@ paths:
         "401":
           description: Unauthorized
 
+  /v1/health/issues:
+    get:
+      tags:
+        - health
+      summary: get storage health issues for current user
+      operationId: getHealthIssues
+      responses:
+        "200":
+          description: health issues for the authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthIssuesResponse"
+        "401":
+          description: Unauthorized
+
+  /v1/health/fix:
+    post:
+      tags:
+        - health
+      summary: fix storage issues for current user
+      operationId: fixHealthIssues
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HealthFixRequest"
+        required: true
+      responses:
+        "200":
+          description: updated health issues after applying fixes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthIssuesResponse"
+        "400":
+          description: Invalid request body
+        "401":
+          description: Unauthorized
+        "500":
+          description: Fix failed
+
   /v1/sync/changes:
     get:
       tags:
@@ -398,6 +440,60 @@ components:
         - date
         - operationType
         - timestamp
+
+    HealthIssue:
+      type: object
+      properties:
+        check:
+          type: string
+          description: Name of the check that found this issue
+          example: "mime"
+        path:
+          type: string
+          description: Filesystem path of the affected asset
+          example: "/data/diary-assets/user-id/abc123.jpg"
+        message:
+          type: string
+          description: Human-readable description of the issue
+          example: "video file saved as .jpg, should be .mp4"
+        fixable:
+          type: boolean
+          description: Whether an automated fix is available
+          example: true
+      required:
+        - check
+        - path
+        - message
+        - fixable
+
+    HealthIssuesResponse:
+      type: object
+      properties:
+        issues:
+          type: array
+          items:
+            $ref: "#/components/schemas/HealthIssue"
+          description: List of storage issues found for this user
+        lastChecked:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the last health check ran (null if never run)
+          example: "2026-04-01T12:00:00Z"
+      required:
+        - issues
+
+    HealthFixRequest:
+      type: object
+      properties:
+        checks:
+          type: array
+          items:
+            type: string
+          description: Names of checks to run with fix=true. Empty array runs all checks.
+          example: ["mime"]
+      required:
+        - checks
 
     AssetsBatchFile:
       type: object

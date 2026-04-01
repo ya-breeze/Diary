@@ -49,11 +49,12 @@ func Server(logger *slog.Logger, cfg *config.Config) error {
 	return nil
 }
 
-func createControllers(logger *slog.Logger, cfg *config.Config, db database.Storage) goserver.CustomControllers {
+func createControllers(logger *slog.Logger, cfg *config.Config, db database.Storage, checkerTask *tasks.CheckerTask) goserver.CustomControllers {
 	return goserver.CustomControllers{
 		AuthAPIService:   api.NewAuthAPIService(logger, db, cfg),
 		UserAPIService:   api.NewUserAPIService(logger, db),
 		AssetsAPIService: api.NewAssetsAPIService(logger, cfg),
+		HealthAPIService: api.NewHealthAPIServiceImpl(checkerTask),
 		ItemsAPIService:  api.NewItemsAPIService(logger, db),
 		SyncAPIService:   api.NewSyncAPIService(logger, db),
 	}
@@ -105,17 +106,16 @@ func Serve(
 		logger.Info("No users defined in configuration")
 	}
 
-	// Create controllers
-	controllers := createControllers(logger, cfg, storage)
-
 	// Start background health-check task
 	checkerTask := tasks.NewCheckerTask(logger, storage, cfg)
 	checkerTask.Start(ctx)
 
+	// Create controllers
+	controllers := createControllers(logger, cfg, storage, checkerTask)
+
 	// Add extra routers (webapp + manual batch upload route + custom auth controller with cookie support)
 	extraRouters := []goserver.Router{webapp.NewWebAppRouter(controllers, commit, logger, cfg, storage)}
 	extraRouters = append(extraRouters, api.NewAssetsBatchRouter(logger, cfg))
-	extraRouters = append(extraRouters, api.NewHealthRouter(logger, checkerTask))
 	// Add custom auth controller that sets cookies on login
 	extraRouters = append(extraRouters, api.NewCustomAuthAPIController(controllers.AuthAPIService, logger, cfg))
 
