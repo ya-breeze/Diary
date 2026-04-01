@@ -1,23 +1,27 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import { Plus, BookOpen } from 'lucide-react';
+import { Plus, BookOpen, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { EntryCard } from './EntryCard';
-import { useDiaryEntries } from '@/hooks';
+import { useDiaryEntries, useHealthIssues } from '@/hooks';
 import { getTodayString } from '@/lib/utils/date';
 import type { DiaryEntry } from '@/types';
 
 export interface SidebarProps {
   selectedDate?: string | null;
   onSelectEntry?: (date: string) => void;
+  onHealthClick?: () => void;
   className?: string;
 }
 
-export function Sidebar({ selectedDate, onSelectEntry, className }: SidebarProps) {
+export function Sidebar({ selectedDate, onSelectEntry, onHealthClick, className }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { data, isLoading } = useDiaryEntries();
+  const { data: healthData } = useHealthIssues();
+
+  const issueCount = healthData?.issues?.length ?? 0;
 
   const entries = data?.items || [];
 
@@ -44,6 +48,16 @@ export function Sidebar({ selectedDate, onSelectEntry, className }: SidebarProps
           <h1 className="text-xl font-semibold text-zinc-900 dark:text-white">
             Diary
           </h1>
+          {issueCount > 0 && (
+            <button
+              onClick={onHealthClick}
+              className="relative ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20"
+              title={`${issueCount} storage issue${issueCount > 1 ? 's' : ''}`}
+            >
+              <ShieldAlert className="h-4 w-4" />
+              <span>{issueCount}</span>
+            </button>
+          )}
         </div>
 
         <Button onClick={handleNewEntry} className="w-full gap-2">
@@ -77,3 +91,4 @@ export function Sidebar({ selectedDate, onSelectEntry, className }: SidebarProps
     </aside>
   );
 }
+

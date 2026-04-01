@@ -38,6 +38,7 @@ type Storage interface {
 
 	GetUserID(username string) (string, error)
 	GetUser(userID string) (*models.User, error)
+	GetAllUsers() ([]*models.User, error)
 	CreateUser(username, password string) (*models.User, error)
 	PutUser(user *models.User) error
 
@@ -126,6 +127,14 @@ func (s *storage) CreateUser(username, hashedPassword string) (*models.User, err
 	}
 
 	return &user, nil
+}
+
+func (s *storage) GetAllUsers() ([]*models.User, error) {
+	var users []*models.User
+	if err := s.db.Find(&users).Error; err != nil {
+		return nil, fmt.Errorf(StorageError, err)
+	}
+	return users, nil
 }
 
 func (s *storage) GetUser(userID string) (*models.User, error) {

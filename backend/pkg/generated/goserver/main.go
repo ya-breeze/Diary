@@ -28,6 +28,7 @@ import (
 type CustomControllers struct {
 	AssetsAPIService AssetsAPIService
 	AuthAPIService   AuthAPIService
+	HealthAPIService HealthAPIService
 	ItemsAPIService  ItemsAPIService
 	SyncAPIService   SyncAPIService
 	UserAPIService   UserAPIService
@@ -59,6 +60,12 @@ func Serve(ctx context.Context, logger *slog.Logger, cfg *config.Config,
 	}
 	AuthAPIController := NewAuthAPIController(AuthAPIService, WithAuthAPIErrorHandler(errorHandler))
 
+	HealthAPIService := NewHealthAPIService()
+	if controllers.HealthAPIService != nil {
+		HealthAPIService = controllers.HealthAPIService
+	}
+	HealthAPIController := NewHealthAPIController(HealthAPIService, WithHealthAPIErrorHandler(errorHandler))
+
 	ItemsAPIService := NewItemsAPIService()
 	if controllers.ItemsAPIService != nil {
 		ItemsAPIService = controllers.ItemsAPIService
@@ -77,7 +84,7 @@ func Serve(ctx context.Context, logger *slog.Logger, cfg *config.Config,
 	}
 	UserAPIController := NewUserAPIController(UserAPIService, WithUserAPIErrorHandler(errorHandler))
 
-	routers := append(extraRouters, AssetsAPIController, AuthAPIController, ItemsAPIController, SyncAPIController, UserAPIController)
+	routers := append(extraRouters, AssetsAPIController, AuthAPIController, HealthAPIController, ItemsAPIController, SyncAPIController, UserAPIController)
 	router := NewRouter(routers...)
 
 	router.Use(middlewares...)

@@ -6,13 +6,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"github.com/ya-breeze/diary.be/pkg/config"
-	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
 	"github.com/ya-breeze/diary.be/pkg/server/api"
 	"github.com/ya-breeze/diary.be/pkg/server/common"
 )
@@ -183,113 +181,5 @@ var _ = Describe("AssetsAPIService", func() {
 			})
 		})
 
-		Describe("UploadAsset", func() {
-			Context("when user ID is missing from context", func() {
-				It("should return unauthorized", func() {
-					emptyCtx := context.Background()
-
-					// Create a temporary file to upload
-					tempFile, err := os.CreateTemp("", "upload_test_*.jpg")
-					Expect(err).NotTo(HaveOccurred())
-					defer os.Remove(tempFile.Name())
-					defer tempFile.Close()
-
-					_, err = tempFile.WriteString("test image content")
-					Expect(err).NotTo(HaveOccurred())
-					_, err = tempFile.Seek(0, 0) // Reset file pointer to beginning
-					Expect(err).NotTo(HaveOccurred())
-
-					response, err := service.UploadAsset(emptyCtx, tempFile)
-
-					Expect(err).NotTo(HaveOccurred())
-					Expect(response.Code).To(Equal(http.StatusUnauthorized))
-				})
-			})
-
-			Context("when asset file is nil", func() {
-				It("should return bad request", func() {
-					response, err := service.UploadAsset(ctx, nil)
-
-					Expect(err).NotTo(HaveOccurred())
-					Expect(response.Code).To(Equal(http.StatusBadRequest))
-				})
-			})
-
-			Context("when uploading a valid file", func() {
-				It("should save the file and return the filename", func() {
-					// Create a temporary file to upload
-					tempFile, err := os.CreateTemp("", "upload_test_*.jpg")
-					Expect(err).NotTo(HaveOccurred())
-					defer os.Remove(tempFile.Name())
-					defer tempFile.Close()
-
-					testContent := "test image content for upload"
-					_, err = tempFile.WriteString(testContent)
-					Expect(err).NotTo(HaveOccurred())
-					_, err = tempFile.Seek(0, 0) // Reset file pointer to beginning
-					Expect(err).NotTo(HaveOccurred())
-
-					response, err := service.UploadAsset(ctx, tempFile)
-
-					Expect(err).NotTo(HaveOccurred())
-					Expect(response.Code).To(Equal(http.StatusOK))
-					Expect(response.Body).To(BeAssignableToTypeOf(goserver.PlainTextResponse{}))
-
-					plainTextResponse, ok := response.Body.(goserver.PlainTextResponse)
-					Expect(ok).To(BeTrue(), "Response body should be a PlainTextResponse")
-					filename := plainTextResponse.Text
-					Expect(filename).To(HaveSuffix(".jpg"))
-					Expect(strings.Contains(filename, "-")).To(BeTrue(), "Filename should contain UUID format")
-
-					// Verify the file was actually saved
-					savedFilePath := filepath.Join(tempDir, config.AssetsDirName, userID, filename)
-					Expect(savedFilePath).To(BeAnExistingFile())
-
-					// Verify the content was saved correctly
-					savedContent, err := os.ReadFile(savedFilePath)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(string(savedContent)).To(Equal(testContent))
-				})
-			})
-
-			Context("when user directory doesn't exist", func() {
-				It("should create the directory and save the file", func() {
-					// Use a different user ID to ensure directory doesn't exist
-					newUserID := "new-user-456"
-					newCtx := createContextWithUserIDForAssets(newUserID)
-
-					// Create a temporary file to upload
-					tempFile, err := os.CreateTemp("", "upload_test_*.jpg")
-					Expect(err).NotTo(HaveOccurred())
-					defer os.Remove(tempFile.Name())
-					defer tempFile.Close()
-
-					testContent := "test content for new user"
-					_, err = tempFile.WriteString(testContent)
-					Expect(err).NotTo(HaveOccurred())
-					_, err = tempFile.Seek(0, 0) // Reset file pointer to beginning
-					Expect(err).NotTo(HaveOccurred())
-
-					// Verify directory doesn't exist initially
-					newUserDir := filepath.Join(tempDir, config.AssetsDirName, newUserID)
-					Expect(newUserDir).NotTo(BeAnExistingFile())
-
-					response, err := service.UploadAsset(newCtx, tempFile)
-
-					Expect(err).NotTo(HaveOccurred())
-					Expect(response.Code).To(Equal(http.StatusOK))
-
-					// Verify directory was created
-					Expect(newUserDir).To(BeADirectory())
-
-					// Verify file was saved
-					plainTextResponse, ok := response.Body.(goserver.PlainTextResponse)
-					Expect(ok).To(BeTrue())
-					filename := plainTextResponse.Text
-					savedFilePath := filepath.Join(newUserDir, filename)
-					Expect(savedFilePath).To(BeAnExistingFile())
-				})
-			})
-		})
 	})
 })

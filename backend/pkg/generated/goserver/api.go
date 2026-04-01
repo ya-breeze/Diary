@@ -17,12 +17,28 @@ import (
 	"os"
 )
 
+// HealthAPIRouter defines the required methods for binding the api requests to a responses for the HealthAPI
+// The HealthAPIRouter implementation should parse necessary information from the http request,
+// pass the data to a HealthAPIServicer to perform the required actions, then write the service results to the http response.
+type HealthAPIRouter interface {
+	GetHealthIssues(http.ResponseWriter, *http.Request)
+	FixHealthIssues(http.ResponseWriter, *http.Request)
+}
+
+// HealthAPIServicer defines the api actions for the HealthAPI service
+// This interface intended to stay up to date with the openapi yaml used to generate it,
+// while the service implementation can be ignored with the .openapi-generator-ignore file
+// and updated with the logic required for the API.
+type HealthAPIServicer interface {
+	GetHealthIssues(context.Context) (ImplResponse, error)
+	FixHealthIssues(context.Context, HealthFixRequest) (ImplResponse, error)
+}
+
 // AssetsAPIRouter defines the required methods for binding the api requests to a responses for the AssetsAPI
 // The AssetsAPIRouter implementation should parse necessary information from the http request,
 // pass the data to a AssetsAPIServicer to perform the required actions, then write the service results to the http response.
 type AssetsAPIRouter interface {
 	GetAsset(http.ResponseWriter, *http.Request)
-	UploadAsset(http.ResponseWriter, *http.Request)
 	UploadAssetsBatch(http.ResponseWriter, *http.Request)
 }
 
@@ -61,7 +77,6 @@ type UserAPIRouter interface {
 // and updated with the logic required for the API.
 type AssetsAPIServicer interface {
 	GetAsset(context.Context, string) (ImplResponse, error)
-	UploadAsset(context.Context, *os.File) (ImplResponse, error)
 	UploadAssetsBatch(context.Context, []*os.File) (ImplResponse, error)
 }
 
