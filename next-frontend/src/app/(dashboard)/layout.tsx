@@ -53,7 +53,10 @@ export default function DashboardLayout({
     <div className="flex h-screen bg-white dark:bg-zinc-950">
       {/* Desktop Sidebar - always visible */}
       {isDesktop && (
-        <Sidebar className="hidden w-[300px] flex-shrink-0 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 lg:flex" />
+        <Sidebar
+          className="hidden w-[300px] flex-shrink-0 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 lg:flex"
+          onHealthClick={() => setHealthOpen(true)}
+        />
       )}
 
       {/* Tablet/Mobile Sidebar - drawer */}
@@ -62,6 +65,7 @@ export default function DashboardLayout({
           <Sidebar
             className="flex h-full flex-col"
             onSelectEntry={() => setSidebarOpen(false)}
+            onHealthClick={() => { setSidebarOpen(false); setHealthOpen(true); }}
           />
         </Drawer>
       )}

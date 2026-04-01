@@ -88,15 +88,23 @@ func (t *CheckerTask) GetIssues(userID string) *UserResult {
 	return t.results[userID]
 }
 
-// RunFix re-runs the named checks with fix=true for a specific user, then refreshes stored results.
+// RunFix re-runs the named checks with fix=true for a specific user, then re-scans to get clean results.
 // If checks is empty, all checks are run.
 func (t *CheckerTask) RunFix(userID string, checks []string) (*UserResult, error) {
 	selected := selectChecks(checks)
 	runner := checker.NewRunner(t.logger, selected)
-	issues, err := runner.RunForUser(t.db, t.cfg, userID, true)
+
+	// First pass: apply fixes
+	if _, err := runner.RunForUser(t.db, t.cfg, userID, true); err != nil {
+		return nil, err
+	}
+
+	// Second pass: re-scan to get true current state (fixed issues should be gone)
+	issues, err := runner.RunForUser(t.db, t.cfg, userID, false)
 	if err != nil {
 		return nil, err
 	}
+
 	result := &UserResult{Issues: issues, LastChecked: time.Now()}
 	t.mu.Lock()
 	t.results[userID] = result

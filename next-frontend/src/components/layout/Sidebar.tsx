@@ -1,11 +1,9 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Plus, BookOpen, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { EntryCard } from './EntryCard';
-import { HealthPanel } from '@/components/health/HealthPanel';
 import { useDiaryEntries, useHealthIssues } from '@/hooks';
 import { getTodayString } from '@/lib/utils/date';
 import type { DiaryEntry } from '@/types';
@@ -13,15 +11,15 @@ import type { DiaryEntry } from '@/types';
 export interface SidebarProps {
   selectedDate?: string | null;
   onSelectEntry?: (date: string) => void;
+  onHealthClick?: () => void;
   className?: string;
 }
 
-export function Sidebar({ selectedDate, onSelectEntry, className }: SidebarProps) {
+export function Sidebar({ selectedDate, onSelectEntry, onHealthClick, className }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { data, isLoading } = useDiaryEntries();
   const { data: healthData } = useHealthIssues();
-  const [healthOpen, setHealthOpen] = useState(false);
 
   const issueCount = healthData?.issues?.length ?? 0;
 
@@ -42,7 +40,6 @@ export function Sidebar({ selectedDate, onSelectEntry, className }: SidebarProps
   const currentSelectedDate = selectedDate ?? pathname?.match(/\/diary\/(\d{4}-\d{2}-\d{2})/)?.[1];
 
   return (
-    <>
     <aside className={className}>
       {/* Header */}
       <div className="p-4 border-b border-zinc-200 dark:border-zinc-800">
@@ -53,7 +50,7 @@ export function Sidebar({ selectedDate, onSelectEntry, className }: SidebarProps
           </h1>
           {issueCount > 0 && (
             <button
-              onClick={() => setHealthOpen(true)}
+              onClick={onHealthClick}
               className="relative ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20"
               title={`${issueCount} storage issue${issueCount > 1 ? 's' : ''}`}
             >
@@ -92,7 +89,6 @@ export function Sidebar({ selectedDate, onSelectEntry, className }: SidebarProps
         )}
       </div>
     </aside>
-    <HealthPanel isOpen={healthOpen} onClose={() => setHealthOpen(false)} />
-    </>
   );
 }
+
