@@ -16,12 +16,9 @@ type Issue struct {
 	UserID  string `json:"userID"`
 	Path    string `json:"path"`
 	Message string `json:"message"`
-	fixable bool
+	Fixable bool   `json:"fixable"`
 	fix     func() error
 }
-
-// Fixable returns true if this issue has an automated fix.
-func (i *Issue) Fixable() bool { return i.fixable }
 
 // Fix runs the automated repair for this issue.
 func (i *Issue) Fix() error { return i.fix() }
@@ -42,6 +39,22 @@ func NewRunner(logger *slog.Logger, checks []Check) *Runner {
 	return &Runner{checks: checks, logger: logger}
 }
 
+// RunForUser executes all checks and filters results to the given userID.
+// If fix is true, automated fixes are applied for matching issues.
+func (r *Runner) RunForUser(db database.Storage, cfg *config.Config, userID string, fix bool) ([]Issue, error) {
+	all, err := r.Run(db, cfg, fix, io.Discard, false)
+	if err != nil {
+		return nil, err
+	}
+	var filtered []Issue
+	for _, i := range all {
+		if i.UserID == userID {
+			filtered = append(filtered, i)
+		}
+	}
+	return filtered, nil
+}
+
 // Run executes all checks. If fix is true, applies automated fixes.
 // Returns the list of issues found and whether any issues remain after fixing.
 func (r *Runner) Run(db database.Storage, cfg *config.Config, fix bool, w io.Writer, jsonFmt bool) ([]Issue, error) {
@@ -58,7 +71,7 @@ func (r *Runner) Run(db database.Storage, cfg *config.Config, fix bool, w io.Wri
 
 	if fix {
 		for i := range all {
-			if !all[i].Fixable() {
+			if !all[i].Fixable {
 				continue
 			}
 			if err := all[i].Fix(); err != nil {
@@ -66,7 +79,7 @@ func (r *Runner) Run(db database.Storage, cfg *config.Config, fix bool, w io.Wri
 				continue
 			}
 			r.logger.Info("Fixed", "check", all[i].Check, "path", all[i].Path)
-			all[i].fixable = false // mark as resolved
+			all[i].Fixable = false
 			all[i].fix = nil
 		}
 	}
@@ -81,9 +94,9 @@ func (r *Runner) Run(db database.Storage, cfg *config.Config, fix bool, w io.Wri
 		}
 		for _, issue := range all {
 			status := ""
-			if fix && !issue.Fixable() {
+			if fix && !issue.Fixable {
 				status = " [fixed]"
-			} else if issue.Fixable() {
+			} else if issue.Fixable {
 				status = " [fixable]"
 			}
 			fmt.Fprintf(w, "[%s] user=%s path=%s: %s%s\n",

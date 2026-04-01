@@ -26,6 +26,9 @@ type Config struct {
 	MaxPerFileSizeMB    int `mapstructure:"maxperfilesizemb" default:"200"`
 	MaxBatchFiles       int `mapstructure:"maxbatchfiles" default:"100"`
 	MaxBatchTotalSizeMB int `mapstructure:"maxbatchtotalsizemb" default:"1000"`
+
+	// Health check
+	HealthCheckInterval string `mapstructure:"health_check_interval" default:"24h"`
 }
 
 func InitiateConfig(cfgFile string) (*Config, error) {

@@ -62,7 +62,7 @@ func (MimeCheck) Run(db database.Storage, cfg *config.Config, logger *slog.Logge
 				UserID:  userID,
 				Path:    filePath,
 				Message: fmt.Sprintf("video file saved as .jpg, should be %s", ext),
-				fixable: true,
+				Fixable: true,
 				fix:     makeMimeFix(db, cfg, logger, userID, filePath, newPath, oldName, newName),
 			})
 		}

@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ShieldAlert } from 'lucide-react';
 import { Sidebar, MobileHeader, BottomNav } from '@/components/layout';
 import { Drawer } from '@/components/ui';
+import { HealthPanel } from '@/components/health/HealthPanel';
 import { useAuthStore, useUIStore } from '@/store';
-import { useIsDesktop, useIsMobile } from '@/hooks';
+import { useIsDesktop, useIsMobile, useHealthIssues } from '@/hooks';
 
 export default function DashboardLayout({
   children,
@@ -17,6 +19,9 @@ export default function DashboardLayout({
   const { sidebarOpen, setSidebarOpen, toggleSidebar } = useUIStore();
   const isDesktop = useIsDesktop();
   const isMobile = useIsMobile();
+  const [healthOpen, setHealthOpen] = useState(false);
+  const { data: healthData } = useHealthIssues();
+  const issueCount = healthData?.issues?.length ?? 0;
 
   // Check authentication
   useEffect(() => {
@@ -65,7 +70,21 @@ export default function DashboardLayout({
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Mobile/Tablet header */}
         {!isDesktop && (
-          <MobileHeader onMenuClick={toggleSidebar} />
+          <MobileHeader
+            onMenuClick={toggleSidebar}
+            rightContent={
+              issueCount > 0 ? (
+                <button
+                  onClick={() => setHealthOpen(true)}
+                  className="relative flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-amber-600 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20"
+                  title={`${issueCount} storage issue${issueCount > 1 ? 's' : ''}`}
+                >
+                  <ShieldAlert className="h-4 w-4" />
+                  <span>{issueCount}</span>
+                </button>
+              ) : undefined
+            }
+          />
         )}
 
         {/* Main content */}
@@ -76,6 +95,8 @@ export default function DashboardLayout({
         {/* Mobile bottom nav */}
         {isMobile && <BottomNav />}
       </div>
+
+      <HealthPanel isOpen={healthOpen} onClose={() => setHealthOpen(false)} />
     </div>
   );
 }

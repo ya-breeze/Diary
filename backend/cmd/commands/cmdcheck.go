@@ -75,7 +75,7 @@ Exits with code 0 if no issues are found, 1 if issues exist.`,
 				// After fixing, check if any issues remain unfixed
 				remaining := 0
 				for _, i := range issues {
-					if i.Fixable() {
+					if i.Fixable {
 						remaining++
 					}
 				}

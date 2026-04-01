@@ -19,6 +19,7 @@ import (
 	"github.com/ya-breeze/diary.be/pkg/database/models"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
 	"github.com/ya-breeze/diary.be/pkg/server/api"
+	"github.com/ya-breeze/diary.be/pkg/server/tasks"
 	"github.com/ya-breeze/diary.be/pkg/server/webapp"
 )
 
@@ -107,9 +108,14 @@ func Serve(
 	// Create controllers
 	controllers := createControllers(logger, cfg, storage)
 
+	// Start background health-check task
+	checkerTask := tasks.NewCheckerTask(logger, storage, cfg)
+	checkerTask.Start(ctx)
+
 	// Add extra routers (webapp + manual batch upload route + custom auth controller with cookie support)
 	extraRouters := []goserver.Router{webapp.NewWebAppRouter(controllers, commit, logger, cfg, storage)}
 	extraRouters = append(extraRouters, api.NewAssetsBatchRouter(logger, cfg))
+	extraRouters = append(extraRouters, api.NewHealthRouter(logger, checkerTask))
 	// Add custom auth controller that sets cookies on login
 	extraRouters = append(extraRouters, api.NewCustomAuthAPIController(controllers.AuthAPIService, logger, cfg))
 
