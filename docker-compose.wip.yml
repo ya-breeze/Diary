@@ -1,0 +1,15 @@
+version: "3.8"
+
+# WIP override file - replaces build contexts with prebuilt local images.
+# Merged with docker-compose.yml by portainer.py at deploy time.
+
+services:
+  backend:
+    build: ~
+    image: diary-wip-backend:latest
+  frontend:
+    build: ~
+    image: diary-wip-frontend:latest
+  nginx:
+    build: ~
+    image: diary-wip-nginx:latest

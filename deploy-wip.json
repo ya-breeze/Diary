@@ -1,0 +1,25 @@
+{
+    "stack_id": 25,
+    "images": [
+        {
+            "tag": "diary-wip-backend:latest",
+            "context": ".",
+            "dockerfile": "backend/Dockerfile"
+        },
+        {
+            "tag": "diary-wip-frontend:latest",
+            "context": "next-frontend"
+        },
+        {
+            "tag": "diary-wip-nginx:latest",
+            "context": "nginx"
+        }
+    ],
+    "compose_base": "docker-compose.yml",
+    "compose_override": "docker-compose.wip.yml",
+    "exclude": [
+        ".git",
+        "next-frontend/node_modules",
+        "next-frontend/.next"
+    ]
+}
