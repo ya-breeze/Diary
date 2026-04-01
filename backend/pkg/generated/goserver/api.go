@@ -22,7 +22,6 @@ import (
 // pass the data to a AssetsAPIServicer to perform the required actions, then write the service results to the http response.
 type AssetsAPIRouter interface {
 	GetAsset(http.ResponseWriter, *http.Request)
-	UploadAsset(http.ResponseWriter, *http.Request)
 	UploadAssetsBatch(http.ResponseWriter, *http.Request)
 }
 
@@ -61,7 +60,6 @@ type UserAPIRouter interface {
 // and updated with the logic required for the API.
 type AssetsAPIServicer interface {
 	GetAsset(context.Context, string) (ImplResponse, error)
-	UploadAsset(context.Context, *os.File) (ImplResponse, error)
 	UploadAssetsBatch(context.Context, []*os.File) (ImplResponse, error)
 }
 

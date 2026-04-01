@@ -76,41 +76,6 @@ paths:
                 format: binary
         "404":
           description: Asset not found
-    post:
-      tags:
-        - assets
-      summary: upload an asset file
-      operationId: uploadAsset
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                asset:
-                  type: string
-                  format: binary
-                  description: The asset file to upload
-              required:
-                - asset
-        required: true
-      responses:
-        "200":
-          description: asset uploaded successfully
-          content:
-            text/plain:
-              schema:
-                type: string
-                description: The filename of the uploaded asset
-                example: "123e4567-e89b-12d3-a456-426614174000.jpg"
-        "400":
-          description: Bad request - invalid file or missing asset field
-        "401":
-          description: Unauthorized - authentication required
-        "413":
-          description: Payload too large - file size exceeds 10MB limit
-        "500":
-          description: Internal server error - failed to save file
 
   /v1/assets/batch:
     post:

@@ -89,11 +89,8 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
   const handleFileUpload = useCallback(
     async (files: FileList) => {
       try {
-        const uploadedUrls: string[] = [];
-        for (const file of Array.from(files)) {
-          const savedName = await assetsApi.uploadAsset(file);
-          uploadedUrls.push(savedName);
-        }
+        const response = await assetsApi.uploadAssetsBatch(Array.from(files));
+        const uploadedUrls = response.files.map((f) => f.savedName);
 
         setAttachedImages((prev) => [...prev, ...uploadedUrls]);
         const imageMarkdown = uploadedUrls.map((url) => `![](${url})`).join('\n\n');
@@ -232,7 +229,7 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
                   browse
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,video/*"
                     multiple
                     className="hidden"
                     onChange={(e) => {
