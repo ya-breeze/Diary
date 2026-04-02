@@ -79,7 +79,11 @@ func (r *WebAppRouter) saveHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Build the API request and call the Items API service instead of writing to DB directly
-	parsedDate, _ := time.Parse("2006-01-02", date)
+	parsedDate, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		http.Error(w, "invalid date format", http.StatusBadRequest)
+		return
+	}
 	body := req.FormValue("body")
 	tags := strings.Split(req.FormValue("tags"), ",")
 	itemsRequest := goserver.ItemsRequest{

@@ -73,10 +73,7 @@ var _ = Describe("SyncAPIService", func() {
 				Expect(ok).To(BeTrue())
 				Expect(syncResponse.Changes).To(BeEmpty())
 				Expect(syncResponse.HasMore).To(BeFalse())
-				// NextId is nil when there are no changes
-				if syncResponse.NextId != nil {
-					Expect(*syncResponse.NextId).To(BeNumerically("==", 0))
-				}
+				Expect(syncResponse.NextId).To(BeNil())
 			})
 		})
 

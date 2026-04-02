@@ -3,6 +3,7 @@ package webapp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
 	"time"
@@ -84,7 +85,10 @@ func (r *WebAppRouter) populateItemsData(data map[string]any, userID, date strin
 		itemsResponse = itemsListResponse.Items[0]
 	} else {
 		// Create empty item for the requested date (backward compatibility)
-		parsedDate, _ := time.Parse("2006-01-02", date)
+		parsedDate, err := time.Parse("2006-01-02", date)
+		if err != nil {
+			return fmt.Errorf("invalid date format: %w", err)
+		}
 		emptyBody := ""
 		emptyTags := []string{}
 		itemsResponse = goserver.ItemsResponse{

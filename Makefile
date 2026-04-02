@@ -50,9 +50,13 @@ generate:
 
 .PHONY: validate
 validate:
+	@echo "🔍 Validating OpenAPI spec..."
 	@cd ${ROOT_DIR}/backend; \
-		go tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen --version
-	@echo "✅ Validation: oapi-codegen available"
+		go tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
+			-config ${ROOT_DIR}/api/oapi-codegen-server.yaml \
+			-o /dev/null \
+			${ROOT_DIR}/api/openapi.yaml
+	@echo "✅ Validation: OpenAPI spec is valid"
 
 .PHONY: lint
 lint:

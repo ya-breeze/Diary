@@ -215,8 +215,10 @@ func (c *TestAPIClient) GetItems(ctx context.Context, date, search, tags string)
 
 // GetAsset fetches an asset by path. Returns the raw response (caller closes body).
 func (c *TestAPIClient) GetAsset(ctx context.Context, path string) (*http.Response, error) {
+	params := url.Values{}
+	params.Set("path", path)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		fmt.Sprintf("%s/v1/assets?path=%s", c.serverAddr, path), nil)
+		c.serverAddr+"/v1/assets?"+params.Encode(), nil)
 	if err != nil {
 		return nil, err
 	}
