@@ -29,6 +29,10 @@ type Config struct {
 
 	// Health check
 	HealthCheckInterval string `mapstructure:"health_check_interval" default:"24h"`
+
+	// Backup
+	BackupInterval string `mapstructure:"backup_interval"  default:"24h"`
+	BackupMaxCount int    `mapstructure:"backup_max_count" default:"10"`
 }
 
 func InitiateConfig(cfgFile string) (*Config, error) {
