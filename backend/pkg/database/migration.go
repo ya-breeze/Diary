@@ -11,5 +11,6 @@ func autoMigrateModels(db *gorm.DB) error {
 		&models.User{},
 		&models.Item{},
 		&models.ItemChange{},
+		&models.OrphanIgnore{},
 	)
 }

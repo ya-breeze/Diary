@@ -65,6 +65,12 @@ type AssetsBatchResponse struct {
 	Files []AssetsBatchFile `json:"files"`
 }
 
+// AttachOrphanRequest defines model for AttachOrphanRequest.
+type AttachOrphanRequest struct {
+	// Date Date of the diary entry to attach the asset to (YYYY-MM-DD)
+	Date string `json:"date"`
+}
+
 // AuthData defines model for AuthData.
 type AuthData struct {
 	Email    string `json:"email"`
@@ -99,6 +105,9 @@ type HealthIssue struct {
 
 // HealthIssuesResponse defines model for HealthIssuesResponse.
 type HealthIssuesResponse struct {
+	// IgnoredOrphans Filenames of orphaned assets the user has chosen to ignore
+	IgnoredOrphans *[]string `json:"ignoredOrphans,omitempty"`
+
 	// Issues List of storage issues found for this user
 	Issues []HealthIssue `json:"issues"`
 
@@ -221,6 +230,9 @@ type AuthorizeJSONRequestBody = AuthData
 // FixHealthIssuesJSONRequestBody defines body for FixHealthIssues for application/json ContentType.
 type FixHealthIssuesJSONRequestBody = HealthFixRequest
 
+// AttachOrphanJSONRequestBody defines body for AttachOrphan for application/json ContentType.
+type AttachOrphanJSONRequestBody = AttachOrphanRequest
+
 // PutItemsJSONRequestBody defines body for PutItems for application/json ContentType.
 type PutItemsJSONRequestBody = ItemsRequest
 
@@ -241,6 +253,18 @@ type ServerInterface interface {
 	// get storage health issues for current user
 	// (GET /v1/health/issues)
 	GetHealthIssues(w http.ResponseWriter, r *http.Request)
+	// delete a single orphaned asset file
+	// (DELETE /v1/health/orphans/{filename})
+	DeleteOrphan(w http.ResponseWriter, r *http.Request, filename string)
+	// attach an orphaned asset to a diary entry
+	// (POST /v1/health/orphans/{filename}/attach)
+	AttachOrphan(w http.ResponseWriter, r *http.Request, filename string)
+	// remove an orphaned asset from the ignore list
+	// (DELETE /v1/health/orphans/{filename}/ignore)
+	UnignoreOrphan(w http.ResponseWriter, r *http.Request, filename string)
+	// add an orphaned asset to the ignore list
+	// (POST /v1/health/orphans/{filename}/ignore)
+	IgnoreOrphan(w http.ResponseWriter, r *http.Request, filename string)
 	// get diary items
 	// (GET /v1/items)
 	GetItems(w http.ResponseWriter, r *http.Request, params GetItemsParams)
@@ -266,7 +290,6 @@ type MiddlewareFunc func(http.Handler) http.Handler
 
 // GetAsset operation middleware
 func (siw *ServerInterfaceWrapper) GetAsset(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 
 	ctx := r.Context()
@@ -281,7 +304,6 @@ func (siw *ServerInterfaceWrapper) GetAsset(w http.ResponseWriter, r *http.Reque
 	// ------------- Required query parameter "path" -------------
 
 	if paramValue := r.URL.Query().Get("path"); paramValue != "" {
-
 	} else {
 		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
 		return
@@ -306,7 +328,6 @@ func (siw *ServerInterfaceWrapper) GetAsset(w http.ResponseWriter, r *http.Reque
 
 // UploadAssetsBatch operation middleware
 func (siw *ServerInterfaceWrapper) UploadAssetsBatch(w http.ResponseWriter, r *http.Request) {
-
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
@@ -326,7 +347,6 @@ func (siw *ServerInterfaceWrapper) UploadAssetsBatch(w http.ResponseWriter, r *h
 
 // Authorize operation middleware
 func (siw *ServerInterfaceWrapper) Authorize(w http.ResponseWriter, r *http.Request) {
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Authorize(w, r)
 	}))
@@ -340,7 +360,6 @@ func (siw *ServerInterfaceWrapper) Authorize(w http.ResponseWriter, r *http.Requ
 
 // FixHealthIssues operation middleware
 func (siw *ServerInterfaceWrapper) FixHealthIssues(w http.ResponseWriter, r *http.Request) {
-
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
@@ -360,7 +379,6 @@ func (siw *ServerInterfaceWrapper) FixHealthIssues(w http.ResponseWriter, r *htt
 
 // GetHealthIssues operation middleware
 func (siw *ServerInterfaceWrapper) GetHealthIssues(w http.ResponseWriter, r *http.Request) {
-
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
@@ -378,9 +396,128 @@ func (siw *ServerInterfaceWrapper) GetHealthIssues(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteOrphan operation middleware
+func (siw *ServerInterfaceWrapper) DeleteOrphan(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	// ------------- Path parameter "filename" -------------
+	var filename string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "filename", mux.Vars(r)["filename"], &filename, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filename", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteOrphan(w, r, filename)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AttachOrphan operation middleware
+func (siw *ServerInterfaceWrapper) AttachOrphan(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	// ------------- Path parameter "filename" -------------
+	var filename string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "filename", mux.Vars(r)["filename"], &filename, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filename", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AttachOrphan(w, r, filename)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnignoreOrphan operation middleware
+func (siw *ServerInterfaceWrapper) UnignoreOrphan(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	// ------------- Path parameter "filename" -------------
+	var filename string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "filename", mux.Vars(r)["filename"], &filename, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filename", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnignoreOrphan(w, r, filename)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// IgnoreOrphan operation middleware
+func (siw *ServerInterfaceWrapper) IgnoreOrphan(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	// ------------- Path parameter "filename" -------------
+	var filename string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "filename", mux.Vars(r)["filename"], &filename, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filename", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.IgnoreOrphan(w, r, filename)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetItems operation middleware
 func (siw *ServerInterfaceWrapper) GetItems(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 
 	ctx := r.Context()
@@ -429,7 +566,6 @@ func (siw *ServerInterfaceWrapper) GetItems(w http.ResponseWriter, r *http.Reque
 
 // PutItems operation middleware
 func (siw *ServerInterfaceWrapper) PutItems(w http.ResponseWriter, r *http.Request) {
-
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
@@ -449,7 +585,6 @@ func (siw *ServerInterfaceWrapper) PutItems(w http.ResponseWriter, r *http.Reque
 
 // GetChanges operation middleware
 func (siw *ServerInterfaceWrapper) GetChanges(w http.ResponseWriter, r *http.Request) {
-
 	var err error
 
 	ctx := r.Context()
@@ -490,7 +625,6 @@ func (siw *ServerInterfaceWrapper) GetChanges(w http.ResponseWriter, r *http.Req
 
 // GetUser operation middleware
 func (siw *ServerInterfaceWrapper) GetUser(w http.ResponseWriter, r *http.Request) {
-
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
@@ -631,6 +765,14 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 
 	r.HandleFunc(options.BaseURL+"/v1/health/issues", wrapper.GetHealthIssues).Methods("GET")
 
+	r.HandleFunc(options.BaseURL+"/v1/health/orphans/{filename}", wrapper.DeleteOrphan).Methods("DELETE")
+
+	r.HandleFunc(options.BaseURL+"/v1/health/orphans/{filename}/attach", wrapper.AttachOrphan).Methods("POST")
+
+	r.HandleFunc(options.BaseURL+"/v1/health/orphans/{filename}/ignore", wrapper.UnignoreOrphan).Methods("DELETE")
+
+	r.HandleFunc(options.BaseURL+"/v1/health/orphans/{filename}/ignore", wrapper.IgnoreOrphan).Methods("POST")
+
 	r.HandleFunc(options.BaseURL+"/v1/items", wrapper.GetItems).Methods("GET")
 
 	r.HandleFunc(options.BaseURL+"/v1/items", wrapper.PutItems).Methods("PUT")
@@ -670,8 +812,7 @@ func (response GetAsset200AsteriskResponse) VisitGetAssetResponse(w http.Respons
 	return err
 }
 
-type GetAsset404Response struct {
-}
+type GetAsset404Response struct{}
 
 func (response GetAsset404Response) VisitGetAssetResponse(w http.ResponseWriter) error {
 	w.WriteHeader(404)
@@ -695,32 +836,28 @@ func (response UploadAssetsBatch200JSONResponse) VisitUploadAssetsBatchResponse(
 	return json.NewEncoder(w).Encode(response)
 }
 
-type UploadAssetsBatch400Response struct {
-}
+type UploadAssetsBatch400Response struct{}
 
 func (response UploadAssetsBatch400Response) VisitUploadAssetsBatchResponse(w http.ResponseWriter) error {
 	w.WriteHeader(400)
 	return nil
 }
 
-type UploadAssetsBatch401Response struct {
-}
+type UploadAssetsBatch401Response struct{}
 
 func (response UploadAssetsBatch401Response) VisitUploadAssetsBatchResponse(w http.ResponseWriter) error {
 	w.WriteHeader(401)
 	return nil
 }
 
-type UploadAssetsBatch413Response struct {
-}
+type UploadAssetsBatch413Response struct{}
 
 func (response UploadAssetsBatch413Response) VisitUploadAssetsBatchResponse(w http.ResponseWriter) error {
 	w.WriteHeader(413)
 	return nil
 }
 
-type UploadAssetsBatch500Response struct {
-}
+type UploadAssetsBatch500Response struct{}
 
 func (response UploadAssetsBatch500Response) VisitUploadAssetsBatchResponse(w http.ResponseWriter) error {
 	w.WriteHeader(500)
@@ -746,8 +883,7 @@ func (response Authorize200JSONResponse) VisitAuthorizeResponse(w http.ResponseW
 	return json.NewEncoder(w).Encode(response)
 }
 
-type Authorize401Response struct {
-}
+type Authorize401Response struct{}
 
 func (response Authorize401Response) VisitAuthorizeResponse(w http.ResponseWriter) error {
 	w.WriteHeader(401)
@@ -771,32 +907,28 @@ func (response FixHealthIssues200JSONResponse) VisitFixHealthIssuesResponse(w ht
 	return json.NewEncoder(w).Encode(response)
 }
 
-type FixHealthIssues400Response struct {
-}
+type FixHealthIssues400Response struct{}
 
 func (response FixHealthIssues400Response) VisitFixHealthIssuesResponse(w http.ResponseWriter) error {
 	w.WriteHeader(400)
 	return nil
 }
 
-type FixHealthIssues401Response struct {
-}
+type FixHealthIssues401Response struct{}
 
 func (response FixHealthIssues401Response) VisitFixHealthIssuesResponse(w http.ResponseWriter) error {
 	w.WriteHeader(401)
 	return nil
 }
 
-type FixHealthIssues500Response struct {
-}
+type FixHealthIssues500Response struct{}
 
 func (response FixHealthIssues500Response) VisitFixHealthIssuesResponse(w http.ResponseWriter) error {
 	w.WriteHeader(500)
 	return nil
 }
 
-type GetHealthIssuesRequestObject struct {
-}
+type GetHealthIssuesRequestObject struct{}
 
 type GetHealthIssuesResponseObject interface {
 	VisitGetHealthIssuesResponse(w http.ResponseWriter) error
@@ -811,11 +943,170 @@ func (response GetHealthIssues200JSONResponse) VisitGetHealthIssuesResponse(w ht
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetHealthIssues401Response struct {
-}
+type GetHealthIssues401Response struct{}
 
 func (response GetHealthIssues401Response) VisitGetHealthIssuesResponse(w http.ResponseWriter) error {
 	w.WriteHeader(401)
+	return nil
+}
+
+type DeleteOrphanRequestObject struct {
+	Filename string `json:"filename"`
+}
+
+type DeleteOrphanResponseObject interface {
+	VisitDeleteOrphanResponse(w http.ResponseWriter) error
+}
+
+type DeleteOrphan200JSONResponse HealthIssuesResponse
+
+func (response DeleteOrphan200JSONResponse) VisitDeleteOrphanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteOrphan400Response struct{}
+
+func (response DeleteOrphan400Response) VisitDeleteOrphanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type DeleteOrphan401Response struct{}
+
+func (response DeleteOrphan401Response) VisitDeleteOrphanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type DeleteOrphan404Response struct{}
+
+func (response DeleteOrphan404Response) VisitDeleteOrphanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
+	return nil
+}
+
+type DeleteOrphan500Response struct{}
+
+func (response DeleteOrphan500Response) VisitDeleteOrphanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(500)
+	return nil
+}
+
+type AttachOrphanRequestObject struct {
+	Filename string `json:"filename"`
+	Body     *AttachOrphanJSONRequestBody
+}
+
+type AttachOrphanResponseObject interface {
+	VisitAttachOrphanResponse(w http.ResponseWriter) error
+}
+
+type AttachOrphan200JSONResponse HealthIssuesResponse
+
+func (response AttachOrphan200JSONResponse) VisitAttachOrphanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AttachOrphan400Response struct{}
+
+func (response AttachOrphan400Response) VisitAttachOrphanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type AttachOrphan401Response struct{}
+
+func (response AttachOrphan401Response) VisitAttachOrphanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type AttachOrphan500Response struct{}
+
+func (response AttachOrphan500Response) VisitAttachOrphanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(500)
+	return nil
+}
+
+type UnignoreOrphanRequestObject struct {
+	Filename string `json:"filename"`
+}
+
+type UnignoreOrphanResponseObject interface {
+	VisitUnignoreOrphanResponse(w http.ResponseWriter) error
+}
+
+type UnignoreOrphan200JSONResponse HealthIssuesResponse
+
+func (response UnignoreOrphan200JSONResponse) VisitUnignoreOrphanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UnignoreOrphan400Response struct{}
+
+func (response UnignoreOrphan400Response) VisitUnignoreOrphanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type UnignoreOrphan401Response struct{}
+
+func (response UnignoreOrphan401Response) VisitUnignoreOrphanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type UnignoreOrphan500Response struct{}
+
+func (response UnignoreOrphan500Response) VisitUnignoreOrphanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(500)
+	return nil
+}
+
+type IgnoreOrphanRequestObject struct {
+	Filename string `json:"filename"`
+}
+
+type IgnoreOrphanResponseObject interface {
+	VisitIgnoreOrphanResponse(w http.ResponseWriter) error
+}
+
+type IgnoreOrphan200JSONResponse HealthIssuesResponse
+
+func (response IgnoreOrphan200JSONResponse) VisitIgnoreOrphanResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type IgnoreOrphan400Response struct{}
+
+func (response IgnoreOrphan400Response) VisitIgnoreOrphanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type IgnoreOrphan401Response struct{}
+
+func (response IgnoreOrphan401Response) VisitIgnoreOrphanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type IgnoreOrphan500Response struct{}
+
+func (response IgnoreOrphan500Response) VisitIgnoreOrphanResponse(w http.ResponseWriter) error {
+	w.WriteHeader(500)
 	return nil
 }
 
@@ -836,16 +1127,14 @@ func (response GetItems200JSONResponse) VisitGetItemsResponse(w http.ResponseWri
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetItems400Response struct {
-}
+type GetItems400Response struct{}
 
 func (response GetItems400Response) VisitGetItemsResponse(w http.ResponseWriter) error {
 	w.WriteHeader(400)
 	return nil
 }
 
-type GetItems404Response struct {
-}
+type GetItems404Response struct{}
 
 func (response GetItems404Response) VisitGetItemsResponse(w http.ResponseWriter) error {
 	w.WriteHeader(404)
@@ -869,16 +1158,14 @@ func (response PutItems200JSONResponse) VisitPutItemsResponse(w http.ResponseWri
 	return json.NewEncoder(w).Encode(response)
 }
 
-type PutItems400Response struct {
-}
+type PutItems400Response struct{}
 
 func (response PutItems400Response) VisitPutItemsResponse(w http.ResponseWriter) error {
 	w.WriteHeader(400)
 	return nil
 }
 
-type PutItems401Response struct {
-}
+type PutItems401Response struct{}
 
 func (response PutItems401Response) VisitPutItemsResponse(w http.ResponseWriter) error {
 	w.WriteHeader(401)
@@ -902,24 +1189,21 @@ func (response GetChanges200JSONResponse) VisitGetChangesResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetChanges400Response struct {
-}
+type GetChanges400Response struct{}
 
 func (response GetChanges400Response) VisitGetChangesResponse(w http.ResponseWriter) error {
 	w.WriteHeader(400)
 	return nil
 }
 
-type GetChanges401Response struct {
-}
+type GetChanges401Response struct{}
 
 func (response GetChanges401Response) VisitGetChangesResponse(w http.ResponseWriter) error {
 	w.WriteHeader(401)
 	return nil
 }
 
-type GetUserRequestObject struct {
-}
+type GetUserRequestObject struct{}
 
 type GetUserResponseObject interface {
 	VisitGetUserResponse(w http.ResponseWriter) error
@@ -951,6 +1235,18 @@ type StrictServerInterface interface {
 	// get storage health issues for current user
 	// (GET /v1/health/issues)
 	GetHealthIssues(ctx context.Context, request GetHealthIssuesRequestObject) (GetHealthIssuesResponseObject, error)
+	// delete a single orphaned asset file
+	// (DELETE /v1/health/orphans/{filename})
+	DeleteOrphan(ctx context.Context, request DeleteOrphanRequestObject) (DeleteOrphanResponseObject, error)
+	// attach an orphaned asset to a diary entry
+	// (POST /v1/health/orphans/{filename}/attach)
+	AttachOrphan(ctx context.Context, request AttachOrphanRequestObject) (AttachOrphanResponseObject, error)
+	// remove an orphaned asset from the ignore list
+	// (DELETE /v1/health/orphans/{filename}/ignore)
+	UnignoreOrphan(ctx context.Context, request UnignoreOrphanRequestObject) (UnignoreOrphanResponseObject, error)
+	// add an orphaned asset to the ignore list
+	// (POST /v1/health/orphans/{filename}/ignore)
+	IgnoreOrphan(ctx context.Context, request IgnoreOrphanRequestObject) (IgnoreOrphanResponseObject, error)
 	// get diary items
 	// (GET /v1/items)
 	GetItems(ctx context.Context, request GetItemsRequestObject) (GetItemsResponseObject, error)
@@ -965,8 +1261,10 @@ type StrictServerInterface interface {
 	GetUser(ctx context.Context, request GetUserRequestObject) (GetUserResponseObject, error)
 }
 
-type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
-type StrictMiddlewareFunc = strictnethttp.StrictHTTPMiddlewareFunc
+type (
+	StrictHandlerFunc    = strictnethttp.StrictHTTPHandlerFunc
+	StrictMiddlewareFunc = strictnethttp.StrictHTTPMiddlewareFunc
+)
 
 type StrictHTTPServerOptions struct {
 	RequestErrorHandlerFunc  func(w http.ResponseWriter, r *http.Request, err error)
@@ -1130,6 +1428,117 @@ func (sh *strictHandler) GetHealthIssues(w http.ResponseWriter, r *http.Request)
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetHealthIssuesResponseObject); ok {
 		if err := validResponse.VisitGetHealthIssuesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteOrphan operation middleware
+func (sh *strictHandler) DeleteOrphan(w http.ResponseWriter, r *http.Request, filename string) {
+	var request DeleteOrphanRequestObject
+
+	request.Filename = filename
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteOrphan(ctx, request.(DeleteOrphanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteOrphan")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteOrphanResponseObject); ok {
+		if err := validResponse.VisitDeleteOrphanResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AttachOrphan operation middleware
+func (sh *strictHandler) AttachOrphan(w http.ResponseWriter, r *http.Request, filename string) {
+	var request AttachOrphanRequestObject
+
+	request.Filename = filename
+
+	var body AttachOrphanJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AttachOrphan(ctx, request.(AttachOrphanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AttachOrphan")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AttachOrphanResponseObject); ok {
+		if err := validResponse.VisitAttachOrphanResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UnignoreOrphan operation middleware
+func (sh *strictHandler) UnignoreOrphan(w http.ResponseWriter, r *http.Request, filename string) {
+	var request UnignoreOrphanRequestObject
+
+	request.Filename = filename
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UnignoreOrphan(ctx, request.(UnignoreOrphanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnignoreOrphan")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnignoreOrphanResponseObject); ok {
+		if err := validResponse.VisitUnignoreOrphanResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// IgnoreOrphan operation middleware
+func (sh *strictHandler) IgnoreOrphan(w http.ResponseWriter, r *http.Request, filename string) {
+	var request IgnoreOrphanRequestObject
+
+	request.Filename = filename
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.IgnoreOrphan(ctx, request.(IgnoreOrphanRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "IgnoreOrphan")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(IgnoreOrphanResponseObject); ok {
+		if err := validResponse.VisitIgnoreOrphanResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

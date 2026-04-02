@@ -219,6 +219,120 @@ paths:
         "500":
           description: Fix failed
 
+  /v1/health/orphans/{filename}:
+    delete:
+      tags:
+        - health
+      summary: delete a single orphaned asset file
+      operationId: deleteOrphan
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Filename of the orphaned asset to delete
+      responses:
+        "200":
+          description: updated health issues after deletion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthIssuesResponse"
+        "400":
+          description: Invalid filename
+        "401":
+          description: Unauthorized
+        "404":
+          description: Orphan not found
+        "500":
+          description: Deletion failed
+
+  /v1/health/orphans/{filename}/attach:
+    post:
+      tags:
+        - health
+      summary: attach an orphaned asset to a diary entry
+      operationId: attachOrphan
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Filename of the orphaned asset to attach
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttachOrphanRequest"
+        required: true
+      responses:
+        "200":
+          description: updated health issues after attaching
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthIssuesResponse"
+        "400":
+          description: Invalid request
+        "401":
+          description: Unauthorized
+        "500":
+          description: Attach failed
+
+  /v1/health/orphans/{filename}/ignore:
+    post:
+      tags:
+        - health
+      summary: add an orphaned asset to the ignore list
+      operationId: ignoreOrphan
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Filename of the orphaned asset to ignore
+      responses:
+        "200":
+          description: updated health issues after ignoring
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthIssuesResponse"
+        "400":
+          description: Invalid filename
+        "401":
+          description: Unauthorized
+        "500":
+          description: Ignore failed
+    delete:
+      tags:
+        - health
+      summary: remove an orphaned asset from the ignore list
+      operationId: unignoreOrphan
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Filename of the orphaned asset to un-ignore
+      responses:
+        "200":
+          description: updated health issues after un-ignoring
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthIssuesResponse"
+        "400":
+          description: Invalid filename
+        "401":
+          description: Unauthorized
+        "500":
+          description: Un-ignore failed
+
   /v1/sync/changes:
     get:
       tags:
@@ -480,6 +594,13 @@ components:
           nullable: true
           description: When the last health check ran (null if never run)
           example: "2026-04-01T12:00:00Z"
+        ignoredOrphans:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Filenames of orphaned assets the user has chosen to ignore
+          example: ["old-photo.jpg"]
       required:
         - issues
 
@@ -494,6 +615,16 @@ components:
           example: ["mime"]
       required:
         - checks
+
+    AttachOrphanRequest:
+      type: object
+      properties:
+        date:
+          type: string
+          description: Date of the diary entry to attach the asset to (YYYY-MM-DD)
+          example: "2024-01-15"
+      required:
+        - date
 
     AssetsBatchFile:
       type: object

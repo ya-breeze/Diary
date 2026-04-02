@@ -2,8 +2,11 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"strings"
 
+	"github.com/ya-breeze/diary.be/pkg/database"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
 	"github.com/ya-breeze/diary.be/pkg/server/common"
 	"github.com/ya-breeze/diary.be/pkg/server/tasks"
@@ -41,6 +44,77 @@ func (s *HealthAPIServiceImpl) FixHealthIssues(ctx context.Context, req goserver
 	return goserver.Response(http.StatusOK, toGoserverResponse(result)), nil
 }
 
+func (s *HealthAPIServiceImpl) DeleteOrphan(ctx context.Context, filename string) (goserver.ImplResponse, error) {
+	userID, _ := ctx.Value(common.UserIDKey).(string)
+	if userID == "" {
+		return goserver.Response(http.StatusUnauthorized, nil), nil
+	}
+
+	result, err := s.task.DeleteOrphan(userID, filename)
+	if err != nil {
+		if errors.Is(err, database.ErrNotFound) {
+			return goserver.Response(http.StatusNotFound, nil), nil
+		}
+		if isValidationError(err) {
+			return goserver.Response(http.StatusBadRequest, nil), nil
+		}
+		return goserver.Response(http.StatusInternalServerError, nil), err
+	}
+
+	return goserver.Response(http.StatusOK, toGoserverResponse(result)), nil
+}
+
+func (s *HealthAPIServiceImpl) AttachOrphan(ctx context.Context, filename string, req goserver.AttachOrphanRequest) (goserver.ImplResponse, error) {
+	userID, _ := ctx.Value(common.UserIDKey).(string)
+	if userID == "" {
+		return goserver.Response(http.StatusUnauthorized, nil), nil
+	}
+
+	result, err := s.task.AttachOrphan(userID, filename, req.Date)
+	if err != nil {
+		if isValidationError(err) {
+			return goserver.Response(http.StatusBadRequest, nil), nil
+		}
+		return goserver.Response(http.StatusInternalServerError, nil), err
+	}
+
+	return goserver.Response(http.StatusOK, toGoserverResponse(result)), nil
+}
+
+func (s *HealthAPIServiceImpl) IgnoreOrphan(ctx context.Context, filename string) (goserver.ImplResponse, error) {
+	userID, _ := ctx.Value(common.UserIDKey).(string)
+	if userID == "" {
+		return goserver.Response(http.StatusUnauthorized, nil), nil
+	}
+
+	result, err := s.task.IgnoreOrphan(userID, filename)
+	if err != nil {
+		if isValidationError(err) {
+			return goserver.Response(http.StatusBadRequest, nil), nil
+		}
+		return goserver.Response(http.StatusInternalServerError, nil), err
+	}
+
+	return goserver.Response(http.StatusOK, toGoserverResponse(result)), nil
+}
+
+func (s *HealthAPIServiceImpl) UnignoreOrphan(ctx context.Context, filename string) (goserver.ImplResponse, error) {
+	userID, _ := ctx.Value(common.UserIDKey).(string)
+	if userID == "" {
+		return goserver.Response(http.StatusUnauthorized, nil), nil
+	}
+
+	result, err := s.task.UnignoreOrphan(userID, filename)
+	if err != nil {
+		if isValidationError(err) {
+			return goserver.Response(http.StatusBadRequest, nil), nil
+		}
+		return goserver.Response(http.StatusInternalServerError, nil), err
+	}
+
+	return goserver.Response(http.StatusOK, toGoserverResponse(result)), nil
+}
+
 func toGoserverResponse(result *tasks.UserResult) goserver.HealthIssuesResponse {
 	resp := goserver.HealthIssuesResponse{Issues: []goserver.HealthIssue{}}
 	if result == nil {
@@ -56,6 +130,14 @@ func toGoserverResponse(result *tasks.UserResult) goserver.HealthIssuesResponse 
 			Fixable: i.Fixable,
 		})
 	}
+	if len(result.IgnoredOrphans) > 0 {
+		ignored := result.IgnoredOrphans
+		resp.IgnoredOrphans = &ignored
+	}
 	return resp
 }
 
+// isValidationError checks whether an error message indicates invalid input.
+func isValidationError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "invalid filename")
+}

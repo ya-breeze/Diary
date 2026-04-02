@@ -41,6 +41,16 @@ func (OrphansCheck) Run(db database.Storage, cfg *config.Config, _ *slog.Logger)
 			}
 		}
 
+		// Build set of ignored filenames
+		ignoredList, err := db.GetIgnoredOrphans(userID)
+		if err != nil {
+			return nil, fmt.Errorf("getting ignored orphans for user %s: %w", userID, err)
+		}
+		ignored := make(map[string]bool, len(ignoredList))
+		for _, f := range ignoredList {
+			ignored[f] = true
+		}
+
 		// Walk the user's asset directory
 		entries, err := os.ReadDir(userDir)
 		if err != nil {
@@ -54,7 +64,7 @@ func (OrphansCheck) Run(db database.Storage, cfg *config.Config, _ *slog.Logger)
 			if entry.IsDir() {
 				continue
 			}
-			if !referenced[entry.Name()] {
+			if !referenced[entry.Name()] && !ignored[entry.Name()] {
 				issues = append(issues, Issue{
 					Check:   "orphans",
 					UserID:  userID,
