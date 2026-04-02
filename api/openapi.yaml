@@ -292,18 +292,18 @@ components:
         - id
 
     User:
-      type: object
-      properties:
-        email:
-          type: string
-        startDate:
-          type: string
-          format: date-time
-      required:
-        - email
-        - startDate
       allOf:
         - $ref: "#/components/schemas/Entity"
+        - type: object
+          properties:
+            email:
+              type: string
+            startDate:
+              type: string
+              format: date-time
+          required:
+            - email
+            - startDate
 
     ItemsRequest:
       type: object

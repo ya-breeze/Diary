@@ -5,12 +5,9 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/ya-breeze/diary.be/pkg/config"
 )
 
 var _ = Describe("Batch Upload Assets Flow", func() {
@@ -28,12 +25,8 @@ var _ = Describe("Batch Upload Assets Flow", func() {
 		It("should successfully upload and retrieve them all", func() {
 			setup.LoginAndGetToken()
 
-			// Create temp files
 			mkFile := func(suffix string, content []byte) *os.File {
-				userAssetDir := filepath.Join(setup.TempDir, config.AssetsDirName)
-				err := os.MkdirAll(userAssetDir, 0755)
-				Expect(err).ToNot(HaveOccurred())
-				f, err := os.CreateTemp(userAssetDir, "batch_*."+suffix)
+				f, err := os.CreateTemp("", "batch_*."+suffix)
 				Expect(err).ToNot(HaveOccurred())
 				_, err = f.Write(content)
 				Expect(err).ToNot(HaveOccurred())
@@ -52,23 +45,22 @@ var _ = Describe("Batch Upload Assets Flow", func() {
 			defer os.Remove(f3.Name())
 			defer f3.Close()
 
-			resp, httpResp, err := setup.APIClient.AssetsAPI.UploadAssetsBatch(context.Background()).Assets([]*os.File{f1, f2, f3}).Execute()
+			resp, httpResp, err := setup.APIClient.UploadAssetsBatch(context.Background(), []*os.File{f1, f2, f3})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(httpResp.StatusCode).To(Equal(http.StatusOK))
 			Expect(resp).ToNot(BeNil())
-			Expect(int(resp.GetCount())).To(Equal(3))
+			Expect(resp.Count).To(Equal(3))
 			Expect(resp.Files).To(HaveLen(3))
 
-			// Verify retrieval for each saved file name
+			// Verify retrieval for each saved file
 			for _, file := range resp.Files {
-				name := strings.TrimSpace(file.GetSavedName())
-				rd, httpResp, err := setup.APIClient.AssetsAPI.GetAsset(context.Background()).Path(name).Execute()
+				assetResp, err := setup.APIClient.GetAsset(context.Background(), file.SavedName)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(httpResp.StatusCode).To(Equal(http.StatusOK))
-				b, err := io.ReadAll(rd)
+				defer assetResp.Body.Close()
+				Expect(assetResp.StatusCode).To(Equal(http.StatusOK))
+				b, err := io.ReadAll(assetResp.Body)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(b).ToNot(BeEmpty())
-				_ = rd.Close()
 			}
 		})
 	})
@@ -91,7 +83,7 @@ var _ = Describe("Batch Upload Assets Flow", func() {
 			_, _ = bad.WriteString("bad")
 			_, _ = bad.Seek(0, 0)
 
-			_, httpResp, err := setup.APIClient.AssetsAPI.UploadAssetsBatch(context.Background()).Assets([]*os.File{good, bad}).Execute()
+			_, httpResp, err := setup.APIClient.UploadAssetsBatch(context.Background(), []*os.File{good, bad})
 			Expect(err).To(HaveOccurred())
 			Expect(httpResp.StatusCode).To(BeNumerically(">=", 400))
 		})

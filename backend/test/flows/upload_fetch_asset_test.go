@@ -24,13 +24,10 @@ var _ = Describe("Upload and Fetch Asset Flow", func() {
 	Describe("Asset Upload and Retrieval Flow", func() {
 		Context("when user uploads an asset and then fetches it", func() {
 			It("should successfully upload and then retrieve the same asset", func() {
-				// Step 1: Login via API
 				setup.LoginAndGetToken()
 
-				// Step 2: Create a test asset file to upload
 				testAssetContent := []byte("test image content for upload")
 
-				// Create a temporary file for upload
 				tempFile, err := os.CreateTemp("", "test_upload_*.jpg")
 				Expect(err).ToNot(HaveOccurred())
 				defer os.Remove(tempFile.Name())
@@ -38,35 +35,24 @@ var _ = Describe("Upload and Fetch Asset Flow", func() {
 
 				_, err = tempFile.Write(testAssetContent)
 				Expect(err).ToNot(HaveOccurred())
-
-				// Reset file pointer to beginning for reading
 				_, err = tempFile.Seek(0, 0)
 				Expect(err).ToNot(HaveOccurred())
 
-				// Step 3: Upload the asset via batch API
-				uploadResponse, httpResponse, err := setup.APIClient.AssetsAPI.UploadAssetsBatch(context.Background()).Assets([]*os.File{tempFile}).Execute()
-
-				// We expect this to succeed with 200
+				uploadResponse, httpResponse, err := setup.APIClient.UploadAssetsBatch(context.Background(), []*os.File{tempFile})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(httpResponse.StatusCode).To(Equal(http.StatusOK))
 				Expect(uploadResponse).ToNot(BeNil())
-				Expect(uploadResponse.Count).To(Equal(int32(1)))
+				Expect(uploadResponse.Count).To(Equal(1))
 
-				// The response should contain the filename of the uploaded asset
-				uploadedFilename := uploadResponse.Files[0].GetSavedName()
+				uploadedFilename := uploadResponse.Files[0].SavedName
 				Expect(uploadedFilename).To(HaveSuffix(".jpg"))
 
-				// Step 4: Fetch the uploaded asset using the returned filename
-				assetFile, httpResponse, err := setup.APIClient.AssetsAPI.GetAsset(context.Background()).Path(uploadedFilename).Execute()
-
-				// We expect this to succeed with 200
+				assetResp, err := setup.APIClient.GetAsset(context.Background(), uploadedFilename)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(httpResponse.StatusCode).To(Equal(http.StatusOK))
-				Expect(assetFile).ToNot(BeNil())
+				defer assetResp.Body.Close()
+				Expect(assetResp.StatusCode).To(Equal(http.StatusOK))
 
-				// Step 5: Verify the content matches what we uploaded
-				defer assetFile.Close()
-				retrievedContent, err := io.ReadAll(assetFile)
+				retrievedContent, err := io.ReadAll(assetResp.Body)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(retrievedContent).To(Equal(testAssetContent))
 			})
@@ -74,26 +60,17 @@ var _ = Describe("Upload and Fetch Asset Flow", func() {
 
 		Context("when user tries to upload without authentication", func() {
 			It("should receive 401 unauthorized", func() {
-				// Create a test asset file to upload
-				testAssetContent := []byte("test image content for upload")
-
-				// Create a temporary file for upload
 				tempFile, err := os.CreateTemp("", "test_upload_*.jpg")
 				Expect(err).ToNot(HaveOccurred())
 				defer os.Remove(tempFile.Name())
 				defer tempFile.Close()
 
-				_, err = tempFile.Write(testAssetContent)
+				_, err = tempFile.Write([]byte("test image content for upload"))
 				Expect(err).ToNot(HaveOccurred())
-
-				// Reset file pointer to beginning for reading
 				_, err = tempFile.Seek(0, 0)
 				Expect(err).ToNot(HaveOccurred())
 
-				// Try to upload without authentication
-				_, httpResponse, err := setup.APIClient.AssetsAPI.UploadAssetsBatch(context.Background()).Assets([]*os.File{tempFile}).Execute()
-
-				// We expect this to fail with 401
+				_, httpResponse, err := setup.APIClient.UploadAssetsBatch(context.Background(), []*os.File{tempFile})
 				Expect(err).To(HaveOccurred())
 				Expect(httpResponse.StatusCode).To(Equal(http.StatusUnauthorized))
 			})
@@ -101,16 +78,13 @@ var _ = Describe("Upload and Fetch Asset Flow", func() {
 
 		Context("when user uploads multiple assets", func() {
 			It("should successfully upload and retrieve multiple different assets", func() {
-				// Step 1: Login via API
 				setup.LoginAndGetToken()
 
-				// Step 2: Create two test asset files
 				firstAssetContent := []byte("first test image content")
 				firstTempFile, err := os.CreateTemp("", "test_upload_1_*.jpg")
 				Expect(err).ToNot(HaveOccurred())
 				defer os.Remove(firstTempFile.Name())
 				defer firstTempFile.Close()
-
 				_, err = firstTempFile.Write(firstAssetContent)
 				Expect(err).ToNot(HaveOccurred())
 				_, err = firstTempFile.Seek(0, 0)
@@ -121,41 +95,33 @@ var _ = Describe("Upload and Fetch Asset Flow", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer os.Remove(secondTempFile.Name())
 				defer secondTempFile.Close()
-
 				_, err = secondTempFile.Write(secondAssetContent)
 				Expect(err).ToNot(HaveOccurred())
 				_, err = secondTempFile.Seek(0, 0)
 				Expect(err).ToNot(HaveOccurred())
 
-				// Step 3: Upload both assets in one batch call
-				uploadResponse, httpResponse, err := setup.APIClient.AssetsAPI.UploadAssetsBatch(context.Background()).Assets([]*os.File{firstTempFile, secondTempFile}).Execute()
+				uploadResponse, httpResponse, err := setup.APIClient.UploadAssetsBatch(context.Background(), []*os.File{firstTempFile, secondTempFile})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(httpResponse.StatusCode).To(Equal(http.StatusOK))
-				Expect(uploadResponse.Count).To(Equal(int32(2)))
+				Expect(uploadResponse.Count).To(Equal(2))
 
-				firstFilename := uploadResponse.Files[0].GetSavedName()
-				secondFilename := uploadResponse.Files[1].GetSavedName()
-
-				// Step 4: Verify filenames are different
+				firstFilename := uploadResponse.Files[0].SavedName
+				secondFilename := uploadResponse.Files[1].SavedName
 				Expect(firstFilename).ToNot(Equal(secondFilename))
 
-				// Step 5: Fetch and verify first asset
-				firstAssetFile, httpResponse, err := setup.APIClient.AssetsAPI.GetAsset(context.Background()).Path(firstFilename).Execute()
+				firstAssetResp, err := setup.APIClient.GetAsset(context.Background(), firstFilename)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(httpResponse.StatusCode).To(Equal(http.StatusOK))
-				defer firstAssetFile.Close()
-
-				firstRetrievedContent, err := io.ReadAll(firstAssetFile)
+				defer firstAssetResp.Body.Close()
+				Expect(firstAssetResp.StatusCode).To(Equal(http.StatusOK))
+				firstRetrievedContent, err := io.ReadAll(firstAssetResp.Body)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(firstRetrievedContent).To(Equal(firstAssetContent))
 
-				// Step 6: Fetch and verify second asset
-				secondAssetFile, httpResponse, err := setup.APIClient.AssetsAPI.GetAsset(context.Background()).Path(secondFilename).Execute()
+				secondAssetResp, err := setup.APIClient.GetAsset(context.Background(), secondFilename)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(httpResponse.StatusCode).To(Equal(http.StatusOK))
-				defer secondAssetFile.Close()
-
-				secondRetrievedContent, err := io.ReadAll(secondAssetFile)
+				defer secondAssetResp.Body.Close()
+				Expect(secondAssetResp.StatusCode).To(Equal(http.StatusOK))
+				secondRetrievedContent, err := io.ReadAll(secondAssetResp.Body)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(secondRetrievedContent).To(Equal(secondAssetContent))
 			})

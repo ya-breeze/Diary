@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gomarkdown/markdown"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
 	"github.com/ya-breeze/diary.be/pkg/server/common"
 	"github.com/ya-breeze/diary.be/pkg/utils"
@@ -83,40 +84,56 @@ func (r *WebAppRouter) populateItemsData(data map[string]any, userID, date strin
 		itemsResponse = itemsListResponse.Items[0]
 	} else {
 		// Create empty item for the requested date (backward compatibility)
+		parsedDate, _ := time.Parse("2006-01-02", date)
+		emptyBody := ""
+		emptyTags := []string{}
 		itemsResponse = goserver.ItemsResponse{
-			Date:  date,
+			Date:  openapi_types.Date{Time: parsedDate},
 			Title: "",
-			Body:  "",
-			Tags:  []string{},
+			Body:  &emptyBody,
+			Tags:  &emptyTags,
 		}
 		// For empty items, we need to manually add navigation dates
 		// since the service doesn't populate them for non-existent items
 		if previousDate, err := r.db.GetPreviousDate(userID, date); err == nil {
-			itemsResponse.PreviousDate = &previousDate
+			t, _ := time.Parse("2006-01-02", previousDate)
+			d := openapi_types.Date{Time: t}
+			itemsResponse.PreviousDate = &d
 		}
 		if nextDate, err := r.db.GetNextDate(userID, date); err == nil {
-			itemsResponse.NextDate = &nextDate
+			t, _ := time.Parse("2006-01-02", nextDate)
+			d := openapi_types.Date{Time: t}
+			itemsResponse.NextDate = &d
 		}
+	}
+
+	bodyStr := ""
+	if itemsResponse.Body != nil {
+		bodyStr = *itemsResponse.Body
+	}
+	var tags []string
+	if itemsResponse.Tags != nil {
+		tags = *itemsResponse.Tags
 	}
 
 	// Convert the service response to template data (maintaining existing structure)
 	data["item"] = map[string]any{
-		"Date":  itemsResponse.Date,
+		"Date":  itemsResponse.Date.Time.Format("2006-01-02"),
 		"Title": itemsResponse.Title,
-		"Body":  itemsResponse.Body,
-		"Tags":  itemsResponse.Tags,
+		"Body":  bodyStr,
+		"Tags":  tags,
 	}
 
-	body := markdown.ToHTML([]byte(itemsResponse.Body), nil, utils.NewImagePrefixRenderer("/web/assets/"))
+	body := markdown.ToHTML([]byte(bodyStr), nil, utils.NewImagePrefixRenderer("/web/assets/"))
 	//nolint:gosec // this is safe
 	data["body"] = template.HTML(string(body))
 
 	// Add navigation dates from the service response
 	if itemsResponse.PreviousDate != nil {
-		data["previousDate"] = *itemsResponse.PreviousDate
+		data["previousDate"] = itemsResponse.PreviousDate.Time.Format("2006-01-02")
 	}
 	if itemsResponse.NextDate != nil {
-		data["nextDate"] = *itemsResponse.NextDate
+		data["nextDate"] = itemsResponse.NextDate.Time.Format("2006-01-02")
 	}
 
 	return nil

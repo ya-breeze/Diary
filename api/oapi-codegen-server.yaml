@@ -1,0 +1,6 @@
+package: goserver
+generate:
+  gorilla-server: true
+  strict-server: true
+  models: true
+output: ../backend/pkg/generated/goserver/server.gen.go

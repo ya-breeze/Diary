@@ -4,7 +4,9 @@ import (
 	"context"
 	"log/slog"
 	"strings"
+	"time"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/ya-breeze/diary.be/pkg/database"
 	"github.com/ya-breeze/diary.be/pkg/database/models"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
@@ -64,11 +66,13 @@ func (s *ItemsAPIServiceImpl) GetItems(
 	// Convert database items to API response items
 	responseItems := make([]goserver.ItemsResponse, len(items))
 	for i, item := range items {
+		tags := []string(item.Tags)
+		body := item.Body
 		responseItems[i] = goserver.ItemsResponse{
-			Date:  item.Date,
+			Date:  parseDate(item.Date),
 			Title: item.Title,
-			Body:  item.Body,
-			Tags:  []string(item.Tags),
+			Body:  &body,
+			Tags:  &tags,
 		}
 		// Add navigation dates for each item
 		s.addNavigationDates(&responseItems[i], userID, item.Date)
@@ -77,11 +81,13 @@ func (s *ItemsAPIServiceImpl) GetItems(
 	// Special case: when filtering by a specific date and no items found,
 	// return an empty item with navigation dates to enable Previous/Next buttons
 	if date != "" && len(items) == 0 {
+		emptyTags := []string{}
+		emptyBody := ""
 		emptyItem := goserver.ItemsResponse{
-			Date:  date,
+			Date:  parseDate(date),
 			Title: "",
-			Body:  "",
-			Tags:  []string{},
+			Body:  &emptyBody,
+			Tags:  &emptyTags,
 		}
 		s.addNavigationDates(&emptyItem, userID, date)
 		responseItems = []goserver.ItemsResponse{emptyItem}
@@ -91,7 +97,7 @@ func (s *ItemsAPIServiceImpl) GetItems(
 	// Create the list response
 	response := goserver.ItemsListResponse{
 		Items:      responseItems,
-		TotalCount: int32(totalCount), //nolint:gosec // safe conversion from bounded DB count to int32 for API response
+		TotalCount: totalCount,
 	}
 
 	return goserver.Response(200, response), nil
@@ -109,24 +115,33 @@ func (s *ItemsAPIServiceImpl) PutItems(
 		return goserver.Response(401, nil), nil
 	}
 
-	s.logger.Info("Saving item", "userID", userID, "date", itemsRequest.Date)
+	dateStr := itemsRequest.Date.Time.Format("2006-01-02")
+	s.logger.Info("Saving item", "userID", userID, "date", dateStr)
 
 	// Filter tags: trim spaces and skip empty values
-	filteredTags := make([]string, 0, len(itemsRequest.Tags))
-	for _, t := range itemsRequest.Tags {
-		t = strings.TrimSpace(t)
-		if t == "" {
-			continue
+	var filteredTags []string
+	if itemsRequest.Tags != nil {
+		filteredTags = make([]string, 0, len(*itemsRequest.Tags))
+		for _, t := range *itemsRequest.Tags {
+			t = strings.TrimSpace(t)
+			if t == "" {
+				continue
+			}
+			filteredTags = append(filteredTags, t)
 		}
-		filteredTags = append(filteredTags, t)
+	}
+
+	body := ""
+	if itemsRequest.Body != nil {
+		body = *itemsRequest.Body
 	}
 
 	// Convert request to database model
 	item := &models.Item{
 		UserID: userID,
-		Date:   itemsRequest.Date,
+		Date:   dateStr,
 		Title:  itemsRequest.Title,
-		Body:   itemsRequest.Body,
+		Body:   body,
 		Tags:   models.StringList(filteredTags),
 	}
 
@@ -137,11 +152,13 @@ func (s *ItemsAPIServiceImpl) PutItems(
 	}
 
 	// Return the saved item as response
+	savedTags := []string(item.Tags)
+	savedBody := item.Body
 	response := goserver.ItemsResponse{
-		Date:  item.Date,
+		Date:  parseDate(item.Date),
 		Title: item.Title,
-		Body:  item.Body,
-		Tags:  []string(item.Tags),
+		Body:  &savedBody,
+		Tags:  &savedTags,
 	}
 
 	// Add navigation dates
@@ -153,9 +170,17 @@ func (s *ItemsAPIServiceImpl) PutItems(
 // addNavigationDates adds previous and next dates to the response
 func (s *ItemsAPIServiceImpl) addNavigationDates(response *goserver.ItemsResponse, userID, date string) {
 	if previousDate, err := s.db.GetPreviousDate(userID, date); err == nil {
-		response.PreviousDate = &previousDate
+		d := openapi_types.Date{Time: parseDate(previousDate).Time}
+		response.PreviousDate = &d
 	}
 	if nextDate, err := s.db.GetNextDate(userID, date); err == nil {
-		response.NextDate = &nextDate
+		d := openapi_types.Date{Time: parseDate(nextDate).Time}
+		response.NextDate = &d
 	}
+}
+
+// parseDate parses a "2006-01-02" date string into an openapi_types.Date.
+func parseDate(s string) openapi_types.Date {
+	t, _ := time.Parse("2006-01-02", s)
+	return openapi_types.Date{Time: t}
 }
