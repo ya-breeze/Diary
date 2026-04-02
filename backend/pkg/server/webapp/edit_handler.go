@@ -5,7 +5,9 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/ya-breeze/diary.be/pkg/database"
 	"github.com/ya-breeze/diary.be/pkg/database/models"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
@@ -77,11 +79,18 @@ func (r *WebAppRouter) saveHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Build the API request and call the Items API service instead of writing to DB directly
+	parsedDate, err := time.Parse("2006-01-02", date)
+	if err != nil {
+		http.Error(w, "invalid date format", http.StatusBadRequest)
+		return
+	}
+	body := req.FormValue("body")
+	tags := strings.Split(req.FormValue("tags"), ",")
 	itemsRequest := goserver.ItemsRequest{
-		Date:  date,
+		Date:  openapi_types.Date{Time: parsedDate},
 		Title: req.FormValue("title"),
-		Body:  req.FormValue("body"),
-		Tags:  strings.Split(req.FormValue("tags"), ","),
+		Body:  &body,
+		Tags:  &tags,
 	}
 
 	// Ensure the service can read the user ID from context (the API service expects it there)

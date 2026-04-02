@@ -1,8 +1,10 @@
 package models
 
 import (
+	"log"
 	"time"
 
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
 )
 
@@ -47,24 +49,38 @@ func (ic ItemChange) ToSyncResponse() goserver.SyncChangeResponse {
 		id = int32(ic.ID) // #nosec G115 - checked above
 	}
 
+	date := openapi_types.Date{Time: mustParseDate(ic.Date)}
+	metadata := []string(ic.Metadata)
 	response := goserver.SyncChangeResponse{
 		Id:            id,
 		UserId:        ic.UserID,
-		Date:          ic.Date,
-		OperationType: string(ic.OperationType),
+		Date:          date,
+		OperationType: goserver.SyncChangeResponseOperationType(ic.OperationType),
 		Timestamp:     ic.Timestamp,
-		Metadata:      []string(ic.Metadata),
+		Metadata:      &metadata,
 	}
 
 	// Include item data for all operations (including deleted items to show what was deleted)
 	if ic.ItemSnapshot != nil {
+		snapshotDate := openapi_types.Date{Time: mustParseDate(ic.ItemSnapshot.Date)}
+		body := ic.ItemSnapshot.Body
+		tags := []string(ic.ItemSnapshot.Tags)
 		response.ItemSnapshot = &goserver.ItemsResponse{
-			Date:  ic.ItemSnapshot.Date,
+			Date:  snapshotDate,
 			Title: ic.ItemSnapshot.Title,
-			Body:  ic.ItemSnapshot.Body,
-			Tags:  []string(ic.ItemSnapshot.Tags),
+			Body:  &body,
+			Tags:  &tags,
 		}
 	}
 
 	return response
+}
+
+// mustParseDate parses a "2006-01-02" date string; returns zero time on error.
+func mustParseDate(s string) time.Time {
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		log.Printf("mustParseDate: invalid date %q: %v", s, err)
+	}
+	return t
 }

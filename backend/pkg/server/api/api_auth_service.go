@@ -74,7 +74,7 @@ func (s *AuthAPIServiceImpl) Authorize(ctx context.Context, authData goserver.Au
 	s.logger.Info("User authenticated successfully", "email", authData.Email, "userID", userID)
 
 	// Return token response
-	response := goserver.Authorize200Response{
+	response := goserver.Authorize200JSONResponse{
 		Token: token,
 	}
 

@@ -28,18 +28,6 @@ run-frontend:
 	@cd ${ROOT_DIR}/next-frontend && npm run dev
 
 
-.PHONY: replace-templates
-replace-templates:
-	@cd ${ROOT_DIR}/backend; \
-		rm -rf pkg/generated/templates/goclient pkg/generated/templates/goserver; \
-		mkdir -p pkg/generated/templates/goclient pkg/generated/templates/goserver; \
-		docker run --rm -u 1000 -v ${HOST_PWD}:/local \
-			openapitools/openapi-generator-cli author template -g go \
-			-o /local/pkg/generated/templates/goclient; \
-		docker run --rm -u 1000 -v ${HOST_PWD}:/local \
-			openapitools/openapi-generator-cli author template -g go-server \
-			-o /local/pkg/generated/templates/goserver
-
 .PHONY: generate_mocks
 generate_mocks: generate
 	@echo "🚀 Generating mocks..."
@@ -50,47 +38,25 @@ generate_mocks: generate
 generate:
 	@echo "🚀 Generating code from OpenAPI spec..."
 	@cd ${ROOT_DIR}/backend; \
-		rm -rf pkg/generated/goclient pkg/generated/goserver; \
-		mkdir -p pkg/generated/goclient pkg/generated/goserver; \
-		docker run --rm -u 1000 -v ${HOST_PWD}:/local \
-			openapitools/openapi-generator-cli generate \
-			-i /local/api/openapi.yaml \
-			-g go \
-			-t /local/pkg/generated/templates/goclient \
-			-o /local/pkg/generated/goclient \
-			--additional-properties=packageName=goclient,withGoMod=false; \
-		rm -rf \
-			pkg/generated/goclient/api \
-			pkg/generated/goclient/.gitignore \
-			pkg/generated/goclient/.openapi-generator-ignore \
-			pkg/generated/goclient/.travis.yml \
-			pkg/generated/goclient/*.sh \
-			pkg/generated/goclient/go.* \
-			pkg/generated/goclient/test; \
-		docker run --rm -u 1000 -v ${HOST_PWD}:/local \
-			openapitools/openapi-generator-cli generate \
-			-i /local/api/openapi.yaml \
-			-g go-server \
-			-t /local/pkg/generated/templates/goserver \
-			-o /local/pkg/generated/goserver \
-			--additional-properties=packageName=goserver,featureCORS=true,hideGenerationTimestamp=true; \
-		rm -rf \
-			pkg/generated/goserver/api \
-			pkg/generated/goserver/.openapi-generator-ignore \
-			pkg/generated/goserver/Dockerfile \
-			pkg/generated/goserver/go.*; \
-		mv -f pkg/generated/goserver/go/* pkg/generated/goserver; \
-		rm -rf pkg/generated/goserver/go; \
-		goimports -l -w ./pkg/generated/; \
-		go tool mvdan.cc/gofumpt -l -w ./pkg/generated/
-
+		go tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
+			-config ${ROOT_DIR}/api/oapi-codegen-server.yaml \
+			${ROOT_DIR}/api/openapi.yaml; \
+		go tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
+			-config ${ROOT_DIR}/api/oapi-codegen-client.yaml \
+			${ROOT_DIR}/api/openapi.yaml; \
+		goimports -l -w ./pkg/generated/goserver/server.gen.go ./pkg/generated/goclient/client.gen.go; \
+		go tool mvdan.cc/gofumpt -l -w ./pkg/generated/goserver/server.gen.go ./pkg/generated/goclient/client.gen.go
 	@echo "✅ Generation complete"
 
 .PHONY: validate
 validate:
+	@echo "🔍 Validating OpenAPI spec..."
 	@cd ${ROOT_DIR}/backend; \
-		docker run --rm -v ${HOST_PWD}:/local openapitools/openapi-generator-cli validate -i /local/api/openapi.yaml
-	@echo "✅ Validation complete"
+		go tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen \
+			-config ${ROOT_DIR}/api/oapi-codegen-server.yaml \
+			-o /dev/null \
+			${ROOT_DIR}/api/openapi.yaml
+	@echo "✅ Validation: OpenAPI spec is valid"
 
 .PHONY: lint
 lint:

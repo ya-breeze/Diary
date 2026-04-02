@@ -113,11 +113,12 @@ func (s *SyncAPIServiceImpl) buildSyncResponse(changes []*models.ItemChange, lim
 
 	// Determine if there are more changes available
 	hasMore := len(changes) == int(limit)
-	var nextID int32
+	var nextID *int32
 	if hasMore && len(changes) > 0 {
 		lastID := changes[len(changes)-1].ID
 		if lastID <= uint(^uint32(0)>>1) { // Check if it fits in int32 (max positive value)
-			nextID = int32(lastID) // #nosec G115 - checked above
+			id := int32(lastID) // #nosec G115 - checked above
+			nextID = &id
 		}
 	}
 
@@ -141,7 +142,7 @@ func (s *SyncAPIServiceImpl) logSyncSuccess(
 		"limit", limit,
 		"items", len(response.Changes),
 		"hasMore", response.HasMore,
-		"nextId", response.NextId,
+		"nextId", func() int32 { if response.NextId != nil { return *response.NextId }; return 0 }(),
 		"status", 200,
 		"duration", time.Since(start),
 	)

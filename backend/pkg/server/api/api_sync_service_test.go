@@ -73,7 +73,7 @@ var _ = Describe("SyncAPIService", func() {
 				Expect(ok).To(BeTrue())
 				Expect(syncResponse.Changes).To(BeEmpty())
 				Expect(syncResponse.HasMore).To(BeFalse())
-				Expect(syncResponse.NextId).To(BeNumerically("==", 0))
+				Expect(syncResponse.NextId).To(BeNil())
 			})
 		})
 
@@ -114,11 +114,12 @@ var _ = Describe("SyncAPIService", func() {
 				// Verify change content
 				change := syncResponse.Changes[0]
 				Expect(change.UserId).To(Equal(userID))
-				Expect(change.Date).To(Equal("2024-01-15"))
-				Expect(change.OperationType).To(Equal("created"))
+				Expect(change.Date.Time.Format("2006-01-02")).To(Equal("2024-01-15"))
+				Expect(string(change.OperationType)).To(Equal("created"))
 				Expect(change.ItemSnapshot).NotTo(BeNil())
 				Expect(change.ItemSnapshot.Title).To(Equal("Test Entry"))
-				Expect(change.Metadata).To(ConsistOf("test-metadata"))
+				Expect(change.Metadata).NotTo(BeNil())
+				Expect(*change.Metadata).To(ConsistOf("test-metadata"))
 			})
 
 			It("should respect limit parameter", func() {
@@ -131,7 +132,8 @@ var _ = Describe("SyncAPIService", func() {
 				Expect(ok).To(BeTrue())
 				Expect(syncResponse.Changes).To(HaveLen(3))
 				Expect(syncResponse.HasMore).To(BeTrue())
-				Expect(syncResponse.NextId).To(BeNumerically(">", 0))
+				Expect(syncResponse.NextId).NotTo(BeNil())
+				Expect(*syncResponse.NextId).To(BeNumerically(">", 0))
 			})
 
 			It("should return changes after specified ID", func() {
@@ -171,7 +173,7 @@ var _ = Describe("SyncAPIService", func() {
 				Expect(syncResponse1.HasMore).To(BeTrue())
 
 				// Get second page
-				response2, err := service.GetChanges(ctx, syncResponse1.NextId, 2)
+				response2, err := service.GetChanges(ctx, *syncResponse1.NextId, 2)
 				Expect(err).NotTo(HaveOccurred())
 
 				syncResponse2, ok := response2.Body.(goserver.SyncResponse)
@@ -180,7 +182,7 @@ var _ = Describe("SyncAPIService", func() {
 				Expect(syncResponse2.HasMore).To(BeTrue())
 
 				// Get final page
-				response3, err := service.GetChanges(ctx, syncResponse2.NextId, 2)
+				response3, err := service.GetChanges(ctx, *syncResponse2.NextId, 2)
 				Expect(err).NotTo(HaveOccurred())
 
 				syncResponse3, ok := response3.Body.(goserver.SyncResponse)
@@ -258,7 +260,7 @@ var _ = Describe("SyncAPIService", func() {
 				Expect(syncResponse.Changes).To(HaveLen(1))
 
 				change := syncResponse.Changes[0]
-				Expect(change.OperationType).To(Equal("deleted"))
+				Expect(string(change.OperationType)).To(Equal("deleted"))
 				Expect(change.ItemSnapshot).NotTo(BeNil()) // Deleted items still have snapshot
 				Expect(change.ItemSnapshot.Title).To(Equal("Deleted Entry"))
 			})

@@ -4,9 +4,11 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/database"
@@ -15,6 +17,11 @@ import (
 	"github.com/ya-breeze/diary.be/pkg/server/api"
 	"github.com/ya-breeze/diary.be/pkg/server/common"
 )
+
+func parseTestDate(s string) openapi_types.Date {
+	t, _ := time.Parse("2006-01-02", s)
+	return openapi_types.Date{Time: t}
+}
 
 // Helper function to create context with user ID for items tests
 func createContextWithUserIDForItems(userID string) context.Context {
@@ -33,10 +40,12 @@ func assertSuccessfulPutResponse(
 
 	itemsResponse, ok := response.Body.(goserver.ItemsResponse)
 	Expect(ok).To(BeTrue())
-	Expect(itemsResponse.Date).To(Equal(expectedDate))
+	Expect(itemsResponse.Date.Time.Format("2006-01-02")).To(Equal(expectedDate))
 	Expect(itemsResponse.Title).To(Equal(expectedTitle))
-	Expect(itemsResponse.Body).To(Equal(expectedBody))
-	Expect(itemsResponse.Tags).To(Equal(expectedTags))
+	Expect(itemsResponse.Body).ToNot(BeNil())
+	Expect(*itemsResponse.Body).To(Equal(expectedBody))
+	Expect(itemsResponse.Tags).ToNot(BeNil())
+	Expect(*itemsResponse.Tags).To(Equal(expectedTags))
 }
 
 // Helper function to verify item was saved to database
@@ -107,14 +116,16 @@ var _ = Describe("ItemsAPIService", func() {
 				itemsListResponse, ok := response.Body.(goserver.ItemsListResponse)
 				Expect(ok).To(BeTrue())
 				Expect(itemsListResponse.Items).To(HaveLen(1))
-				Expect(itemsListResponse.TotalCount).To(Equal(int32(1)))
+				Expect(itemsListResponse.TotalCount).To(Equal(1))
 
 				// Verify the empty item has the correct date and empty content
 				item := itemsListResponse.Items[0]
-				Expect(item.Date).To(Equal(testDate))
+				Expect(item.Date.Time.Format("2006-01-02")).To(Equal(testDate))
 				Expect(item.Title).To(Equal(""))
-				Expect(item.Body).To(Equal(""))
-				Expect(item.Tags).To(Equal([]string{}))
+				Expect(item.Body).ToNot(BeNil())
+				Expect(*item.Body).To(Equal(""))
+				Expect(item.Tags).ToNot(BeNil())
+				Expect(*item.Tags).To(BeEmpty())
 			})
 
 			Context("when previous and next items exist", func() {
@@ -148,13 +159,14 @@ var _ = Describe("ItemsAPIService", func() {
 					Expect(itemsListResponse.Items).To(HaveLen(1))
 
 					item := itemsListResponse.Items[0]
-					Expect(item.Date).To(Equal(testDate))
+					Expect(item.Date.Time.Format("2006-01-02")).To(Equal(testDate))
 					Expect(item.Title).To(Equal(""))
-					Expect(item.Body).To(Equal(""))
+					Expect(item.Body).ToNot(BeNil())
+					Expect(*item.Body).To(Equal(""))
 					Expect(item.PreviousDate).ToNot(BeNil())
-					Expect(*item.PreviousDate).To(Equal("2024-01-14"))
+					Expect(item.PreviousDate.Time.Format("2006-01-02")).To(Equal("2024-01-14"))
 					Expect(item.NextDate).ToNot(BeNil())
-					Expect(*item.NextDate).To(Equal("2024-01-16"))
+					Expect(item.NextDate.Time.Format("2006-01-02")).To(Equal("2024-01-16"))
 				})
 			})
 		})
@@ -180,13 +192,15 @@ var _ = Describe("ItemsAPIService", func() {
 				itemsListResponse, ok := response.Body.(goserver.ItemsListResponse)
 				Expect(ok).To(BeTrue())
 				Expect(itemsListResponse.Items).To(HaveLen(1))
-				Expect(itemsListResponse.TotalCount).To(Equal(int32(1)))
+				Expect(itemsListResponse.TotalCount).To(Equal(1))
 
 				item := itemsListResponse.Items[0]
-				Expect(item.Date).To(Equal(testDate))
+				Expect(item.Date.Time.Format("2006-01-02")).To(Equal(testDate))
 				Expect(item.Title).To(Equal("Test Title"))
-				Expect(item.Body).To(Equal("Test Body Content"))
-				Expect(item.Tags).To(Equal([]string{"tag1", "tag2"}))
+				Expect(item.Body).ToNot(BeNil())
+				Expect(*item.Body).To(Equal("Test Body Content"))
+				Expect(item.Tags).ToNot(BeNil())
+				Expect(*item.Tags).To(Equal([]string{"tag1", "tag2"}))
 			})
 		})
 
@@ -230,11 +244,11 @@ var _ = Describe("ItemsAPIService", func() {
 				Expect(itemsListResponse.Items).To(HaveLen(1))
 
 				item := itemsListResponse.Items[0]
-				Expect(item.Date).To(Equal(testDate))
+				Expect(item.Date.Time.Format("2006-01-02")).To(Equal(testDate))
 				Expect(item.PreviousDate).ToNot(BeNil())
-				Expect(*item.PreviousDate).To(Equal("2024-01-14"))
+				Expect(item.PreviousDate.Time.Format("2006-01-02")).To(Equal("2024-01-14"))
 				Expect(item.NextDate).ToNot(BeNil())
-				Expect(*item.NextDate).To(Equal("2024-01-16"))
+				Expect(item.NextDate.Time.Format("2006-01-02")).To(Equal("2024-01-16"))
 			})
 		})
 
@@ -277,7 +291,7 @@ var _ = Describe("ItemsAPIService", func() {
 				itemsListResponse, ok := response.Body.(goserver.ItemsListResponse)
 				Expect(ok).To(BeTrue())
 				Expect(itemsListResponse.Items).To(HaveLen(1))
-				Expect(itemsListResponse.TotalCount).To(Equal(int32(1)))
+				Expect(itemsListResponse.TotalCount).To(Equal(1))
 				Expect(itemsListResponse.Items[0].Title).To(Equal("Vacation Planning"))
 			})
 
@@ -289,7 +303,7 @@ var _ = Describe("ItemsAPIService", func() {
 				itemsListResponse, ok := response.Body.(goserver.ItemsListResponse)
 				Expect(ok).To(BeTrue())
 				Expect(itemsListResponse.Items).To(HaveLen(2))
-				Expect(itemsListResponse.TotalCount).To(Equal(int32(2)))
+				Expect(itemsListResponse.TotalCount).To(Equal(2))
 			})
 
 			It("should return empty list when no matches found", func() {
@@ -300,7 +314,7 @@ var _ = Describe("ItemsAPIService", func() {
 				itemsListResponse, ok := response.Body.(goserver.ItemsListResponse)
 				Expect(ok).To(BeTrue())
 				Expect(itemsListResponse.Items).To(BeEmpty())
-				Expect(itemsListResponse.TotalCount).To(Equal(int32(0)))
+				Expect(itemsListResponse.TotalCount).To(Equal(0))
 			})
 		})
 
@@ -343,7 +357,7 @@ var _ = Describe("ItemsAPIService", func() {
 				itemsListResponse, ok := response.Body.(goserver.ItemsListResponse)
 				Expect(ok).To(BeTrue())
 				Expect(itemsListResponse.Items).To(HaveLen(2))
-				Expect(itemsListResponse.TotalCount).To(Equal(int32(2)))
+				Expect(itemsListResponse.TotalCount).To(Equal(2))
 			})
 
 			It("should return items matching multiple tags", func() {
@@ -354,7 +368,7 @@ var _ = Describe("ItemsAPIService", func() {
 				itemsListResponse, ok := response.Body.(goserver.ItemsListResponse)
 				Expect(ok).To(BeTrue())
 				Expect(itemsListResponse.Items).To(HaveLen(1))
-				Expect(itemsListResponse.TotalCount).To(Equal(int32(1)))
+				Expect(itemsListResponse.TotalCount).To(Equal(1))
 				Expect(itemsListResponse.Items[0].Title).To(Equal("Family Time"))
 			})
 
@@ -366,7 +380,7 @@ var _ = Describe("ItemsAPIService", func() {
 				itemsListResponse, ok := response.Body.(goserver.ItemsListResponse)
 				Expect(ok).To(BeTrue())
 				Expect(itemsListResponse.Items).To(BeEmpty())
-				Expect(itemsListResponse.TotalCount).To(Equal(int32(0)))
+				Expect(itemsListResponse.TotalCount).To(Equal(0))
 			})
 		})
 
@@ -402,7 +416,7 @@ var _ = Describe("ItemsAPIService", func() {
 				itemsListResponse, ok := response.Body.(goserver.ItemsListResponse)
 				Expect(ok).To(BeTrue())
 				Expect(itemsListResponse.Items).To(HaveLen(1))
-				Expect(itemsListResponse.TotalCount).To(Equal(int32(1)))
+				Expect(itemsListResponse.TotalCount).To(Equal(1))
 				Expect(itemsListResponse.Items[0].Title).To(Equal("Work Project Meeting"))
 			})
 		})
@@ -412,11 +426,13 @@ var _ = Describe("ItemsAPIService", func() {
 		Context("when no user ID in context", func() {
 			It("should return 401 unauthorized", func() {
 				emptyCtx := context.Background()
+				body := "Test Body"
+				tags := []string{"tag1", "tag2"}
 				request := goserver.ItemsRequest{
-					Date:  testDate,
+					Date:  parseTestDate(testDate),
 					Title: "Test Title",
-					Body:  "Test Body",
-					Tags:  []string{"tag1", "tag2"},
+					Body:  &body,
+					Tags:  &tags,
 				}
 				response, err := service.PutItems(emptyCtx, request)
 				Expect(err).ToNot(HaveOccurred())
@@ -426,11 +442,13 @@ var _ = Describe("ItemsAPIService", func() {
 
 		Context("when creating a new item", func() {
 			It("should create and return the item with 200 status", func() {
+				body := "New Test Body"
+				tags := []string{"new", "test"}
 				request := goserver.ItemsRequest{
-					Date:  testDate,
+					Date:  parseTestDate(testDate),
 					Title: "New Test Title",
-					Body:  "New Test Body",
-					Tags:  []string{"new", "test"},
+					Body:  &body,
+					Tags:  &tags,
 				}
 
 				response, err := service.PutItems(ctx, request)
@@ -455,11 +473,13 @@ var _ = Describe("ItemsAPIService", func() {
 			})
 
 			It("should update and return the item with 200 status", func() {
+				body := "Updated Body"
+				tags := []string{"updated", "modified"}
 				request := goserver.ItemsRequest{
-					Date:  testDate,
+					Date:  parseTestDate(testDate),
 					Title: "Updated Title",
-					Body:  "Updated Body",
-					Tags:  []string{"updated", "modified"},
+					Body:  &body,
+					Tags:  &tags,
 				}
 
 				response, err := service.PutItems(ctx, request)
@@ -492,11 +512,13 @@ var _ = Describe("ItemsAPIService", func() {
 			})
 
 			It("should include previous and next dates in response", func() {
+				body := "Current content"
+				tags := []string{"current"}
 				request := goserver.ItemsRequest{
-					Date:  testDate,
+					Date:  parseTestDate(testDate),
 					Title: "Current Item",
-					Body:  "Current content",
-					Tags:  []string{"current"},
+					Body:  &body,
+					Tags:  &tags,
 				}
 
 				response, err := service.PutItems(ctx, request)
@@ -505,11 +527,11 @@ var _ = Describe("ItemsAPIService", func() {
 
 				itemsResponse, ok := response.Body.(goserver.ItemsResponse)
 				Expect(ok).To(BeTrue())
-				Expect(itemsResponse.Date).To(Equal(testDate))
+				Expect(itemsResponse.Date.Time.Format("2006-01-02")).To(Equal(testDate))
 				Expect(itemsResponse.PreviousDate).ToNot(BeNil())
-				Expect(*itemsResponse.PreviousDate).To(Equal("2024-01-14"))
+				Expect(itemsResponse.PreviousDate.Time.Format("2006-01-02")).To(Equal("2024-01-14"))
 				Expect(itemsResponse.NextDate).ToNot(BeNil())
-				Expect(*itemsResponse.NextDate).To(Equal("2024-01-16"))
+				Expect(itemsResponse.NextDate.Time.Format("2006-01-02")).To(Equal("2024-01-16"))
 			})
 		})
 	})

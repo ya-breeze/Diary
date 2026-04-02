@@ -1,0 +1,5 @@
+package: goclient
+generate:
+  client: true
+  models: true
+output: ../backend/pkg/generated/goclient/client.gen.go
