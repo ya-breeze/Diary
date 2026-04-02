@@ -110,6 +110,10 @@ func Serve(
 	checkerTask := tasks.NewCheckerTask(logger, storage, cfg)
 	checkerTask.Start(ctx)
 
+	// Start background backup task
+	backupTask := tasks.NewBackupTask(logger, cfg)
+	backupTask.Start(ctx)
+
 	// Create controllers
 	controllers := createControllers(logger, cfg, storage, checkerTask)
 
