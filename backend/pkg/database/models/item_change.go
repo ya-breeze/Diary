@@ -1,6 +1,7 @@
 package models
 
 import (
+	"log"
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -77,6 +78,9 @@ func (ic ItemChange) ToSyncResponse() goserver.SyncChangeResponse {
 
 // mustParseDate parses a "2006-01-02" date string; returns zero time on error.
 func mustParseDate(s string) time.Time {
-	t, _ := time.Parse("2006-01-02", s)
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		log.Printf("mustParseDate: invalid date %q: %v", s, err)
+	}
 	return t
 }

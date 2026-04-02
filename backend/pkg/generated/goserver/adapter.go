@@ -10,19 +10,17 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"time"
 )
 
 // StrictServerImpl implements StrictServerInterface by delegating to individual
 // service implementations.
 type StrictServerImpl struct {
-	assets  AssetsAPIService
-	auth    AuthAPIService
-	health  HealthAPIService
-	items   ItemsAPIService
-	sync    SyncAPIService
-	user    UserAPIService
-	errLog  func(format string, args ...any)
+	assets AssetsAPIService
+	auth   AuthAPIService
+	health HealthAPIService
+	items  ItemsAPIService
+	sync   SyncAPIService
+	user   UserAPIService
 }
 
 // newStrictServerImpl creates a StrictServerImpl from a CustomControllers value.
@@ -264,7 +262,3 @@ func (response UploadAssetsBatch501Response) VisitUploadAssetsBatchResponse(w ht
 	return nil
 }
 
-// dateToString converts a time.Time date to "2006-01-02" string format.
-func dateToString(t time.Time) string {
-	return t.Format("2006-01-02")
-}

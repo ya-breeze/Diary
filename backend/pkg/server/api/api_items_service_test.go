@@ -122,8 +122,10 @@ var _ = Describe("ItemsAPIService", func() {
 				item := itemsListResponse.Items[0]
 				Expect(item.Date.Time.Format("2006-01-02")).To(Equal(testDate))
 				Expect(item.Title).To(Equal(""))
-				Expect(item.Body == nil || *item.Body == "").To(BeTrue())
-				Expect(item.Tags == nil || *item.Tags == nil || len(*item.Tags) == 0).To(BeTrue())
+				Expect(item.Body).ToNot(BeNil())
+				Expect(*item.Body).To(Equal(""))
+				Expect(item.Tags).ToNot(BeNil())
+				Expect(*item.Tags).To(BeEmpty())
 			})
 
 			Context("when previous and next items exist", func() {
@@ -159,7 +161,8 @@ var _ = Describe("ItemsAPIService", func() {
 					item := itemsListResponse.Items[0]
 					Expect(item.Date.Time.Format("2006-01-02")).To(Equal(testDate))
 					Expect(item.Title).To(Equal(""))
-					Expect(item.Body == nil || *item.Body == "").To(BeTrue())
+					Expect(item.Body).ToNot(BeNil())
+					Expect(*item.Body).To(Equal(""))
 					Expect(item.PreviousDate).ToNot(BeNil())
 					Expect(item.PreviousDate.Time.Format("2006-01-02")).To(Equal("2024-01-14"))
 					Expect(item.NextDate).ToNot(BeNil())
