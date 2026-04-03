@@ -27,6 +27,10 @@ type AuthAPIServicer = AuthAPIService
 type HealthAPIService interface {
 	GetHealthIssues(ctx context.Context) (ImplResponse, error)
 	FixHealthIssues(ctx context.Context, req HealthFixRequest) (ImplResponse, error)
+	DeleteOrphan(ctx context.Context, filename string) (ImplResponse, error)
+	AttachOrphan(ctx context.Context, filename string, req AttachOrphanRequest) (ImplResponse, error)
+	IgnoreOrphan(ctx context.Context, filename string) (ImplResponse, error)
+	UnignoreOrphan(ctx context.Context, filename string) (ImplResponse, error)
 }
 
 // ItemsAPIService defines the business logic for the Items API.

@@ -144,6 +144,111 @@ func (s *StrictServerImpl) GetHealthIssues(ctx context.Context, _ GetHealthIssue
 	}
 }
 
+// --- DeleteOrphan ---
+
+func (s *StrictServerImpl) DeleteOrphan(ctx context.Context, req DeleteOrphanRequestObject) (DeleteOrphanResponseObject, error) {
+	resp, err := s.health.DeleteOrphan(ctx, req.Filename)
+	if err != nil {
+		return nil, err
+	}
+	switch resp.Code {
+	case http.StatusOK:
+		body, ok := resp.Body.(HealthIssuesResponse)
+		if !ok {
+			return nil, fmt.Errorf("DeleteOrphan: unexpected body type %T", resp.Body)
+		}
+		return DeleteOrphan200JSONResponse(body), nil
+	case http.StatusBadRequest:
+		return DeleteOrphan400Response{}, nil
+	case http.StatusUnauthorized:
+		return DeleteOrphan401Response{}, nil
+	case http.StatusNotFound:
+		return DeleteOrphan404Response{}, nil
+	case http.StatusInternalServerError:
+		return DeleteOrphan500Response{}, nil
+	default:
+		return nil, fmt.Errorf("DeleteOrphan: unexpected status %d", resp.Code)
+	}
+}
+
+// --- AttachOrphan ---
+
+func (s *StrictServerImpl) AttachOrphan(ctx context.Context, req AttachOrphanRequestObject) (AttachOrphanResponseObject, error) {
+	if req.Body == nil {
+		return AttachOrphan400Response{}, nil
+	}
+	resp, err := s.health.AttachOrphan(ctx, req.Filename, *req.Body)
+	if err != nil {
+		return nil, err
+	}
+	switch resp.Code {
+	case http.StatusOK:
+		body, ok := resp.Body.(HealthIssuesResponse)
+		if !ok {
+			return nil, fmt.Errorf("AttachOrphan: unexpected body type %T", resp.Body)
+		}
+		return AttachOrphan200JSONResponse(body), nil
+	case http.StatusBadRequest:
+		return AttachOrphan400Response{}, nil
+	case http.StatusUnauthorized:
+		return AttachOrphan401Response{}, nil
+	case http.StatusInternalServerError:
+		return AttachOrphan500Response{}, nil
+	default:
+		return nil, fmt.Errorf("AttachOrphan: unexpected status %d", resp.Code)
+	}
+}
+
+// --- IgnoreOrphan ---
+
+func (s *StrictServerImpl) IgnoreOrphan(ctx context.Context, req IgnoreOrphanRequestObject) (IgnoreOrphanResponseObject, error) {
+	resp, err := s.health.IgnoreOrphan(ctx, req.Filename)
+	if err != nil {
+		return nil, err
+	}
+	switch resp.Code {
+	case http.StatusOK:
+		body, ok := resp.Body.(HealthIssuesResponse)
+		if !ok {
+			return nil, fmt.Errorf("IgnoreOrphan: unexpected body type %T", resp.Body)
+		}
+		return IgnoreOrphan200JSONResponse(body), nil
+	case http.StatusBadRequest:
+		return IgnoreOrphan400Response{}, nil
+	case http.StatusUnauthorized:
+		return IgnoreOrphan401Response{}, nil
+	case http.StatusInternalServerError:
+		return IgnoreOrphan500Response{}, nil
+	default:
+		return nil, fmt.Errorf("IgnoreOrphan: unexpected status %d", resp.Code)
+	}
+}
+
+// --- UnignoreOrphan ---
+
+func (s *StrictServerImpl) UnignoreOrphan(ctx context.Context, req UnignoreOrphanRequestObject) (UnignoreOrphanResponseObject, error) {
+	resp, err := s.health.UnignoreOrphan(ctx, req.Filename)
+	if err != nil {
+		return nil, err
+	}
+	switch resp.Code {
+	case http.StatusOK:
+		body, ok := resp.Body.(HealthIssuesResponse)
+		if !ok {
+			return nil, fmt.Errorf("UnignoreOrphan: unexpected body type %T", resp.Body)
+		}
+		return UnignoreOrphan200JSONResponse(body), nil
+	case http.StatusBadRequest:
+		return UnignoreOrphan400Response{}, nil
+	case http.StatusUnauthorized:
+		return UnignoreOrphan401Response{}, nil
+	case http.StatusInternalServerError:
+		return UnignoreOrphan500Response{}, nil
+	default:
+		return nil, fmt.Errorf("UnignoreOrphan: unexpected status %d", resp.Code)
+	}
+}
+
 // --- GetItems ---
 
 func (s *StrictServerImpl) GetItems(ctx context.Context, req GetItemsRequestObject) (GetItemsResponseObject, error) {

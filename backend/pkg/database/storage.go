@@ -55,6 +55,11 @@ type Storage interface {
 		itemSnapshot *models.Item, metadata []string) error
 	GetChangesSince(userID string, sinceID uint, limit int) ([]*models.ItemChange, error)
 	GetLatestChangeID(userID string) (uint, error)
+
+	// Orphan ignore list
+	GetIgnoredOrphans(userID string) ([]string, error)
+	AddIgnoredOrphan(userID, filename string) error
+	RemoveIgnoredOrphan(userID, filename string) error
 }
 
 type storage struct {
@@ -431,3 +436,36 @@ func (s *storage) GetLatestChangeID(userID string) (uint, error) {
 }
 
 // #endregion Change Tracking
+
+// #region Orphan Ignore
+
+func (s *storage) GetIgnoredOrphans(userID string) ([]string, error) {
+	var records []models.OrphanIgnore
+	if err := s.db.Where("user_id = ?", userID).Find(&records).Error; err != nil {
+		return nil, fmt.Errorf(StorageError, err)
+	}
+	filenames := make([]string, len(records))
+	for i, r := range records {
+		filenames[i] = r.Filename
+	}
+	return filenames, nil
+}
+
+func (s *storage) AddIgnoredOrphan(userID, filename string) error {
+	record := models.OrphanIgnore{UserID: userID, Filename: filename}
+	if err := s.db.Where(models.OrphanIgnore{UserID: userID, Filename: filename}).
+		FirstOrCreate(&record).Error; err != nil {
+		return fmt.Errorf(StorageError, err)
+	}
+	return nil
+}
+
+func (s *storage) RemoveIgnoredOrphan(userID, filename string) error {
+	if err := s.db.Where("user_id = ? AND filename = ?", userID, filename).
+		Delete(&models.OrphanIgnore{}).Error; err != nil {
+		return fmt.Errorf(StorageError, err)
+	}
+	return nil
+}
+
+// #endregion Orphan Ignore

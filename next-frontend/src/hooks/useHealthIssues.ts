@@ -13,11 +13,41 @@ export function useHealthIssues() {
 
 export function useFixHealthIssues() {
   const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: (checks: string[]) => healthApi.fix(checks),
-    onSuccess: (data) => {
-      queryClient.setQueryData(['health'], data);
-    },
+    onSuccess: (data) => { queryClient.setQueryData(['health'], data); },
+  });
+}
+
+export function useDeleteOrphan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (filename: string) => healthApi.deleteOrphan(filename),
+    onSuccess: (data) => { queryClient.setQueryData(['health'], data); },
+  });
+}
+
+export function useAttachOrphan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ filename, date }: { filename: string; date: string }) =>
+      healthApi.attachOrphan(filename, date),
+    onSuccess: (data) => { queryClient.setQueryData(['health'], data); },
+  });
+}
+
+export function useIgnoreOrphan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (filename: string) => healthApi.ignoreOrphan(filename),
+    onSuccess: (data) => { queryClient.setQueryData(['health'], data); },
+  });
+}
+
+export function useUnignoreOrphan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (filename: string) => healthApi.unignoreOrphan(filename),
+    onSuccess: (data) => { queryClient.setQueryData(['health'], data); },
   });
 }

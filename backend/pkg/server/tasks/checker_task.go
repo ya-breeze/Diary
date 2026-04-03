@@ -2,16 +2,24 @@ package tasks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/ya-breeze/diary.be/pkg/checker"
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/database"
+	"github.com/ya-breeze/diary.be/pkg/database/models"
 )
+
+// ErrInvalidInput is returned when caller-supplied values (filename, date) fail validation.
+var ErrInvalidInput = errors.New("invalid input")
 
 // noopWriter discards all output (used when running checks silently in background).
 type noopWriter struct{}
@@ -28,8 +36,9 @@ var allChecks = []checker.Check{
 
 // UserResult holds the last health check results for a single user.
 type UserResult struct {
-	Issues      []checker.Issue
-	LastChecked time.Time
+	Issues         []checker.Issue
+	LastChecked    time.Time
+	IgnoredOrphans []string
 }
 
 // CheckerTask runs health checks periodically and stores results in memory.
@@ -109,11 +118,126 @@ func (t *CheckerTask) RunFix(userID string, checks []string) (*UserResult, error
 		return nil, err
 	}
 
-	result := &UserResult{Issues: issues, LastChecked: time.Now()}
+	ignored, _ := t.db.GetIgnoredOrphans(userID)
+	result := &UserResult{Issues: issues, LastChecked: time.Now(), IgnoredOrphans: ignored}
 	t.mu.Lock()
 	t.results[userID] = result
 	t.mu.Unlock()
 	return result, nil
+}
+
+// GetIgnoredOrphans returns the list of filenames the user has chosen to ignore.
+func (t *CheckerTask) GetIgnoredOrphans(userID string) ([]string, error) {
+	return t.db.GetIgnoredOrphans(userID)
+}
+
+// DeleteOrphan deletes a single orphaned asset file for the user then re-runs orphan checks.
+func (t *CheckerTask) DeleteOrphan(userID, filename string) (*UserResult, error) {
+	if err := validateFilename(filename); err != nil {
+		return nil, err
+	}
+	userDir := filepath.Join(t.cfg.DataPath, config.AssetsDirName, userID)
+	filePath := filepath.Join(userDir, filename)
+	if err := os.Remove(filePath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("orphan %q not found on disk: %w", filename, database.ErrNotFound)
+		}
+		return nil, fmt.Errorf("deleting orphan %q: %w", filename, err)
+	}
+	t.logger.Info("Deleted orphan", "file", filename, "userID", userID)
+	return t.refreshOrphansForUser(userID)
+}
+
+// AttachOrphan inserts a markdown image reference into a diary entry (creating it if needed).
+func (t *CheckerTask) AttachOrphan(userID, filename, date string) (*UserResult, error) {
+	if err := validateFilename(filename); err != nil {
+		return nil, err
+	}
+	if err := validateDate(date); err != nil {
+		return nil, err
+	}
+	item, err := t.db.GetItem(userID, date)
+	if err != nil {
+		if !errors.Is(err, database.ErrNotFound) {
+			return nil, fmt.Errorf("getting item %s: %w", date, err)
+		}
+		// Create a new entry for that date
+		item = &models.Item{UserID: userID, Date: date}
+	}
+	item.Body += fmt.Sprintf("\n\n![%s](%s)", filename, filename)
+	if err := t.db.PutItem(userID, item); err != nil {
+		return nil, fmt.Errorf("saving item %s: %w", date, err)
+	}
+	t.logger.Info("Attached orphan to entry", "file", filename, "date", date, "userID", userID)
+	return t.refreshOrphansForUser(userID)
+}
+
+// IgnoreOrphan adds a filename to the user's ignore list.
+func (t *CheckerTask) IgnoreOrphan(userID, filename string) (*UserResult, error) {
+	if err := validateFilename(filename); err != nil {
+		return nil, err
+	}
+	if err := t.db.AddIgnoredOrphan(userID, filename); err != nil {
+		return nil, fmt.Errorf("adding ignored orphan %q: %w", filename, err)
+	}
+	t.logger.Info("Ignored orphan", "file", filename, "userID", userID)
+	return t.refreshOrphansForUser(userID)
+}
+
+// UnignoreOrphan removes a filename from the user's ignore list.
+func (t *CheckerTask) UnignoreOrphan(userID, filename string) (*UserResult, error) {
+	if err := validateFilename(filename); err != nil {
+		return nil, err
+	}
+	if err := t.db.RemoveIgnoredOrphan(userID, filename); err != nil {
+		return nil, fmt.Errorf("removing ignored orphan %q: %w", filename, err)
+	}
+	t.logger.Info("Unignored orphan", "file", filename, "userID", userID)
+	return t.refreshOrphansForUser(userID)
+}
+
+// refreshOrphansForUser re-runs the orphans check for a single user and merges the fresh
+// orphan results with whatever non-orphan issues are currently cached in memory. If no prior
+// cache exists (e.g. before the first full background scan) only orphan results are returned.
+func (t *CheckerTask) refreshOrphansForUser(userID string) (*UserResult, error) {
+	runner := checker.NewRunner(t.logger, []checker.Check{checker.OrphansCheck{}})
+	issues, err := runner.RunForUser(t.db, t.cfg, userID, false)
+	if err != nil {
+		return nil, err
+	}
+	ignored, _ := t.db.GetIgnoredOrphans(userID)
+
+	t.mu.Lock()
+	existing := t.results[userID]
+	var mergedIssues []checker.Issue
+	if existing != nil {
+		for _, i := range existing.Issues {
+			if i.Check != "orphans" {
+				mergedIssues = append(mergedIssues, i)
+			}
+		}
+	}
+	mergedIssues = append(mergedIssues, issues...)
+	result := &UserResult{Issues: mergedIssues, LastChecked: time.Now(), IgnoredOrphans: ignored}
+	t.results[userID] = result
+	t.mu.Unlock()
+	return result, nil
+}
+
+// validateFilename ensures a filename is safe (no path separators or traversal).
+func validateFilename(filename string) error {
+	if filename == "" || strings.ContainsAny(filename, "/\\") || strings.Contains(filename, "..") {
+		return fmt.Errorf("invalid filename %q: %w", filename, ErrInvalidInput)
+	}
+	return nil
+}
+
+// validateDate ensures the date is a valid YYYY-MM-DD string.
+func validateDate(date string) error {
+	if _, err := time.Parse("2006-01-02", date); err != nil {
+		return fmt.Errorf("invalid date %q (expected YYYY-MM-DD): %w", date, ErrInvalidInput)
+	}
+	return nil
 }
 
 func (t *CheckerTask) runAll() {
@@ -141,9 +265,11 @@ func (t *CheckerTask) runAll() {
 	t.mu.Lock()
 	for _, user := range users {
 		userID := user.ID.String()
+		ignored, _ := t.db.GetIgnoredOrphans(userID)
 		t.results[userID] = &UserResult{
-			Issues:      byUser[userID],
-			LastChecked: now,
+			Issues:         byUser[userID],
+			LastChecked:    now,
+			IgnoredOrphans: ignored,
 		}
 		t.logger.Info("Health check complete", "userID", userID, "issues", len(byUser[userID]))
 	}

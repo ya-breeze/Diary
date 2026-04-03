@@ -65,6 +65,12 @@ type AssetsBatchResponse struct {
 	Files []AssetsBatchFile `json:"files"`
 }
 
+// AttachOrphanRequest defines model for AttachOrphanRequest.
+type AttachOrphanRequest struct {
+	// Date Date of the diary entry to attach the asset to (YYYY-MM-DD)
+	Date string `json:"date"`
+}
+
 // AuthData defines model for AuthData.
 type AuthData struct {
 	Email    string `json:"email"`
@@ -99,6 +105,9 @@ type HealthIssue struct {
 
 // HealthIssuesResponse defines model for HealthIssuesResponse.
 type HealthIssuesResponse struct {
+	// IgnoredOrphans Filenames of orphaned assets the user has chosen to ignore
+	IgnoredOrphans *[]string `json:"ignoredOrphans,omitempty"`
+
 	// Issues List of storage issues found for this user
 	Issues []HealthIssue `json:"issues"`
 
@@ -221,6 +230,9 @@ type AuthorizeJSONRequestBody = AuthData
 // FixHealthIssuesJSONRequestBody defines body for FixHealthIssues for application/json ContentType.
 type FixHealthIssuesJSONRequestBody = HealthFixRequest
 
+// AttachOrphanJSONRequestBody defines body for AttachOrphan for application/json ContentType.
+type AttachOrphanJSONRequestBody = AttachOrphanRequest
+
 // PutItemsJSONRequestBody defines body for PutItems for application/json ContentType.
 type PutItemsJSONRequestBody = ItemsRequest
 
@@ -316,6 +328,20 @@ type ClientInterface interface {
 	// GetHealthIssues request
 	GetHealthIssues(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteOrphan request
+	DeleteOrphan(ctx context.Context, filename string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AttachOrphanWithBody request with any body
+	AttachOrphanWithBody(ctx context.Context, filename string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AttachOrphan(ctx context.Context, filename string, body AttachOrphanJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UnignoreOrphan request
+	UnignoreOrphan(ctx context.Context, filename string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// IgnoreOrphan request
+	IgnoreOrphan(ctx context.Context, filename string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetItems request
 	GetItems(ctx context.Context, params *GetItemsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -405,6 +431,66 @@ func (c *Client) FixHealthIssues(ctx context.Context, body FixHealthIssuesJSONRe
 
 func (c *Client) GetHealthIssues(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetHealthIssuesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteOrphan(ctx context.Context, filename string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteOrphanRequest(c.Server, filename)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AttachOrphanWithBody(ctx context.Context, filename string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAttachOrphanRequestWithBody(c.Server, filename, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AttachOrphan(ctx context.Context, filename string, body AttachOrphanJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAttachOrphanRequest(c.Server, filename, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UnignoreOrphan(ctx context.Context, filename string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnignoreOrphanRequest(c.Server, filename)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) IgnoreOrphan(ctx context.Context, filename string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewIgnoreOrphanRequest(c.Server, filename)
 	if err != nil {
 		return nil, err
 	}
@@ -656,6 +742,155 @@ func NewGetHealthIssuesRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewDeleteOrphanRequest generates requests for DeleteOrphan
+func NewDeleteOrphanRequest(server string, filename string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "filename", filename, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/health/orphans/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAttachOrphanRequest calls the generic AttachOrphan builder with application/json body
+func NewAttachOrphanRequest(server string, filename string, body AttachOrphanJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAttachOrphanRequestWithBody(server, filename, "application/json", bodyReader)
+}
+
+// NewAttachOrphanRequestWithBody generates requests for AttachOrphan with any type of body
+func NewAttachOrphanRequestWithBody(server string, filename string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "filename", filename, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/health/orphans/%s/attach", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUnignoreOrphanRequest generates requests for UnignoreOrphan
+func NewUnignoreOrphanRequest(server string, filename string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "filename", filename, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/health/orphans/%s/ignore", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewIgnoreOrphanRequest generates requests for IgnoreOrphan
+func NewIgnoreOrphanRequest(server string, filename string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "filename", filename, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/health/orphans/%s/ignore", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetItemsRequest generates requests for GetItems
 func NewGetItemsRequest(server string, params *GetItemsParams) (*http.Request, error) {
 	var err error
@@ -679,7 +914,6 @@ func NewGetItemsRequest(server string, params *GetItemsParams) (*http.Request, e
 		queryValues := queryURL.Query()
 
 		if params.Date != nil {
-
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "date", *params.Date, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date"}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
@@ -691,11 +925,9 @@ func NewGetItemsRequest(server string, params *GetItemsParams) (*http.Request, e
 					}
 				}
 			}
-
 		}
 
 		if params.Search != nil {
-
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "search", *params.Search, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
@@ -707,11 +939,9 @@ func NewGetItemsRequest(server string, params *GetItemsParams) (*http.Request, e
 					}
 				}
 			}
-
 		}
 
 		if params.Tags != nil {
-
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "tags", *params.Tags, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
@@ -723,7 +953,6 @@ func NewGetItemsRequest(server string, params *GetItemsParams) (*http.Request, e
 					}
 				}
 			}
-
 		}
 
 		queryURL.RawQuery = queryValues.Encode()
@@ -800,7 +1029,6 @@ func NewGetChangesRequest(server string, params *GetChangesParams) (*http.Reques
 		queryValues := queryURL.Query()
 
 		if params.Since != nil {
-
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "since", *params.Since, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
@@ -812,11 +1040,9 @@ func NewGetChangesRequest(server string, params *GetChangesParams) (*http.Reques
 					}
 				}
 			}
-
 		}
 
 		if params.Limit != nil {
-
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
@@ -828,7 +1054,6 @@ func NewGetChangesRequest(server string, params *GetChangesParams) (*http.Reques
 					}
 				}
 			}
-
 		}
 
 		queryURL.RawQuery = queryValues.Encode()
@@ -930,6 +1155,20 @@ type ClientWithResponsesInterface interface {
 
 	// GetHealthIssuesWithResponse request
 	GetHealthIssuesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthIssuesResponse, error)
+
+	// DeleteOrphanWithResponse request
+	DeleteOrphanWithResponse(ctx context.Context, filename string, reqEditors ...RequestEditorFn) (*DeleteOrphanResponse, error)
+
+	// AttachOrphanWithBodyWithResponse request with any body
+	AttachOrphanWithBodyWithResponse(ctx context.Context, filename string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AttachOrphanResponse, error)
+
+	AttachOrphanWithResponse(ctx context.Context, filename string, body AttachOrphanJSONRequestBody, reqEditors ...RequestEditorFn) (*AttachOrphanResponse, error)
+
+	// UnignoreOrphanWithResponse request
+	UnignoreOrphanWithResponse(ctx context.Context, filename string, reqEditors ...RequestEditorFn) (*UnignoreOrphanResponse, error)
+
+	// IgnoreOrphanWithResponse request
+	IgnoreOrphanWithResponse(ctx context.Context, filename string, reqEditors ...RequestEditorFn) (*IgnoreOrphanResponse, error)
 
 	// GetItemsWithResponse request
 	GetItemsWithResponse(ctx context.Context, params *GetItemsParams, reqEditors ...RequestEditorFn) (*GetItemsResponse, error)
@@ -1051,6 +1290,94 @@ func (r GetHealthIssuesResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetHealthIssuesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteOrphanResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *HealthIssuesResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteOrphanResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteOrphanResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AttachOrphanResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *HealthIssuesResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r AttachOrphanResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AttachOrphanResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UnignoreOrphanResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *HealthIssuesResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UnignoreOrphanResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UnignoreOrphanResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type IgnoreOrphanResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *HealthIssuesResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r IgnoreOrphanResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r IgnoreOrphanResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1206,6 +1533,50 @@ func (c *ClientWithResponses) GetHealthIssuesWithResponse(ctx context.Context, r
 	return ParseGetHealthIssuesResponse(rsp)
 }
 
+// DeleteOrphanWithResponse request returning *DeleteOrphanResponse
+func (c *ClientWithResponses) DeleteOrphanWithResponse(ctx context.Context, filename string, reqEditors ...RequestEditorFn) (*DeleteOrphanResponse, error) {
+	rsp, err := c.DeleteOrphan(ctx, filename, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteOrphanResponse(rsp)
+}
+
+// AttachOrphanWithBodyWithResponse request with arbitrary body returning *AttachOrphanResponse
+func (c *ClientWithResponses) AttachOrphanWithBodyWithResponse(ctx context.Context, filename string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AttachOrphanResponse, error) {
+	rsp, err := c.AttachOrphanWithBody(ctx, filename, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAttachOrphanResponse(rsp)
+}
+
+func (c *ClientWithResponses) AttachOrphanWithResponse(ctx context.Context, filename string, body AttachOrphanJSONRequestBody, reqEditors ...RequestEditorFn) (*AttachOrphanResponse, error) {
+	rsp, err := c.AttachOrphan(ctx, filename, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAttachOrphanResponse(rsp)
+}
+
+// UnignoreOrphanWithResponse request returning *UnignoreOrphanResponse
+func (c *ClientWithResponses) UnignoreOrphanWithResponse(ctx context.Context, filename string, reqEditors ...RequestEditorFn) (*UnignoreOrphanResponse, error) {
+	rsp, err := c.UnignoreOrphan(ctx, filename, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnignoreOrphanResponse(rsp)
+}
+
+// IgnoreOrphanWithResponse request returning *IgnoreOrphanResponse
+func (c *ClientWithResponses) IgnoreOrphanWithResponse(ctx context.Context, filename string, reqEditors ...RequestEditorFn) (*IgnoreOrphanResponse, error) {
+	rsp, err := c.IgnoreOrphan(ctx, filename, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseIgnoreOrphanResponse(rsp)
+}
+
 // GetItemsWithResponse request returning *GetItemsResponse
 func (c *ClientWithResponses) GetItemsWithResponse(ctx context.Context, params *GetItemsParams, reqEditors ...RequestEditorFn) (*GetItemsResponse, error) {
 	rsp, err := c.GetItems(ctx, params, reqEditors...)
@@ -1286,7 +1657,6 @@ func ParseUploadAssetsBatchResponse(rsp *http.Response) (*UploadAssetsBatchRespo
 			return nil, err
 		}
 		response.JSON200 = &dest
-
 	}
 
 	return response, nil
@@ -1314,7 +1684,6 @@ func ParseAuthorizeResponse(rsp *http.Response) (*AuthorizeResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
-
 	}
 
 	return response, nil
@@ -1340,7 +1709,6 @@ func ParseFixHealthIssuesResponse(rsp *http.Response) (*FixHealthIssuesResponse,
 			return nil, err
 		}
 		response.JSON200 = &dest
-
 	}
 
 	return response, nil
@@ -1366,7 +1734,106 @@ func ParseGetHealthIssuesResponse(rsp *http.Response) (*GetHealthIssuesResponse,
 			return nil, err
 		}
 		response.JSON200 = &dest
+	}
 
+	return response, nil
+}
+
+// ParseDeleteOrphanResponse parses an HTTP response from a DeleteOrphanWithResponse call
+func ParseDeleteOrphanResponse(rsp *http.Response) (*DeleteOrphanResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteOrphanResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest HealthIssuesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+	}
+
+	return response, nil
+}
+
+// ParseAttachOrphanResponse parses an HTTP response from a AttachOrphanWithResponse call
+func ParseAttachOrphanResponse(rsp *http.Response) (*AttachOrphanResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AttachOrphanResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest HealthIssuesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+	}
+
+	return response, nil
+}
+
+// ParseUnignoreOrphanResponse parses an HTTP response from a UnignoreOrphanWithResponse call
+func ParseUnignoreOrphanResponse(rsp *http.Response) (*UnignoreOrphanResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UnignoreOrphanResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest HealthIssuesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+	}
+
+	return response, nil
+}
+
+// ParseIgnoreOrphanResponse parses an HTTP response from a IgnoreOrphanWithResponse call
+func ParseIgnoreOrphanResponse(rsp *http.Response) (*IgnoreOrphanResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &IgnoreOrphanResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest HealthIssuesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 	}
 
 	return response, nil
@@ -1392,7 +1859,6 @@ func ParseGetItemsResponse(rsp *http.Response) (*GetItemsResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
-
 	}
 
 	return response, nil
@@ -1418,7 +1884,6 @@ func ParsePutItemsResponse(rsp *http.Response) (*PutItemsResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
-
 	}
 
 	return response, nil
@@ -1444,7 +1909,6 @@ func ParseGetChangesResponse(rsp *http.Response) (*GetChangesResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
-
 	}
 
 	return response, nil
@@ -1470,7 +1934,6 @@ func ParseGetUserResponse(rsp *http.Response) (*GetUserResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
-
 	}
 
 	return response, nil
