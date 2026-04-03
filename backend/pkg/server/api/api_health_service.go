@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/ya-breeze/diary.be/pkg/database"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
@@ -137,7 +136,7 @@ func toGoserverResponse(result *tasks.UserResult) goserver.HealthIssuesResponse 
 	return resp
 }
 
-// isValidationError checks whether an error message indicates invalid input.
+// isValidationError reports whether the error is a caller-supplied input validation failure.
 func isValidationError(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "invalid filename")
+	return errors.Is(err, tasks.ErrInvalidInput)
 }

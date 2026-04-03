@@ -18,6 +18,9 @@ import (
 	"github.com/ya-breeze/diary.be/pkg/database/models"
 )
 
+// ErrInvalidInput is returned when caller-supplied values (filename, date) fail validation.
+var ErrInvalidInput = errors.New("invalid input")
+
 // noopWriter discards all output (used when running checks silently in background).
 type noopWriter struct{}
 
@@ -137,7 +140,7 @@ func (t *CheckerTask) DeleteOrphan(userID, filename string) (*UserResult, error)
 	filePath := filepath.Join(userDir, filename)
 	if err := os.Remove(filePath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("orphan not found: %w", database.ErrNotFound)
+			return nil, fmt.Errorf("orphan %q not found on disk: %w", filename, database.ErrNotFound)
 		}
 		return nil, fmt.Errorf("deleting orphan %q: %w", filename, err)
 	}
@@ -148,6 +151,9 @@ func (t *CheckerTask) DeleteOrphan(userID, filename string) (*UserResult, error)
 // AttachOrphan inserts a markdown image reference into a diary entry (creating it if needed).
 func (t *CheckerTask) AttachOrphan(userID, filename, date string) (*UserResult, error) {
 	if err := validateFilename(filename); err != nil {
+		return nil, err
+	}
+	if err := validateDate(date); err != nil {
 		return nil, err
 	}
 	item, err := t.db.GetItem(userID, date)
@@ -190,7 +196,9 @@ func (t *CheckerTask) UnignoreOrphan(userID, filename string) (*UserResult, erro
 	return t.refreshOrphansForUser(userID)
 }
 
-// refreshOrphansForUser re-runs the orphans check and updates stored results.
+// refreshOrphansForUser re-runs the orphans check for a single user and merges the fresh
+// orphan results with whatever non-orphan issues are currently cached in memory. If no prior
+// cache exists (e.g. before the first full background scan) only orphan results are returned.
 func (t *CheckerTask) refreshOrphansForUser(userID string) (*UserResult, error) {
 	runner := checker.NewRunner(t.logger, []checker.Check{checker.OrphansCheck{}})
 	issues, err := runner.RunForUser(t.db, t.cfg, userID, false)
@@ -219,7 +227,15 @@ func (t *CheckerTask) refreshOrphansForUser(userID string) (*UserResult, error) 
 // validateFilename ensures a filename is safe (no path separators or traversal).
 func validateFilename(filename string) error {
 	if filename == "" || strings.ContainsAny(filename, "/\\") || strings.Contains(filename, "..") {
-		return fmt.Errorf("invalid filename %q", filename)
+		return fmt.Errorf("invalid filename %q: %w", filename, ErrInvalidInput)
+	}
+	return nil
+}
+
+// validateDate ensures the date is a valid YYYY-MM-DD string.
+func validateDate(date string) error {
+	if _, err := time.Parse("2006-01-02", date); err != nil {
+		return fmt.Errorf("invalid date %q (expected YYYY-MM-DD): %w", date, ErrInvalidInput)
 	}
 	return nil
 }

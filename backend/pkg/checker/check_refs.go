@@ -36,18 +36,16 @@ func (RefsCheck) Run(db database.Storage, cfg *config.Config, logger *slog.Logge
 		}
 
 		for _, item := range items {
-			capturedItem := item
 			for _, name := range utils.GetAssetsFromMarkdown(item.Body) {
 				filePath := filepath.Join(userDir, name)
 				if _, err := os.Stat(filePath); os.IsNotExist(err) {
-					capturedName := name
 					issues = append(issues, Issue{
 						Check:   "refs",
 						UserID:  userID,
 						Path:    item.Date + "/" + name,
 						Message: fmt.Sprintf("entry %q references missing file %q", item.Date, name),
 						Fixable: true,
-						fix:     makeRefsFix(db, logger, userID, capturedItem.Date, capturedName),
+						fix:     makeRefsFix(db, logger, userID, item.Date, name),
 					})
 				}
 			}
