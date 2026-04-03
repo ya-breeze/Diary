@@ -188,9 +188,8 @@ export function HealthPanel({ isOpen, onClose }: HealthPanelProps) {
                 {orphanIssues.map((issue) => {
                   const filename = filenameFromPath(issue.path);
                   const state = orphanStates[filename] ?? {};
-                  const imgUrl = IMAGE_EXTENSIONS.test(filename)
-                    ? assetsApi.getAssetUrl(filename)
-                    : null;
+                  const fileUrl = assetsApi.getAssetUrl(filename);
+                  const imgUrl = IMAGE_EXTENSIONS.test(filename) ? fileUrl : null;
 
                   return (
                     <div
@@ -200,29 +199,29 @@ export function HealthPanel({ isOpen, onClose }: HealthPanelProps) {
                       {/* Thumbnail + filename */}
                       <div className="mb-2 flex items-center gap-2">
                         {imgUrl ? (
-                          <div className="group relative flex-shrink-0">
+                          <a href={imgUrl} target="_blank" rel="noopener noreferrer" className="group relative flex-shrink-0">
                             <img
                               src={imgUrl}
                               alt={filename}
                               className="h-10 w-10 rounded object-cover"
                               onError={(e) => {
-                                (e.target as HTMLImageElement).closest('div')!.style.display = 'none';
+                                (e.target as HTMLImageElement).closest('a')!.style.display = 'none';
                               }}
                             />
-                            <div className="pointer-events-none absolute bottom-0 right-full z-50 mr-2 hidden w-64 group-hover:block">
+                            <div className="pointer-events-none absolute left-0 top-full z-50 mt-1 hidden w-64 group-hover:block">
                               <img
                                 src={imgUrl}
                                 alt={filename}
                                 className="max-h-64 w-full rounded-md object-contain shadow-xl ring-1 ring-zinc-200 dark:ring-zinc-700"
                               />
                             </div>
-                          </div>
+                          </a>
                         ) : (
-                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded bg-zinc-200 dark:bg-zinc-700">
+                          <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600">
                             <span className="text-[10px] uppercase text-zinc-400">
                               {filename.split('.').pop()?.slice(0, 4) ?? 'file'}
                             </span>
-                          </div>
+                          </a>
                         )}
                         <span className="flex-1 truncate font-mono text-xs text-zinc-600 dark:text-zinc-300">
                           {filename}
@@ -358,38 +357,37 @@ export function HealthPanel({ isOpen, onClose }: HealthPanelProps) {
               {ignoredExpanded && (
                 <div className="mt-2 flex flex-col gap-2">
                   {ignoredOrphans.map((filename) => {
-                    const imgUrl = IMAGE_EXTENSIONS.test(filename)
-                      ? assetsApi.getAssetUrl(filename)
-                      : null;
+                    const fileUrl = assetsApi.getAssetUrl(filename);
+                    const imgUrl = IMAGE_EXTENSIONS.test(filename) ? fileUrl : null;
                     return (
                       <div
                         key={filename}
                         className="flex items-center gap-2 rounded-md border border-zinc-100 bg-zinc-50 p-2 dark:border-zinc-700 dark:bg-zinc-800/50"
                       >
                         {imgUrl ? (
-                          <div className="group relative flex-shrink-0">
+                          <a href={imgUrl} target="_blank" rel="noopener noreferrer" className="group relative flex-shrink-0">
                             <img
                               src={imgUrl}
                               alt={filename}
                               className="h-8 w-8 rounded object-cover opacity-50"
                               onError={(e) => {
-                                (e.target as HTMLImageElement).closest('div')!.style.display = 'none';
+                                (e.target as HTMLImageElement).closest('a')!.style.display = 'none';
                               }}
                             />
-                            <div className="pointer-events-none absolute bottom-0 right-full z-50 mr-2 hidden w-64 group-hover:block">
+                            <div className="pointer-events-none absolute left-0 top-full z-50 mt-1 hidden w-64 group-hover:block">
                               <img
                                 src={imgUrl}
                                 alt={filename}
                                 className="max-h-64 w-full rounded-md object-contain shadow-xl ring-1 ring-zinc-200 dark:ring-zinc-700"
                               />
                             </div>
-                          </div>
+                          </a>
                         ) : (
-                          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-zinc-200 opacity-50 dark:bg-zinc-700">
+                          <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded bg-zinc-200 opacity-50 hover:opacity-75 dark:bg-zinc-700">
                             <span className="text-[9px] uppercase text-zinc-400">
                               {filename.split('.').pop()?.slice(0, 4) ?? 'file'}
                             </span>
-                          </div>
+                          </a>
                         )}
                         <span className="flex-1 truncate font-mono text-xs text-zinc-400 dark:text-zinc-500">
                           {filename}
