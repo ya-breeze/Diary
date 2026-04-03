@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button, Input, Textarea } from '@/components/ui';
+import { cn } from '@/lib/utils';
 import { ImageGrid } from '@/components/assets';
 import { useSaveEntry } from '@/hooks';
 import { formatDateForApi } from '@/lib/utils/date';
@@ -34,6 +35,7 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
   const saveEntry = useSaveEntry();
   const [imageUrl, setImageUrl] = useState('');
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   const {
     register,
@@ -88,8 +90,9 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
 
   const handleFileUpload = useCallback(
     async (files: FileList) => {
+      setUploadProgress(0);
       try {
-        const response = await assetsApi.uploadAssetsBatch(Array.from(files));
+        const response = await assetsApi.uploadAssetsBatch(Array.from(files), setUploadProgress);
         const uploadedUrls = response.files.map((f) => f.savedName);
 
         setAttachedImages((prev) => [...prev, ...uploadedUrls]);
@@ -97,6 +100,8 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
         setValue('body', `${bodyValue}\n\n${imageMarkdown}`, { shouldDirty: true });
       } catch (error) {
         console.error('Upload failed:', error);
+      } finally {
+        setUploadProgress(null);
       }
     },
     [bodyValue, setValue]
@@ -208,9 +213,28 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
               </Button>
             </div>
 
+            {/* Upload Progress */}
+            {uploadProgress !== null && (
+              <div className="mb-4 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+                <div className="mb-2 flex justify-between text-sm text-zinc-600 dark:text-zinc-400">
+                  <span>Uploading...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                  <div
+                    className="h-full rounded-full bg-blue-500 transition-all duration-200"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Drop zone */}
             <div
-              className="mb-4 rounded-lg border-2 border-dashed border-zinc-300 p-4 text-center dark:border-zinc-700"
+              className={cn(
+                'mb-4 rounded-lg border-2 border-dashed border-zinc-300 p-4 text-center dark:border-zinc-700',
+                uploadProgress !== null && 'pointer-events-none opacity-50'
+              )}
               onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
