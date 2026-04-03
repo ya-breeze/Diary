@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Save, ImagePlus } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -33,7 +33,6 @@ export interface EntryEditorProps {
 export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditorProps) {
   const router = useRouter();
   const saveEntry = useSaveEntry();
-  const [imageUrl, setImageUrl] = useState('');
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
@@ -64,15 +63,6 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
       setAttachedImages(images);
     }
   }, [entry?.body]);
-
-  const handleAddImage = useCallback(() => {
-    if (imageUrl.trim()) {
-      setAttachedImages((prev) => [...prev, imageUrl.trim()]);
-      // Add image to body
-      setValue('body', `${bodyValue}\n\n![](${imageUrl.trim()})`, { shouldDirty: true });
-      setImageUrl('');
-    }
-  }, [imageUrl, bodyValue, setValue]);
 
   const handleRemoveImage = useCallback(
     (index: number) => {
@@ -199,19 +189,6 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
             <label className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
               Attached Images
             </label>
-
-            <div className="mb-4 flex gap-2">
-              <Input
-                placeholder="Paste image URL here..."
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className="flex-1"
-              />
-              <Button type="button" variant="secondary" onClick={handleAddImage} className="gap-2">
-                <ImagePlus className="h-4 w-4" />
-                Add
-              </Button>
-            </div>
 
             {/* Upload Progress */}
             {uploadProgress !== null && (
