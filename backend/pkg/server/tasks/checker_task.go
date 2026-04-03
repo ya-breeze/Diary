@@ -119,8 +119,25 @@ func (t *CheckerTask) RunFix(userID string, checks []string) (*UserResult, error
 	}
 
 	ignored, _ := t.db.GetIgnoredOrphans(userID)
-	result := &UserResult{Issues: issues, LastChecked: time.Now(), IgnoredOrphans: ignored}
+
+	// Collect the names of checks we just ran so we can replace only those in the cache.
+	selectedNames := make(map[string]bool, len(selected))
+	for _, c := range selected {
+		selectedNames[c.Name()] = true
+	}
+
 	t.mu.Lock()
+	existing := t.results[userID]
+	var mergedIssues []checker.Issue
+	if existing != nil {
+		for _, i := range existing.Issues {
+			if !selectedNames[i.Check] {
+				mergedIssues = append(mergedIssues, i)
+			}
+		}
+	}
+	mergedIssues = append(mergedIssues, issues...)
+	result := &UserResult{Issues: mergedIssues, LastChecked: time.Now(), IgnoredOrphans: ignored}
 	t.results[userID] = result
 	t.mu.Unlock()
 	return result, nil
