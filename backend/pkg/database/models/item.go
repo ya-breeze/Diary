@@ -6,7 +6,8 @@ import (
 
 type Item struct {
 	coremodels.TenantModel
-	Date  string     `gorm:"uniqueIndex:idx_family_date;not null"`
+	// Composite unique index (family_id, date) is created manually in migration.
+	Date  string     `gorm:"not null"`
 	Title string
 	Body  string
 	Tags  StringList `gorm:"type:json"`

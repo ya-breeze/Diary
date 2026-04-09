@@ -134,6 +134,11 @@ func runMigrationIfNeeded(log *slog.Logger, db *gorm.DB, cfg *config.Config) err
 	); err != nil {
 		return fmt.Errorf("auto-migrate new schema: %w", err)
 	}
+	// Add composite unique index on items(family_id, date) — not possible via field tags
+	// because FamilyID is in embedded TenantModel (kin-core).
+	if err := db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_items_family_date ON items(family_id, date)").Error; err != nil {
+		return fmt.Errorf("create idx_items_family_date: %w", err)
+	}
 	log.Info("New schema created")
 
 	// Step 4: Insert migrated data into new tables
