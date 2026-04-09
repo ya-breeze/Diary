@@ -65,11 +65,11 @@ type oldOrphanIgnore struct {
 
 func (oldOrphanIgnore) TableName() string { return "orphan_ignores" }
 
-// runMigrationIfNeeded detects old schema (user_id column in items) and migrates to family-based schema.
+// runMigrationIfNeeded detects old schema (login column in users) and migrates to family-based schema.
 func runMigrationIfNeeded(log *slog.Logger, db *gorm.DB, cfg *config.Config) error {
-	// Check if old items table has user_id column (old schema)
+	// Check if users table has 'login' column (old schema used Login, new schema uses Username)
 	var count int64
-	db.Raw("SELECT COUNT(*) FROM pragma_table_info('items') WHERE name='user_id'").Scan(&count)
+	db.Raw("SELECT COUNT(*) FROM pragma_table_info('users') WHERE name='login'").Scan(&count)
 	if count == 0 {
 		return nil // already migrated or fresh DB
 	}
