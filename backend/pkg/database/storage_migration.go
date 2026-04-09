@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ya-breeze/diary.be/pkg/config"
+	"github.com/ya-breeze/diary.be/pkg/database/models"
+	"github.com/ya-breeze/kin-core/authdb"
 	"gorm.io/gorm"
 )
 
@@ -76,13 +78,13 @@ func runMigrationIfNeeded(log *slog.Logger, db *gorm.DB, cfg *config.Config) err
 
 	log.Info("Detected old schema, running kin-core migration")
 
-	// Read all old users
+	// Step 1: Read all old data before renaming anything
 	var oldUsers []oldUser
 	if err := db.Find(&oldUsers).Error; err != nil {
 		return fmt.Errorf("failed to read old users: %w", err)
 	}
 
-	// Build userID → userMapping
+	// Build userID → userMapping (each old user gets a new family)
 	mappings := make(map[string]userMapping, len(oldUsers))
 	for _, u := range oldUsers {
 		mappings[u.ID] = userMapping{
@@ -91,179 +93,155 @@ func runMigrationIfNeeded(log *slog.Logger, db *gorm.DB, cfg *config.Config) err
 		}
 	}
 
-	return db.Transaction(func(tx *gorm.DB) error {
-		// Step 1: create families table and populate
-		if err := tx.Exec(`CREATE TABLE IF NOT EXISTS families (
-			id TEXT PRIMARY KEY,
-			created_at DATETIME,
-			updated_at DATETIME,
-			deleted_at DATETIME,
-			name TEXT NOT NULL
-		)`).Error; err != nil {
-			return fmt.Errorf("create families table: %w", err)
-		}
+	var oldItems []oldItem
+	if err := db.Raw("SELECT user_id, date, title, body, tags FROM items").Scan(&oldItems).Error; err != nil {
+		return fmt.Errorf("failed to read old items: %w", err)
+	}
 
-		for _, u := range oldUsers {
-			m := mappings[u.ID]
-			if err := tx.Exec(
-				"INSERT OR IGNORE INTO families (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)",
-				m.familyID.String(), u.Login, time.Now(), time.Now(),
-			).Error; err != nil {
-				return fmt.Errorf("insert family for user %s: %w", u.Login, err)
-			}
-		}
-		log.Info("Families created", "count", len(oldUsers))
+	var oldChanges []oldItemChange
+	if err := db.Raw("SELECT id, user_id, date, operation_type, timestamp, item_user_id, item_date, item_title, item_body, item_tags, metadata FROM item_changes").Scan(&oldChanges).Error; err != nil {
+		return fmt.Errorf("failed to read old item_changes: %w", err)
+	}
 
-		// Step 2: recreate users table with kin-core schema
-		if err := tx.Exec("ALTER TABLE users RENAME TO users_old").Error; err != nil {
-			return fmt.Errorf("rename users table: %w", err)
-		}
-		if err := tx.Exec(`CREATE TABLE users (
-			id TEXT PRIMARY KEY,
-			created_at DATETIME,
-			updated_at DATETIME,
-			deleted_at DATETIME,
-			username TEXT UNIQUE NOT NULL,
-			password_hash TEXT,
-			family_id TEXT NOT NULL,
-			start_date DATETIME
-		)`).Error; err != nil {
-			return fmt.Errorf("create new users table: %w", err)
-		}
-		for _, u := range oldUsers {
-			m := mappings[u.ID]
-			if err := tx.Exec(
-				"INSERT INTO users (id, username, password_hash, family_id, start_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-				u.ID, u.Login, u.HashedPassword, m.familyID.String(), u.StartDate, time.Now(), time.Now(),
-			).Error; err != nil {
-				return fmt.Errorf("insert migrated user %s: %w", u.Login, err)
-			}
-		}
-		log.Info("Users migrated", "count", len(oldUsers))
+	var oldOrphans []oldOrphanIgnore
+	if err := db.Raw("SELECT id, user_id, filename FROM orphan_ignores").Scan(&oldOrphans).Error; err != nil {
+		return fmt.Errorf("failed to read old orphan_ignores: %w", err)
+	}
 
-		// Step 3: migrate items
-		var oldItems []oldItem
-		if err := tx.Raw("SELECT user_id, date, title, body, tags FROM items").Scan(&oldItems).Error; err != nil {
-			return fmt.Errorf("read old items: %w", err)
-		}
-		if err := tx.Exec("ALTER TABLE items RENAME TO items_backup").Error; err != nil {
-			return fmt.Errorf("rename items table: %w", err)
-		}
-		if err := tx.Exec(`CREATE TABLE items (
-			id TEXT PRIMARY KEY,
-			created_at DATETIME,
-			updated_at DATETIME,
-			deleted_at DATETIME,
-			family_id TEXT NOT NULL,
-			date TEXT NOT NULL,
-			title TEXT,
-			body TEXT,
-			tags TEXT
-		)`).Error; err != nil {
-			return fmt.Errorf("create new items table: %w", err)
-		}
-		if err := tx.Exec("CREATE UNIQUE INDEX idx_family_date ON items(family_id, date)").Error; err != nil {
-			return fmt.Errorf("create items unique index: %w", err)
-		}
-		for _, item := range oldItems {
-			m, ok := mappings[item.UserID]
-			if !ok {
-				log.Warn("Skipping item with unknown user_id", "user_id", item.UserID, "date", item.Date)
-				continue
-			}
-			if err := tx.Exec(
-				"INSERT INTO items (id, family_id, date, title, body, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-				uuid.New().String(), m.familyID.String(), item.Date, item.Title, item.Body, item.Tags, time.Now(), time.Now(),
-			).Error; err != nil {
-				return fmt.Errorf("insert migrated item %s: %w", item.Date, err)
-			}
-		}
-		log.Info("Items migrated", "count", len(oldItems))
+	log.Info("Read old data", "users", len(oldUsers), "items", len(oldItems), "changes", len(oldChanges), "orphans", len(oldOrphans))
 
-		// Step 4: migrate item_changes
-		var oldChanges []oldItemChange
-		if err := tx.Raw("SELECT id, user_id, date, operation_type, timestamp, item_user_id, item_date, item_title, item_body, item_tags, metadata FROM item_changes").Scan(&oldChanges).Error; err != nil {
-			return fmt.Errorf("read old item_changes: %w", err)
+	// Step 2: Rename old tables to backup names
+	for _, rename := range []struct{ old, new string }{
+		{"users", "users_old"},
+		{"items", "items_backup"},
+		{"item_changes", "item_changes_backup"},
+		{"orphan_ignores", "orphan_ignores_backup"},
+	} {
+		if err := db.Exec(fmt.Sprintf("ALTER TABLE %s RENAME TO %s", rename.old, rename.new)).Error; err != nil {
+			return fmt.Errorf("rename %s: %w", rename.old, err)
 		}
-		if err := tx.Exec("ALTER TABLE item_changes RENAME TO item_changes_backup").Error; err != nil {
-			return fmt.Errorf("rename item_changes table: %w", err)
-		}
-		if err := tx.Exec(`CREATE TABLE item_changes (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			family_id TEXT NOT NULL,
-			date TEXT NOT NULL,
-			operation_type TEXT NOT NULL,
-			timestamp DATETIME NOT NULL,
-			item_id TEXT,
-			item_family_id TEXT,
-			item_created_at DATETIME,
-			item_updated_at DATETIME,
-			item_deleted_at DATETIME,
-			item_date TEXT,
-			item_title TEXT,
-			item_body TEXT,
-			item_tags TEXT,
-			metadata TEXT
-		)`).Error; err != nil {
-			return fmt.Errorf("create new item_changes table: %w", err)
-		}
-		for _, ch := range oldChanges {
-			m, ok := mappings[ch.UserID]
-			if !ok {
-				log.Warn("Skipping item_change with unknown user_id", "user_id", ch.UserID)
-				continue
-			}
-			itemFamilyID := ""
-			if im, ok2 := mappings[ch.ItemUserID]; ok2 {
-				itemFamilyID = im.familyID.String()
-			}
-			if err := tx.Exec(
-				`INSERT INTO item_changes (family_id, date, operation_type, timestamp, item_family_id, item_date, item_title, item_body, item_tags, metadata)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-				m.familyID.String(), ch.Date, ch.OperationType, ch.Timestamp,
-				itemFamilyID, ch.ItemDate, ch.ItemTitle, ch.ItemBody, ch.ItemTags, ch.Metadata,
-			).Error; err != nil {
-				return fmt.Errorf("insert migrated item_change: %w", err)
-			}
-		}
-		log.Info("Item changes migrated", "count", len(oldChanges))
+	}
 
-		// Step 5: migrate orphan_ignores
-		var oldOrphans []oldOrphanIgnore
-		if err := tx.Raw("SELECT id, user_id, filename FROM orphan_ignores").Scan(&oldOrphans).Error; err != nil {
-			return fmt.Errorf("read old orphan_ignores: %w", err)
-		}
-		if err := tx.Exec("ALTER TABLE orphan_ignores RENAME TO orphan_ignores_backup").Error; err != nil {
-			return fmt.Errorf("rename orphan_ignores table: %w", err)
-		}
-		if err := tx.Exec(`CREATE TABLE orphan_ignores (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			family_id TEXT,
-			filename TEXT,
-			UNIQUE(family_id, filename)
-		)`).Error; err != nil {
-			return fmt.Errorf("create new orphan_ignores table: %w", err)
-		}
-		for _, o := range oldOrphans {
-			m, ok := mappings[o.UserID]
-			if !ok {
-				log.Warn("Skipping orphan_ignore with unknown user_id", "user_id", o.UserID)
-				continue
-			}
-			if err := tx.Exec(
-				"INSERT OR IGNORE INTO orphan_ignores (family_id, filename) VALUES (?, ?)",
-				m.familyID.String(), o.Filename,
-			).Error; err != nil {
-				return fmt.Errorf("insert migrated orphan_ignore: %w", err)
-			}
-		}
-		log.Info("Orphan ignores migrated", "count", len(oldOrphans))
+	// Step 3: Let GORM create new tables with the correct schema (matches model exactly)
+	if err := db.AutoMigrate(
+		&models.Family{},
+		&models.User{},
+		&models.Item{},
+		&models.ItemChange{},
+		&models.OrphanIgnore{},
+		&authdb.RefreshToken{},
+		&authdb.BlacklistedToken{},
+	); err != nil {
+		return fmt.Errorf("auto-migrate new schema: %w", err)
+	}
+	log.Info("New schema created")
 
-		// Step 6: rename asset directories from user_id to family_id
-		migrateAssetDirs(log, cfg, mappings)
+	// Step 4: Insert migrated data into new tables
+	now := time.Now()
 
-		return nil
-	})
+	// Families: one per user
+	for _, u := range oldUsers {
+		m := mappings[u.ID]
+		family := models.Family{}
+		family.ID = m.familyID
+		family.Name = u.Login
+		family.CreatedAt = now
+		family.UpdatedAt = now
+		if err := db.Create(&family).Error; err != nil {
+			return fmt.Errorf("insert family for user %s: %w", u.Login, err)
+		}
+	}
+	log.Info("Families inserted", "count", len(oldUsers))
+
+	// Users: remap login→username, hashed_password→password_hash, add family_id
+	for _, u := range oldUsers {
+		m := mappings[u.ID]
+		user := models.User{}
+		user.ID = uuid.MustParse(u.ID)
+		user.Username = u.Login
+		user.PasswordHash = u.HashedPassword
+		user.FamilyID = m.familyID
+		user.StartDate = u.StartDate
+		user.CreatedAt = now
+		user.UpdatedAt = now
+		if err := db.Create(&user).Error; err != nil {
+			return fmt.Errorf("insert migrated user %s: %w", u.Login, err)
+		}
+	}
+	log.Info("Users migrated", "count", len(oldUsers))
+
+	// Items: remap user_id → family_id, generate new UUID id
+	for _, item := range oldItems {
+		m, ok := mappings[item.UserID]
+		if !ok {
+			log.Warn("Skipping item with unknown user_id", "user_id", item.UserID, "date", item.Date)
+			continue
+		}
+		newItem := models.Item{}
+		newItem.ID = uuid.New()
+		newItem.FamilyID = m.familyID
+		newItem.Date = item.Date
+		newItem.Title = item.Title
+		newItem.Body = item.Body
+		newItem.Tags = models.StringList([]string{})
+		if item.Tags != "" {
+			// Tags stored as JSON array: ["tag1","tag2"]
+			newItem.Tags = models.StringList([]string{}) // will be set below via raw
+		}
+		newItem.CreatedAt = now
+		newItem.UpdatedAt = now
+		if err := db.Exec(
+			"INSERT INTO items (id, family_id, date, title, body, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+			newItem.ID.String(), m.familyID.String(), item.Date, item.Title, item.Body, item.Tags, now, now,
+		).Error; err != nil {
+			return fmt.Errorf("insert migrated item %s: %w", item.Date, err)
+		}
+	}
+	log.Info("Items migrated", "count", len(oldItems))
+
+	// Item changes
+	for _, ch := range oldChanges {
+		m, ok := mappings[ch.UserID]
+		if !ok {
+			log.Warn("Skipping item_change with unknown user_id", "user_id", ch.UserID)
+			continue
+		}
+		itemFamilyID := ""
+		if im, ok2 := mappings[ch.ItemUserID]; ok2 {
+			itemFamilyID = im.familyID.String()
+		}
+		if err := db.Exec(
+			`INSERT INTO item_changes (family_id, date, operation_type, timestamp, item_family_id, item_date, item_title, item_body, item_tags, metadata)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			m.familyID.String(), ch.Date, ch.OperationType, ch.Timestamp,
+			itemFamilyID, ch.ItemDate, ch.ItemTitle, ch.ItemBody, ch.ItemTags, ch.Metadata,
+		).Error; err != nil {
+			return fmt.Errorf("insert migrated item_change: %w", err)
+		}
+	}
+	log.Info("Item changes migrated", "count", len(oldChanges))
+
+	// Orphan ignores
+	for _, o := range oldOrphans {
+		m, ok := mappings[o.UserID]
+		if !ok {
+			log.Warn("Skipping orphan_ignore with unknown user_id", "user_id", o.UserID)
+			continue
+		}
+		if err := db.Exec(
+			"INSERT OR IGNORE INTO orphan_ignores (family_id, filename) VALUES (?, ?)",
+			m.familyID.String(), o.Filename,
+		).Error; err != nil {
+			return fmt.Errorf("insert migrated orphan_ignore: %w", err)
+		}
+	}
+	log.Info("Orphan ignores migrated", "count", len(oldOrphans))
+
+	// Step 5: rename asset directories from user_id to family_id
+	migrateAssetDirs(log, cfg, mappings)
+
+	log.Info("Migration complete")
+	return nil
 }
 
 // migrateAssetDirs renames diary-assets/<user_id> → diary-assets/<family_id>
@@ -282,4 +260,3 @@ func migrateAssetDirs(log *slog.Logger, cfg *config.Config, mappings map[string]
 		}
 	}
 }
-
