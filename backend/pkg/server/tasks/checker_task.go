@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/ya-breeze/diary.be/pkg/checker"
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/database"
@@ -34,7 +35,10 @@ var allChecks = []checker.Check{
 	checker.RefsCheck{},
 }
 
-// UserResult holds the last health check results for a single user.
+// FamilyResult holds the last health check results for a single family.
+type FamilyResult = UserResult
+
+// UserResult holds the last health check results for a single family.
 type UserResult struct {
 	Issues         []checker.Issue
 	LastChecked    time.Time
@@ -47,7 +51,7 @@ type CheckerTask struct {
 	cfg      *config.Config
 	logger   *slog.Logger
 	mu       sync.RWMutex
-	results  map[string]*UserResult // userID → result
+	results  map[uuid.UUID]*UserResult
 	interval time.Duration
 }
 
@@ -64,7 +68,7 @@ func NewCheckerTask(logger *slog.Logger, db database.Storage, cfg *config.Config
 		db:       db,
 		cfg:      cfg,
 		logger:   logger,
-		results:  make(map[string]*UserResult),
+		results:  make(map[uuid.UUID]*UserResult),
 		interval: interval,
 	}
 }
@@ -91,16 +95,16 @@ func (t *CheckerTask) Start(ctx context.Context) {
 	}()
 }
 
-// GetIssues returns the stored results for a user, or nil if no check has run yet.
-func (t *CheckerTask) GetIssues(userID string) *UserResult {
+// GetIssues returns the stored results for a family, or nil if no check has run yet.
+func (t *CheckerTask) GetIssues(familyID uuid.UUID) *UserResult {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	return t.results[userID]
+	return t.results[familyID]
 }
 
-// RunFix re-runs the named checks with fix=true for a specific user, then re-scans to get clean results.
+// RunFix re-runs the named checks with fix=true for a specific family, then re-scans to get clean results.
 // If checks is empty, all checks are run.
-func (t *CheckerTask) RunFix(userID string, checks []string) (*UserResult, error) {
+func (t *CheckerTask) RunFix(familyID uuid.UUID, checks []string) (*UserResult, error) {
 	selected, err := selectChecks(checks)
 	if err != nil {
 		return nil, err
@@ -108,17 +112,17 @@ func (t *CheckerTask) RunFix(userID string, checks []string) (*UserResult, error
 	runner := checker.NewRunner(t.logger, selected)
 
 	// First pass: apply fixes
-	if _, err := runner.RunForUser(t.db, t.cfg, userID, true); err != nil {
+	if _, err := runner.RunForFamily(t.db, t.cfg, familyID, true); err != nil {
 		return nil, err
 	}
 
 	// Second pass: re-scan to get true current state (fixed issues should be gone)
-	issues, err := runner.RunForUser(t.db, t.cfg, userID, false)
+	issues, err := runner.RunForFamily(t.db, t.cfg, familyID, false)
 	if err != nil {
 		return nil, err
 	}
 
-	ignored, _ := t.db.GetIgnoredOrphans(userID)
+	ignored, _ := t.db.GetIgnoredOrphans(familyID)
 
 	// Collect the names of checks we just ran so we can replace only those in the cache.
 	selectedNames := make(map[string]bool, len(selected))
@@ -127,7 +131,7 @@ func (t *CheckerTask) RunFix(userID string, checks []string) (*UserResult, error
 	}
 
 	t.mu.Lock()
-	existing := t.results[userID]
+	existing := t.results[familyID]
 	var mergedIssues []checker.Issue
 	if existing != nil {
 		for _, i := range existing.Issues {
@@ -138,94 +142,93 @@ func (t *CheckerTask) RunFix(userID string, checks []string) (*UserResult, error
 	}
 	mergedIssues = append(mergedIssues, issues...)
 	result := &UserResult{Issues: mergedIssues, LastChecked: time.Now(), IgnoredOrphans: ignored}
-	t.results[userID] = result
+	t.results[familyID] = result
 	t.mu.Unlock()
 	return result, nil
 }
 
-// GetIgnoredOrphans returns the list of filenames the user has chosen to ignore.
-func (t *CheckerTask) GetIgnoredOrphans(userID string) ([]string, error) {
-	return t.db.GetIgnoredOrphans(userID)
+// GetIgnoredOrphans returns the list of filenames the family has chosen to ignore.
+func (t *CheckerTask) GetIgnoredOrphans(familyID uuid.UUID) ([]string, error) {
+	return t.db.GetIgnoredOrphans(familyID)
 }
 
-// DeleteOrphan deletes a single orphaned asset file for the user then re-runs orphan checks.
-func (t *CheckerTask) DeleteOrphan(userID, filename string) (*UserResult, error) {
+// DeleteOrphan deletes a single orphaned asset file for the family then re-runs orphan checks.
+func (t *CheckerTask) DeleteOrphan(familyID uuid.UUID, filename string) (*UserResult, error) {
 	if err := validateFilename(filename); err != nil {
 		return nil, err
 	}
-	userDir := filepath.Join(t.cfg.DataPath, config.AssetsDirName, userID)
-	filePath := filepath.Join(userDir, filename)
+	familyDir := filepath.Join(t.cfg.DataPath, config.AssetsDirName, familyID.String())
+	filePath := filepath.Join(familyDir, filename)
 	if err := os.Remove(filePath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("orphan %q not found on disk: %w", filename, database.ErrNotFound)
 		}
 		return nil, fmt.Errorf("deleting orphan %q: %w", filename, err)
 	}
-	t.logger.Info("Deleted orphan", "file", filename, "userID", userID)
-	return t.refreshOrphansForUser(userID)
+	t.logger.Info("Deleted orphan", "file", filename, "familyID", familyID)
+	return t.refreshOrphansForFamily(familyID)
 }
 
 // AttachOrphan inserts a markdown image reference into a diary entry (creating it if needed).
-func (t *CheckerTask) AttachOrphan(userID, filename, date string) (*UserResult, error) {
+func (t *CheckerTask) AttachOrphan(familyID uuid.UUID, filename, date string) (*UserResult, error) {
 	if err := validateFilename(filename); err != nil {
 		return nil, err
 	}
 	if err := validateDate(date); err != nil {
 		return nil, err
 	}
-	item, err := t.db.GetItem(userID, date)
+	item, err := t.db.GetItem(familyID, date)
 	if err != nil {
 		if !errors.Is(err, database.ErrNotFound) {
 			return nil, fmt.Errorf("getting item %s: %w", date, err)
 		}
 		// Create a new entry for that date
-		item = &models.Item{UserID: userID, Date: date}
+		item = &models.Item{Date: date}
 	}
 	item.Body += fmt.Sprintf("\n\n![%s](%s)", filename, filename)
-	if err := t.db.PutItem(userID, item); err != nil {
+	if err := t.db.PutItem(familyID, item); err != nil {
 		return nil, fmt.Errorf("saving item %s: %w", date, err)
 	}
-	t.logger.Info("Attached orphan to entry", "file", filename, "date", date, "userID", userID)
-	return t.refreshOrphansForUser(userID)
+	t.logger.Info("Attached orphan to entry", "file", filename, "date", date, "familyID", familyID)
+	return t.refreshOrphansForFamily(familyID)
 }
 
-// IgnoreOrphan adds a filename to the user's ignore list.
-func (t *CheckerTask) IgnoreOrphan(userID, filename string) (*UserResult, error) {
+// IgnoreOrphan adds a filename to the family's ignore list.
+func (t *CheckerTask) IgnoreOrphan(familyID uuid.UUID, filename string) (*UserResult, error) {
 	if err := validateFilename(filename); err != nil {
 		return nil, err
 	}
-	if err := t.db.AddIgnoredOrphan(userID, filename); err != nil {
+	if err := t.db.AddIgnoredOrphan(familyID, filename); err != nil {
 		return nil, fmt.Errorf("adding ignored orphan %q: %w", filename, err)
 	}
-	t.logger.Info("Ignored orphan", "file", filename, "userID", userID)
-	return t.refreshOrphansForUser(userID)
+	t.logger.Info("Ignored orphan", "file", filename, "familyID", familyID)
+	return t.refreshOrphansForFamily(familyID)
 }
 
-// UnignoreOrphan removes a filename from the user's ignore list.
-func (t *CheckerTask) UnignoreOrphan(userID, filename string) (*UserResult, error) {
+// UnignoreOrphan removes a filename from the family's ignore list.
+func (t *CheckerTask) UnignoreOrphan(familyID uuid.UUID, filename string) (*UserResult, error) {
 	if err := validateFilename(filename); err != nil {
 		return nil, err
 	}
-	if err := t.db.RemoveIgnoredOrphan(userID, filename); err != nil {
+	if err := t.db.RemoveIgnoredOrphan(familyID, filename); err != nil {
 		return nil, fmt.Errorf("removing ignored orphan %q: %w", filename, err)
 	}
-	t.logger.Info("Unignored orphan", "file", filename, "userID", userID)
-	return t.refreshOrphansForUser(userID)
+	t.logger.Info("Unignored orphan", "file", filename, "familyID", familyID)
+	return t.refreshOrphansForFamily(familyID)
 }
 
-// refreshOrphansForUser re-runs the orphans check for a single user and merges the fresh
-// orphan results with whatever non-orphan issues are currently cached in memory. If no prior
-// cache exists (e.g. before the first full background scan) only orphan results are returned.
-func (t *CheckerTask) refreshOrphansForUser(userID string) (*UserResult, error) {
+// refreshOrphansForFamily re-runs the orphans check for a single family and merges the fresh
+// orphan results with whatever non-orphan issues are currently cached in memory.
+func (t *CheckerTask) refreshOrphansForFamily(familyID uuid.UUID) (*UserResult, error) {
 	runner := checker.NewRunner(t.logger, []checker.Check{checker.OrphansCheck{}})
-	issues, err := runner.RunForUser(t.db, t.cfg, userID, false)
+	issues, err := runner.RunForFamily(t.db, t.cfg, familyID, false)
 	if err != nil {
 		return nil, err
 	}
-	ignored, _ := t.db.GetIgnoredOrphans(userID)
+	ignored, _ := t.db.GetIgnoredOrphans(familyID)
 
 	t.mu.Lock()
-	existing := t.results[userID]
+	existing := t.results[familyID]
 	var mergedIssues []checker.Issue
 	if existing != nil {
 		for _, i := range existing.Issues {
@@ -236,7 +239,7 @@ func (t *CheckerTask) refreshOrphansForUser(userID string) (*UserResult, error) 
 	}
 	mergedIssues = append(mergedIssues, issues...)
 	result := &UserResult{Issues: mergedIssues, LastChecked: time.Now(), IgnoredOrphans: ignored}
-	t.results[userID] = result
+	t.results[familyID] = result
 	t.mu.Unlock()
 	return result, nil
 }
@@ -266,29 +269,39 @@ func (t *CheckerTask) runAll() {
 		return
 	}
 
-	// Group issues by userID
-	byUser := make(map[string][]checker.Issue)
+	// Group issues by familyID
+	byFamily := make(map[uuid.UUID][]checker.Issue)
 	for _, issue := range allIssues {
-		byUser[issue.UserID] = append(byUser[issue.UserID], issue)
+		fid, err := uuid.Parse(issue.FamilyID)
+		if err != nil {
+			t.logger.Warn("Skipping issue with invalid familyID", "familyID", issue.FamilyID)
+			continue
+		}
+		byFamily[fid] = append(byFamily[fid], issue)
 	}
 
 	now := time.Now()
-	// Also mark users with no issues as checked
 	users, err := t.db.GetAllUsers()
 	if err != nil {
 		t.logger.Error("Health check: failed to get users", "error", err)
 		return
 	}
+	// Deduplicate families (multiple users may share a family)
+	seenFamilies := make(map[uuid.UUID]bool)
 	t.mu.Lock()
 	for _, user := range users {
-		userID := user.ID.String()
-		ignored, _ := t.db.GetIgnoredOrphans(userID)
-		t.results[userID] = &UserResult{
-			Issues:         byUser[userID],
+		fid := user.FamilyID
+		if seenFamilies[fid] {
+			continue
+		}
+		seenFamilies[fid] = true
+		ignored, _ := t.db.GetIgnoredOrphans(fid)
+		t.results[fid] = &UserResult{
+			Issues:         byFamily[fid],
 			LastChecked:    now,
 			IgnoredOrphans: ignored,
 		}
-		t.logger.Info("Health check complete", "userID", userID, "issues", len(byUser[userID]))
+		t.logger.Info("Health check complete", "familyID", fid, "issues", len(byFamily[fid]))
 	}
 	t.mu.Unlock()
 }

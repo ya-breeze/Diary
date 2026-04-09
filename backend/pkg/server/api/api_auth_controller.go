@@ -6,34 +6,43 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gorilla/sessions"
 	"github.com/ya-breeze/diary.be/pkg/config"
+	"github.com/ya-breeze/diary.be/pkg/database"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
+	kinauth "github.com/ya-breeze/kin-core/auth"
+	"github.com/ya-breeze/kin-core/authdb"
+	kincookies "github.com/ya-breeze/kin-core/cookies"
+	"gorm.io/gorm"
 )
 
-// CustomAuthAPIController wraps the generated AuthAPIController to add cookie support
+// CustomAuthAPIController wraps the generated AuthAPIController to add kin-core cookie support.
 type CustomAuthAPIController struct {
 	service      goserver.AuthAPIServicer
 	errorHandler goserver.ErrorHandler
 	logger       *slog.Logger
 	cfg          *config.Config
-	cookies      *sessions.CookieStore
+	db           database.Storage
+	gormDB       *gorm.DB
+	cookieCfg    kincookies.Config
 }
 
-// NewCustomAuthAPIController creates a custom auth controller with cookie support
+// NewCustomAuthAPIController creates a custom auth controller with kin-core cookie support.
 func NewCustomAuthAPIController(
 	service goserver.AuthAPIServicer, logger *slog.Logger, cfg *config.Config,
+	db database.Storage, gormDB *gorm.DB,
 ) *CustomAuthAPIController {
 	return &CustomAuthAPIController{
 		service:      service,
 		errorHandler: goserver.DefaultErrorHandler,
 		logger:       logger,
 		cfg:          cfg,
-		cookies:      sessions.NewCookieStore([]byte(cfg.SessionSecret)),
+		db:           db,
+		gormDB:       gormDB,
+		cookieCfg:    kincookies.Config{Secure: cfg.CookieSecure},
 	}
 }
 
-// Routes returns all the api routes for the CustomAuthAPIController
+// Routes returns all the api routes for the CustomAuthAPIController.
 func (c *CustomAuthAPIController) Routes() goserver.Routes {
 	return goserver.Routes{
 		"Authorize": goserver.Route{
@@ -46,39 +55,15 @@ func (c *CustomAuthAPIController) Routes() goserver.Routes {
 			Pattern:     "/v1/logout",
 			HandlerFunc: c.Logout,
 		},
+		"Refresh": goserver.Route{
+			Method:      strings.ToUpper("Post"),
+			Pattern:     "/v1/refresh",
+			HandlerFunc: c.Refresh,
+		},
 	}
 }
 
-// setSessionToken sets the JWT token in a session cookie
-func (c *CustomAuthAPIController) setSessionToken(w http.ResponseWriter, req *http.Request, token string) error {
-	// Use configured cookie name, or default if not set
-	cookieName := c.cfg.CookieName
-	if cookieName == "" {
-		cookieName = "diarycookie"
-	}
-
-	session, _ := c.cookies.Get(req, cookieName)
-	session.Values["token"] = token
-	// Ensure option fields are set from config
-	c.configureSessionOptions(session)
-
-	if err := session.Save(req, w); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *CustomAuthAPIController) configureSessionOptions(session *sessions.Session) {
-	// Use configured Secure flag (defaults to true for production security)
-	// Set to false only for local development without HTTPS
-	session.Options.Secure = c.cfg.CookieSecure
-	session.Options.SameSite = http.SameSiteLaxMode
-	session.Options.HttpOnly = true
-	session.Options.Path = "/"
-	session.Options.MaxAge = 24 * 60 * 60 // 24 hours
-}
-
-// Authorize - validate user/password and return token
+// Authorize validates credentials and sets kin-core access + refresh cookies.
 func (c *CustomAuthAPIController) Authorize(w http.ResponseWriter, r *http.Request) {
 	authDataParam := goserver.AuthData{}
 	d := json.NewDecoder(r.Body)
@@ -91,60 +76,92 @@ func (c *CustomAuthAPIController) Authorize(w http.ResponseWriter, r *http.Reque
 		c.errorHandler(w, r, err, nil)
 		return
 	}
-	if err := goserver.AssertAuthDataConstraints(authDataParam); err != nil {
-		c.errorHandler(w, r, err, nil)
-		return
-	}
+
 	result, err := c.service.Authorize(r.Context(), authDataParam)
-	// If an error occurred, encode the error with the status code
 	if err != nil {
 		c.errorHandler(w, r, err, &result)
 		return
 	}
 
-	// If authentication was successful (200), set the cookie
 	if result.Code == 200 {
 		authResponse, ok := result.Body.(goserver.Authorize200Response)
 		if ok && authResponse.Token != "" {
-			if err := c.setSessionToken(w, r, authResponse.Token); err != nil {
-				c.logger.Warn("Failed to set session cookie", "error", err)
-				// Don't fail the request if cookie setting fails, just log it
-			} else {
-				c.logger.Info("Session cookie set successfully for API login")
+			// Parse access token to get userID for refresh token creation
+			claims, parseErr := kinauth.ParseToken(authResponse.Token, []byte(c.cfg.JWTSecret))
+			if parseErr == nil {
+				rt, rtErr := authdb.CreateRefreshToken(c.gormDB, claims.UserID, refreshTokenTTL)
+				if rtErr != nil {
+					c.logger.Warn("Failed to create refresh token", "error", rtErr)
+				} else {
+					kincookies.SetRefreshCookie(w, rt.Token, int(refreshTokenTTL.Seconds()), c.cookieCfg)
+				}
 			}
+			kincookies.SetAccessCookie(w, authResponse.Token, int(accessTokenTTL.Seconds()), c.cookieCfg)
+			c.logger.Info("Auth cookies set successfully")
 		}
 	}
 
-	// If no error, encode the body and the result code
 	_ = goserver.EncodeJSONResponse(result.Body, &result.Code, w)
 }
 
-// clearSessionToken clears the session cookie
-func (c *CustomAuthAPIController) clearSessionToken(w http.ResponseWriter, req *http.Request) error {
-	cookieName := c.cfg.CookieName
-	if cookieName == "" {
-		cookieName = "diarycookie"
+// Logout blacklists the access token, revokes the refresh token, and clears cookies.
+func (c *CustomAuthAPIController) Logout(w http.ResponseWriter, r *http.Request) {
+	if tokenStr := kincookies.GetAccessToken(r); tokenStr != "" {
+		if claims, err := kinauth.ParseToken(tokenStr, []byte(c.cfg.JWTSecret)); err == nil {
+			if err := authdb.BlacklistToken(c.gormDB, tokenStr, claims.ExpiresAt.Time); err != nil {
+				c.logger.Warn("Failed to blacklist token", "error", err)
+			}
+		}
+	}
+	if rtStr := kincookies.GetRefreshToken(r); rtStr != "" {
+		if err := authdb.RevokeRefreshToken(c.gormDB, rtStr); err != nil {
+			c.logger.Warn("Failed to revoke refresh token", "error", err)
+		}
 	}
 
-	session, _ := c.cookies.Get(req, cookieName)
-
-	c.configureSessionOptions(session)
-	session.Options.MaxAge = -1
-
-	if err := session.Save(req, w); err != nil {
-		return err
-	}
-	return nil
+	kincookies.ClearAuthCookies(w, c.cookieCfg)
+	c.logger.Info("User logged out, cookies cleared")
+	w.WriteHeader(http.StatusOK)
 }
 
-// Logout - clear session cookie
-func (c *CustomAuthAPIController) Logout(w http.ResponseWriter, r *http.Request) {
-	if err := c.clearSessionToken(w, r); err != nil {
-		c.logger.Error("Failed to clear session cookie", "error", err)
-		w.WriteHeader(http.StatusInternalServerError)
+// Refresh rotates the refresh token and issues a new access token.
+func (c *CustomAuthAPIController) Refresh(w http.ResponseWriter, r *http.Request) {
+	rtStr := kincookies.GetRefreshToken(r)
+	if rtStr == "" {
+		http.Error(w, "No refresh token", http.StatusUnauthorized)
 		return
 	}
 
-	c.logger.Info("User logged out, cookie cleared")
+	newRT, err := authdb.RotateRefreshToken(c.gormDB, rtStr, refreshTokenTTL)
+	if err != nil {
+		if err == authdb.ErrTokenCompromised {
+			c.logger.Warn("Refresh token reuse detected — all sessions revoked")
+			kincookies.ClearAuthCookies(w, c.cookieCfg)
+			http.Error(w, "Token compromised", http.StatusUnauthorized)
+			return
+		}
+		c.logger.Warn("Failed to rotate refresh token", "error", err)
+		http.Error(w, "Invalid refresh token", http.StatusUnauthorized)
+		return
+	}
+
+	// Look up the user to include familyID in the new access token
+	user, err := c.db.GetUser(newRT.UserID)
+	if err != nil {
+		c.logger.Error("Failed to get user on refresh", "userID", newRT.UserID, "error", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	familyID := user.FamilyID
+	accessToken, err := kinauth.GenerateAccessToken(newRT.UserID, &familyID, []byte(c.cfg.JWTSecret), accessTokenTTL)
+	if err != nil {
+		c.logger.Error("Failed to generate access token on refresh", "error", err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	kincookies.SetAccessCookie(w, accessToken, int(accessTokenTTL.Seconds()), c.cookieCfg)
+	kincookies.SetRefreshCookie(w, newRT.Token, int(refreshTokenTTL.Seconds()), c.cookieCfg)
+	c.logger.Info("Token refreshed", "userID", newRT.UserID)
 	w.WriteHeader(http.StatusOK)
 }

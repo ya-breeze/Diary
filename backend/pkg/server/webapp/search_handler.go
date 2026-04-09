@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
 	"github.com/ya-breeze/diary.be/pkg/server/common"
 	"github.com/ya-breeze/diary.be/pkg/utils"
@@ -23,14 +24,13 @@ func (r *WebAppRouter) searchHandler(w http.ResponseWriter, req *http.Request) {
 	// Initialize template data with common request information
 	data := utils.CreateTemplateData(req, "search")
 
-	// Authenticate user and extract user ID from session
-	// This may redirect to login page if authentication fails
-	userID, err := r.ValidateUserID(tmpl, w, req)
+	// Authenticate user and extract family ID from cookie
+	familyID, err := r.ValidateFamilyID(tmpl, w, req)
 	if err != nil {
-		r.logger.Error("Failed to get user ID from session", "error", err)
+		r.logger.Error("Failed to get family ID from cookie", "error", err)
 		return
 	}
-	data["UserID"] = userID
+	data["FamilyID"] = familyID.String()
 
 	// Extract search parameters from query string
 	searchQuery := strings.TrimSpace(req.URL.Query().Get("search"))
@@ -49,7 +49,7 @@ func (r *WebAppRouter) searchHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Fetch search results and populate template with content
-	if err := r.populateSearchData(data, userID, searchQuery, searchTags, dateParam, req); err != nil {
+	if err := r.populateSearchData(data, familyID, searchQuery, searchTags, dateParam, req); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -69,14 +69,14 @@ func (r *WebAppRouter) searchHandler(w http.ResponseWriter, req *http.Request) {
 //nolint:funlen // acceptable length for orchestrating search flow and template population
 func (r *WebAppRouter) populateSearchData(
 	data map[string]any,
-	userID string,
+	familyID uuid.UUID,
 	searchQuery string,
 	searchTags []string,
 	dateParam string,
 	req *http.Request,
 ) error {
-	// Create context with user ID for the items service
-	ctx := context.WithValue(req.Context(), common.UserIDKey, userID)
+	// Create context with family ID for the items service
+	ctx := context.WithValue(req.Context(), common.FamilyIDKey, familyID)
 
 	// Prepare search parameters
 	tagsParam := strings.Join(searchTags, ",")
@@ -89,7 +89,6 @@ func (r *WebAppRouter) populateSearchData(
 			"error", err,
 			"searchQuery", searchQuery,
 			"tags", tagsParam,
-			"userID", userID,
 		)
 		return err
 	}
@@ -100,7 +99,6 @@ func (r *WebAppRouter) populateSearchData(
 			"code", response.Code,
 			"searchQuery", searchQuery,
 			"tags", tagsParam,
-			"userID", userID,
 		)
 		return errors.New("failed to get search results")
 	}

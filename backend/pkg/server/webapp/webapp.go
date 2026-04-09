@@ -11,11 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/sessions"
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/database"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
 	"github.com/ya-breeze/diary.be/pkg/utils"
+	kincookies "github.com/ya-breeze/kin-core/cookies"
+	kinmiddleware "github.com/ya-breeze/kin-core/middleware"
+	"gorm.io/gorm"
 )
 
 type WebAppRouter struct {
@@ -23,20 +25,30 @@ type WebAppRouter struct {
 	logger       *slog.Logger
 	cfg          *config.Config
 	db           database.Storage
-	cookies      *sessions.CookieStore
+	gormDB       *gorm.DB
+	kinCfg       kinmiddleware.Config
+	cookieCfg    kincookies.Config
 	authService  goserver.AuthAPIService
 	itemsService goserver.ItemsAPIService
 }
 
 func NewWebAppRouter(
-	controllers goserver.CustomControllers, commit string, logger *slog.Logger, cfg *config.Config, db database.Storage,
+	controllers goserver.CustomControllers, commit string, logger *slog.Logger,
+	cfg *config.Config, db database.Storage, gormDB *gorm.DB,
 ) *WebAppRouter {
+	cookieCfg := kincookies.Config{Secure: cfg.CookieSecure}
 	return &WebAppRouter{
 		commit:       commit,
 		logger:       logger,
 		cfg:          cfg,
 		db:           db,
-		cookies:      sessions.NewCookieStore([]byte(cfg.SessionSecret)),
+		gormDB:       gormDB,
+		kinCfg: kinmiddleware.Config{
+			JWTSecret: []byte(cfg.JWTSecret),
+			DB:        gormDB,
+			CookieCfg: cookieCfg,
+		},
+		cookieCfg:    cookieCfg,
 		authService:  controllers.AuthAPIService,
 		itemsService: controllers.ItemsAPIService,
 	}

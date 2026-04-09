@@ -9,18 +9,14 @@ import (
 )
 
 type Config struct {
-	Users                       string `mapstructure:"users" default:""`
-	JWTSecret                   string `mapstructure:"jwt_secret" default:""`
-	SessionSecret               string `mapstructure:"session_secret" default:""`
-	Verbose                     bool   `mapstructure:"verbose" default:"false"`
-	Port                        int    `mapstructure:"port" default:"8080"`
-	DataPath                    string `mapstructure:"datapath" default:"./diary-data"`
-	DisableCurrenciesRatesFetch bool   `mapstructure:"disablecurrenciesratesfetch" default:"false"`
-	Issuer                      string `mapstructure:"issuer" default:"diary"`
-	CookieName                  string `mapstructure:"cookiename" default:"diarycookie"`
-	AllowedOrigins              string `mapstructure:"allowedorigins" default:"http://localhost:4200,http://localhost:8080"`
-	DisableRateLimit            bool   `mapstructure:"disableratelimit" default:"false"`
-	CookieSecure                bool   `mapstructure:"cookie_secure" default:"true"`
+	JWTSecret        string `mapstructure:"jwt_secret" default:""`
+	CookieSecure     bool   `mapstructure:"cookie_secure" default:"true"`
+	SeedUsers        string `mapstructure:"seed_users" default:""`
+	Verbose          bool   `mapstructure:"verbose" default:"false"`
+	Port             int    `mapstructure:"port" default:"8080"`
+	DataPath         string `mapstructure:"datapath" default:"./diary-data"`
+	AllowedOrigins   string `mapstructure:"allowedorigins" default:"http://localhost:4200,http://localhost:8080"`
+	DisableRateLimit bool   `mapstructure:"disableratelimit" default:"false"`
 
 	// Batch upload limits
 	MaxPerFileSizeMB    int `mapstructure:"maxperfilesizemb" default:"200"`
@@ -31,7 +27,7 @@ type Config struct {
 	HealthCheckInterval string `mapstructure:"health_check_interval" default:"24h"`
 
 	// Backup
-	BackupInterval string `mapstructure:"backup_interval"  default:"24h"`
+	BackupInterval string `mapstructure:"backup_interval" default:"24h"`
 	BackupMaxCount int    `mapstructure:"backup_max_count" default:"10"`
 }
 
@@ -39,7 +35,7 @@ func InitiateConfig(cfgFile string) (*Config, error) {
 	cfg := Config{}
 
 	setDefaultsFromStruct(&cfg)
-	viper.SetEnvPrefix("GB")
+	viper.SetEnvPrefix("DIARY")
 	viper.AutomaticEnv()
 
 	if cfgFile != "" {

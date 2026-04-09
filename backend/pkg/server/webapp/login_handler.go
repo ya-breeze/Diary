@@ -1,7 +1,6 @@
 package webapp
 
 import (
-	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -9,9 +8,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ya-breeze/diary.be/pkg/auth"
-	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
+	"github.com/google/uuid"
+	kinauth "github.com/ya-breeze/kin-core/auth"
+	"github.com/ya-breeze/kin-core/authdb"
+	kincookies "github.com/ya-breeze/kin-core/cookies"
+	"github.com/ya-breeze/kin-core/middleware"
 	"github.com/ya-breeze/diary.be/pkg/utils"
+)
+
+const (
+	accessTokenTTL  = 15 * time.Minute
+	refreshTokenTTL = 365 * 24 * time.Hour
 )
 
 // isValidRedirectURL validates that a redirect URL is safe to use
@@ -51,22 +58,6 @@ func isValidRedirectURL(redirectURL string) bool {
 	return true
 }
 
-func (r *WebAppRouter) setSessionToken(w http.ResponseWriter, req *http.Request, token string) error {
-	session, err := r.cookies.Get(req, r.cfg.CookieName)
-	if err != nil {
-		return err
-	}
-	session.Values["token"] = token
-	// Use configured Secure flag (defaults to true for production security)
-	// Set to false only for local development without HTTPS
-	session.Options.Secure = r.cfg.CookieSecure
-	session.Options.SameSite = http.SameSiteLaxMode
-	if err := session.Save(req, w); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (r *WebAppRouter) loginHandler(w http.ResponseWriter, req *http.Request) {
 	if err := req.ParseForm(); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -82,42 +73,36 @@ func (r *WebAppRouter) loginHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Use AuthAPIService to authenticate user
-	authData := goserver.AuthData{
-		Email:    username,
-		Password: password,
+	// Timing-safe credential verification
+	hash := kinauth.DummyHash
+	user, err := r.db.GetUserByUsername(username)
+	if err == nil {
+		hash = user.PasswordHash
 	}
-
-	response, err := r.authService.Authorize(req.Context(), authData)
-	if err != nil {
-		r.logger.Error("Authentication failed", "username", username, "error", err)
-		http.Error(w, "Authentication failed", http.StatusInternalServerError)
-		return
-	}
-
-	// Check if authentication was successful
-	if response.Code != 200 {
-		r.logger.Warn("Authentication failed", "username", username, "status", response.Code)
+	if !kinauth.VerifyPassword(password, hash) || err != nil {
+		r.logger.Warn("Authentication failed", "username", username)
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
-	// Extract token from response
-	authResponse, ok := response.Body.(goserver.Authorize200Response)
-	if !ok {
-		r.logger.Error("Invalid response type from auth service", "username", username)
+	familyID := user.FamilyID
+	accessToken, err := kinauth.GenerateAccessToken(user.ID, &familyID, []byte(r.cfg.JWTSecret), accessTokenTTL)
+	if err != nil {
+		r.logger.Error("Failed to generate access token", "error", err)
+		http.Error(w, "Authentication failed", http.StatusInternalServerError)
+		return
+	}
+	rt, rtErr := authdb.CreateRefreshToken(r.gormDB, user.ID, refreshTokenTTL)
+	if rtErr != nil {
+		r.logger.Error("Failed to create refresh token", "error", rtErr)
 		http.Error(w, "Authentication failed", http.StatusInternalServerError)
 		return
 	}
 
-	token := authResponse.Token
+	kincookies.SetAccessCookie(w, accessToken, int(accessTokenTTL.Seconds()), r.cookieCfg)
+	kincookies.SetRefreshCookie(w, rt.Token, int(refreshTokenTTL.Seconds()), r.cookieCfg)
 
-	// set JWT token in cookie
-	if err := r.setSessionToken(w, req, token); err != nil {
-		r.logger.Warn("failed to save session", "error", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	r.logger.Info("User logged in", "username", username, "familyID", familyID)
 
 	// Determine redirect destination with security validation
 	destination := "/"
@@ -134,14 +119,17 @@ func (r *WebAppRouter) logoutHandler(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	c := &http.Cookie{
-		Name:     r.cfg.CookieName,
-		Value:    "",
-		Path:     "/",
-		Expires:  time.Unix(0, 0),
-		HttpOnly: true,
+	// Blacklist current access token and revoke refresh token
+	if tokenStr := kincookies.GetAccessToken(req); tokenStr != "" {
+		if claims, err := kinauth.ParseToken(tokenStr, []byte(r.cfg.JWTSecret)); err == nil {
+			_ = authdb.BlacklistToken(r.gormDB, tokenStr, claims.ExpiresAt.Time)
+		}
 	}
-	http.SetCookie(w, c)
+	if rtStr := kincookies.GetRefreshToken(req); rtStr != "" {
+		_ = authdb.RevokeRefreshToken(r.gormDB, rtStr)
+	}
+
+	kincookies.ClearAuthCookies(w, r.cookieCfg)
 
 	tmpl, err := r.loadTemplates()
 	if err != nil {
@@ -162,53 +150,41 @@ func (r *WebAppRouter) logoutHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (r *WebAppRouter) GetUserIDFromSession(req *http.Request) (string, int, error) {
-	session, err := r.cookies.Get(req, r.cfg.CookieName)
+// GetFamilyIDFromCookie validates the kin_access cookie and returns the familyID.
+func (r *WebAppRouter) GetFamilyIDFromCookie(req *http.Request) (uuid.UUID, int, error) {
+	claims, err := middleware.ValidateRequest(req, r.kinCfg)
 	if err != nil {
-		r.logger.Error("Failed to get session", "error", err)
-		return "", http.StatusUnauthorized, err
+		r.logger.Warn("Invalid or missing access token", "error", err)
+		return uuid.Nil, http.StatusUnauthorized, err
 	}
-
-	token, ok := session.Values["token"].(string)
-	if !ok {
-		r.logger.Warn("failed to get token from session")
-		return "", http.StatusUnauthorized, errors.New("token not found in session")
+	if claims.FamilyID == nil {
+		return uuid.Nil, http.StatusUnauthorized, fmt.Errorf("no family in token")
 	}
-
-	userID, err := auth.CheckJWT(token, r.cfg.Issuer, r.cfg.JWTSecret)
-	if err != nil {
-		r.logger.With("err", err).Warn("Invalid token")
-		return "", http.StatusUnauthorized, err
-	}
-
-	// Log successful authentication with user ID from cookie
-	r.logger.Info("Request authenticated", "userID", userID, "source", "cookie", "path", req.URL.Path, "method", req.Method)
-
-	return userID, http.StatusOK, nil
+	r.logger.Info("Request authenticated", "userID", claims.UserID, "familyID", claims.FamilyID)
+	return *claims.FamilyID, http.StatusOK, nil
 }
 
-func (r *WebAppRouter) ValidateUserID(
+// ValidateFamilyID is the template-aware auth check used by webapp handlers.
+func (r *WebAppRouter) ValidateFamilyID(
 	tmpl *template.Template, w http.ResponseWriter, req *http.Request,
-) (string, error) {
-	userID, statusCode, err := r.GetUserIDFromSession(req)
+) (uuid.UUID, error) {
+	familyID, statusCode, err := r.GetFamilyIDFromCookie(req)
 	if err != nil {
 		// Capture the current request URL for redirect after login
 		redirectURL := req.URL.String()
 
-		// Create template data with redirect URL
 		data := map[string]any{
 			"RedirectURL": redirectURL,
 		}
 
-		// Set the status code before writing the response
 		w.WriteHeader(statusCode)
 
 		if errTmpl := tmpl.ExecuteTemplate(w, "login.tpl", data); errTmpl != nil {
 			r.logger.Warn("failed to execute login template", "error", errTmpl)
 			http.Error(w, errTmpl.Error(), http.StatusInternalServerError)
 		}
-		return "", fmt.Errorf("failed to get user ID from session: %w", err)
+		return uuid.Nil, fmt.Errorf("failed to get family ID from cookie: %w", err)
 	}
 
-	return userID, nil
+	return familyID, nil
 }

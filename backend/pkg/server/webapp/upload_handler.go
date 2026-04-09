@@ -14,9 +14,9 @@ import (
 )
 
 func (r *WebAppRouter) uploadHandler(w http.ResponseWriter, req *http.Request) {
-	userID, code, err := r.GetUserIDFromSession(req)
+	familyID, code, err := r.GetFamilyIDFromCookie(req)
 	if err != nil {
-		r.logger.Error("Failed to get user ID from session", "error", err)
+		r.logger.Error("Failed to get family ID from cookie", "error", err)
 		http.Error(w, err.Error(), code)
 		return
 	}
@@ -34,9 +34,9 @@ func (r *WebAppRouter) uploadHandler(w http.ResponseWriter, req *http.Request) {
 	defer asset.Close()
 
 	// Save the file to the server
-	userAssetPath := filepath.Join(r.cfg.DataPath, config.AssetsDirName, userID)
-	if err = os.MkdirAll(userAssetPath, 0o755); err != nil {
-		r.logger.Error("Failed to create directory", "error", err, "path", userAssetPath)
+	familyAssetPath := filepath.Join(r.cfg.DataPath, config.AssetsDirName, familyID.String())
+	if err = os.MkdirAll(familyAssetPath, 0o755); err != nil {
+		r.logger.Error("Failed to create directory", "error", err, "path", familyAssetPath)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -48,7 +48,7 @@ func (r *WebAppRouter) uploadHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Save atomically using shared util
-	name, _, err := assets.SaveFileAtomically(userAssetPath, header, asset, "")
+	name, _, err := assets.SaveFileAtomically(familyAssetPath, header, asset, "")
 	if err != nil {
 		r.logger.Error("Failed to save file", "error", err)
 		http.Error(w, "Could not save the file", http.StatusInternalServerError)
@@ -60,9 +60,9 @@ func (r *WebAppRouter) uploadHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *WebAppRouter) uploadBatchHandler(w http.ResponseWriter, req *http.Request) {
-	userID, code, err := r.GetUserIDFromSession(req)
+	familyID, code, err := r.GetFamilyIDFromCookie(req)
 	if err != nil {
-		r.logger.Error("Failed to get user ID from session", "error", err)
+		r.logger.Error("Failed to get family ID from cookie", "error", err)
 		http.Error(w, err.Error(), code)
 		return
 	}
@@ -83,14 +83,14 @@ func (r *WebAppRouter) uploadBatchHandler(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	userAssetPath := filepath.Join(r.cfg.DataPath, config.AssetsDirName, userID)
-	if err = os.MkdirAll(userAssetPath, 0o755); err != nil {
-		r.logger.Error("Failed to create directory", "error", err, "path", userAssetPath)
+	familyAssetPath := filepath.Join(r.cfg.DataPath, config.AssetsDirName, familyID.String())
+	if err = os.MkdirAll(familyAssetPath, 0o755); err != nil {
+		r.logger.Error("Failed to create directory", "error", err, "path", familyAssetPath)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	resp, code, err := r.processBatch(userAssetPath, files)
+	resp, code, err := r.processBatch(familyAssetPath, files)
 	if err != nil {
 		http.Error(w, err.Error(), code)
 		return
@@ -136,7 +136,7 @@ func validateFileHeaderBasic(fh *multipart.FileHeader, limits assets.BatchLimits
 
 // processBatch saves files atomically; on any error rolls back
 func (r *WebAppRouter) processBatch(
-	userAssetPath string,
+	familyAssetPath string,
 	files []*multipart.FileHeader,
 ) (respJSON, int, error) {
 	resp := respJSON{Files: make([]string, 0, len(files))}
@@ -149,7 +149,7 @@ func (r *WebAppRouter) processBatch(
 		}
 		name, path, err := func() (string, string, error) {
 			defer src.Close()
-			return assets.SaveFileAtomically(userAssetPath, fh, src, "")
+			return assets.SaveFileAtomically(familyAssetPath, fh, src, "")
 		}()
 		if err != nil {
 			rollbackFiles(createdPaths)

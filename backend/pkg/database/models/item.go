@@ -1,18 +1,13 @@
 package models
 
-type Item struct {
-	UserID string `gorm:"primaryKey"`
-	Date   string `gorm:"primaryKey"`
+import (
+	coremodels "github.com/ya-breeze/kin-core/models"
+)
 
+type Item struct {
+	coremodels.TenantModel
+	Date  string     `gorm:"uniqueIndex:idx_family_date;not null"`
 	Title string
 	Body  string
 	Tags  StringList `gorm:"type:json"`
-	// AssetIDs StringList `gorm:"type:json"`
 }
-
-// func (u Item) FromDB() goserver.Item {
-// 	return goserver.Item{
-// 		Email:     u.Login,
-// 		StartDate: u.StartDate,
-// 	}
-// }

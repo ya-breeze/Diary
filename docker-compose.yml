@@ -8,18 +8,15 @@ services:
       dockerfile: backend/Dockerfile
     restart: unless-stopped
     environment:
-      # Default environment variables - can be overridden
-      GB_USERS: ${GB_USERS:-test@test.com:JDJhJDEwJC9sVWJpTlBYVlZvcU9ZNUxIZmhqYi4vUnRuVkJNaEw4MTQ2VUdFSXRDeE9Ib0ZoVkRLR3pl}
-      GB_DATAPATH: ${GB_DATAPATH:-/data}
-      GB_ALLOWEDORIGINS: ${GB_ALLOWEDORIGINS:-http://localhost,http://localhost:80,http://localhost:8080}
-      GB_JWTSECRET: ${GB_JWTSECRET:-}
-      GB_SESSION_SECRET: ${GB_SESSION_SECRET:-}
-      GB_COOKIE_SECURE: ${GB_COOKIE_SECURE:-false}
-      GB_ISSUER: ${GB_ISSUER:-diary}
-      GB_PORT: ${GB_PORT:-8080}
-      GB_MAXPERFILESIZEMB: ${GB_MAXPERFILESIZEMB:-200}
-      GB_MAXBATCHFILES: ${GB_MAXBATCHFILES:-100}
-      GB_MAXBATCHTOTALSIZEMB: ${GB_MAXBATCHTOTALSIZEMB:-1000}
+      DIARY_SEED_USERS: ${DIARY_SEED_USERS:-}
+      DIARY_DATAPATH: ${DIARY_DATAPATH:-/data}
+      DIARY_ALLOWEDORIGINS: ${DIARY_ALLOWEDORIGINS:-http://localhost,http://localhost:80,http://localhost:8080}
+      DIARY_JWT_SECRET: ${DIARY_JWT_SECRET:-}
+      DIARY_COOKIE_SECURE: ${DIARY_COOKIE_SECURE:-false}
+      DIARY_PORT: ${DIARY_PORT:-8080}
+      DIARY_MAXPERFILESIZEMB: ${DIARY_MAXPERFILESIZEMB:-200}
+      DIARY_MAXBATCHFILES: ${DIARY_MAXBATCHFILES:-100}
+      DIARY_MAXBATCHTOTALSIZEMB: ${DIARY_MAXBATCHTOTALSIZEMB:-1000}
     volumes:
       # External volume for database and assets
       - ${DIARY_DATA_PATH:-./diary-data}:/data

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gomarkdown/markdown"
+	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
 	"github.com/ya-breeze/diary.be/pkg/server/common"
@@ -26,14 +27,13 @@ func (r *WebAppRouter) homeHandler(w http.ResponseWriter, req *http.Request) {
 	// Initialize template data with common request information
 	data := utils.CreateTemplateData(req, "home")
 
-	// Authenticate user and extract user ID from session
-	// This may redirect to login page if authentication fails
-	userID, err := r.ValidateUserID(tmpl, w, req)
+	// Authenticate user and extract family ID from cookie
+	familyID, err := r.ValidateFamilyID(tmpl, w, req)
 	if err != nil {
-		r.logger.Error("Failed to get user ID from session", "error", err)
+		r.logger.Error("Failed to get family ID from cookie", "error", err)
 		return
 	}
-	data["UserID"] = userID
+	data["FamilyID"] = familyID.String()
 
 	// Determine target date: use query parameter or default to current date
 	date := req.URL.Query().Get("date")
@@ -42,7 +42,7 @@ func (r *WebAppRouter) homeHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Fetch diary entry data and populate template with content
-	if err := r.populateItemsData(data, userID, date, req); err != nil {
+	if err := r.populateItemsData(data, familyID, date, req); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -55,20 +55,20 @@ func (r *WebAppRouter) homeHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 // populateItemsData fetches items data and populates the template data
-func (r *WebAppRouter) populateItemsData(data map[string]any, userID, date string, req *http.Request) error {
-	// Create context with user ID for the items service
-	ctx := context.WithValue(req.Context(), common.UserIDKey, userID)
+func (r *WebAppRouter) populateItemsData(data map[string]any, familyID uuid.UUID, date string, req *http.Request) error {
+	// Create context with family ID for the items service
+	ctx := context.WithValue(req.Context(), common.FamilyIDKey, familyID)
 
 	// Use the items service to get items (new API signature with search parameters)
 	// For home page, we use date filter for backward compatibility
 	response, err := r.itemsService.GetItems(ctx, date, "", "")
 	if err != nil {
-		r.logger.Error("Failed to get items from service", "error", err, "date", date, "userID", userID)
+		r.logger.Error("Failed to get items from service", "error", err, "date", date)
 		return err
 	}
 
 	if response.Code != 200 {
-		r.logger.Error("Items service returned non-200 status", "code", response.Code, "date", date, "userID", userID)
+		r.logger.Error("Items service returned non-200 status", "code", response.Code, "date", date)
 		return errors.New("failed to get items")
 	}
 
@@ -99,12 +99,12 @@ func (r *WebAppRouter) populateItemsData(data map[string]any, userID, date strin
 		}
 		// For empty items, we need to manually add navigation dates
 		// since the service doesn't populate them for non-existent items
-		if previousDate, err := r.db.GetPreviousDate(userID, date); err == nil {
+		if previousDate, err := r.db.GetPreviousDate(familyID, date); err == nil {
 			t, _ := time.Parse("2006-01-02", previousDate)
 			d := openapi_types.Date{Time: t}
 			itemsResponse.PreviousDate = &d
 		}
-		if nextDate, err := r.db.GetNextDate(userID, date); err == nil {
+		if nextDate, err := r.db.GetNextDate(familyID, date); err == nil {
 			t, _ := time.Parse("2006-01-02", nextDate)
 			d := openapi_types.Date{Time: t}
 			itemsResponse.NextDate = &d
@@ -173,11 +173,7 @@ func (r *WebAppRouter) addLayoutTemplateData(data map[string]any, req *http.Requ
 
 // renderTemplate renders the template with the provided data
 func (r *WebAppRouter) renderTemplate(w http.ResponseWriter, tmpl *template.Template, data map[string]any) {
-	// if utils.IsMobile(req.Header.Get("User-Agent")) {
-	// data["Template"] = "home_mobile.tpl"
-	// } else {
 	data["Template"] = "home.tpl"
-	// }
 
 	templateName, ok := data["Template"].(string)
 	if !ok {

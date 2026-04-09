@@ -4,6 +4,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
 )
@@ -22,8 +23,8 @@ type ItemChange struct {
 	// ID is the auto-incrementing primary key for change tracking
 	ID uint `gorm:"primaryKey;autoIncrement" json:"id"`
 
-	// UserID identifies which user's data was changed
-	UserID string `gorm:"index;not null" json:"userId"`
+	// FamilyID identifies which family's data was changed
+	FamilyID uuid.UUID `gorm:"type:uuid;index;not null" json:"familyId"`
 
 	// Date is the date identifier of the item that was modified
 	Date string `gorm:"index;not null" json:"date"`
@@ -53,7 +54,7 @@ func (ic ItemChange) ToSyncResponse() goserver.SyncChangeResponse {
 	metadata := []string(ic.Metadata)
 	response := goserver.SyncChangeResponse{
 		Id:            id,
-		UserId:        ic.UserID,
+		UserId:        ic.FamilyID.String(),
 		Date:          date,
 		OperationType: goserver.SyncChangeResponseOperationType(ic.OperationType),
 		Timestamp:     ic.Timestamp,
