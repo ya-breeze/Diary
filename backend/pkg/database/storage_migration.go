@@ -110,15 +110,12 @@ func runMigrationIfNeeded(log *slog.Logger, db *gorm.DB, cfg *config.Config) err
 
 	log.Info("Read old data", "users", len(oldUsers), "items", len(oldItems), "changes", len(oldChanges), "orphans", len(oldOrphans))
 
-	// Step 2: Rename old tables to backup names
-	for _, rename := range []struct{ old, new string }{
-		{"users", "users_old"},
-		{"items", "items_backup"},
-		{"item_changes", "item_changes_backup"},
-		{"orphan_ignores", "orphan_ignores_backup"},
-	} {
-		if err := db.Exec(fmt.Sprintf("ALTER TABLE %s RENAME TO %s", rename.old, rename.new)).Error; err != nil {
-			return fmt.Errorf("rename %s: %w", rename.old, err)
+	// Step 2: Drop old tables entirely (data is already in memory).
+	// This avoids index name collisions when GORM creates new tables.
+	for _, tbl := range []string{"orphan_ignores", "item_changes", "items", "users", "families"} {
+		// DROP TABLE IF EXISTS (some tables may not exist in all prod versions)
+		if err := db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", tbl)).Error; err != nil {
+			return fmt.Errorf("drop table %s: %w", tbl, err)
 		}
 	}
 
