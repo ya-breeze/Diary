@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/spf13/viper"
 )
@@ -62,6 +63,13 @@ func setDefaultsFromStruct(s interface{}) {
 	for i := 0; i < val.NumField(); i++ {
 		field := val.Type().Field(i)
 		defaultValue := field.Tag.Get("default")
-		viper.SetDefault(field.Name, defaultValue)
+		mapKey := field.Tag.Get("mapstructure")
+		if mapKey == "" {
+			mapKey = strings.ToLower(field.Name)
+		}
+		viper.SetDefault(mapKey, defaultValue)
+		// AutomaticEnv doesn't reliably find keys with underscores (e.g. jwt_secret →
+		// DIARY_JWT_SECRET), so bind each key explicitly.
+		_ = viper.BindEnv(mapKey)
 	}
 }
