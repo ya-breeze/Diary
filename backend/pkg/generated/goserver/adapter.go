@@ -17,6 +17,7 @@ import (
 type StrictServerImpl struct {
 	assets AssetsAPIService
 	auth   AuthAPIService
+	family FamilyAPIService
 	health HealthAPIService
 	items  ItemsAPIService
 	sync   SyncAPIService
@@ -28,6 +29,7 @@ func newStrictServerImpl(c CustomControllers) *StrictServerImpl {
 	return &StrictServerImpl{
 		assets: c.AssetsAPIService,
 		auth:   c.AuthAPIService,
+		family: c.FamilyAPIService,
 		health: c.HealthAPIService,
 		items:  c.ItemsAPIService,
 		sync:   c.SyncAPIService,
@@ -356,6 +358,29 @@ func (s *StrictServerImpl) GetUser(ctx context.Context, _ GetUserRequestObject) 
 		return GetUser200JSONResponse(body), nil
 	default:
 		return nil, fmt.Errorf("GetUser: unexpected status %d", resp.Code)
+	}
+}
+
+// --- GetFamily ---
+
+func (s *StrictServerImpl) GetFamily(ctx context.Context, _ GetFamilyRequestObject) (GetFamilyResponseObject, error) {
+	resp, err := s.family.GetFamily(ctx)
+	if err != nil {
+		return nil, err
+	}
+	switch resp.Code {
+	case http.StatusOK:
+		body, ok := resp.Body.(FamilyResponse)
+		if !ok {
+			return nil, fmt.Errorf("GetFamily: unexpected body type %T", resp.Body)
+		}
+		return GetFamily200JSONResponse(body), nil
+	case http.StatusUnauthorized:
+		return GetFamily401Response{}, nil
+	case http.StatusNotFound:
+		return GetFamily404Response{}, nil
+	default:
+		return nil, fmt.Errorf("GetFamily: unexpected status %d", resp.Code)
 	}
 }
 

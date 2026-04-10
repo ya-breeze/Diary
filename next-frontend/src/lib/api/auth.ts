@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { AuthData, AuthResponse, User } from '@/types';
+import type { AuthData, AuthResponse, Family, User } from '@/types';
 
 export const authApi = {
   login: (credentials: AuthData) =>
@@ -14,4 +14,5 @@ export const authApi = {
     }),
 
   getUser: () => apiClient<User>('/v1/user'),
+  getFamily: () => apiClient<Family>('/v1/family'),
 };

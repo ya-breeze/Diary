@@ -15,6 +15,16 @@ export interface User {
   startDate: string;
 }
 
+export interface FamilyMember {
+  email: string;
+}
+
+export interface Family {
+  id: string;
+  name: string;
+  members: FamilyMember[];
+}
+
 export interface DiaryEntry {
   date: string;
   title: string;

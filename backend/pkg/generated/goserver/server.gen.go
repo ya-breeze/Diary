@@ -82,6 +82,18 @@ type Entity struct {
 	Id openapi_types.UUID `json:"id"`
 }
 
+// FamilyMember defines model for FamilyMember.
+type FamilyMember struct {
+	Email string `json:"email"`
+}
+
+// FamilyResponse defines model for FamilyResponse.
+type FamilyResponse struct {
+	Id      openapi_types.UUID `json:"id"`
+	Members []FamilyMember     `json:"members"`
+	Name    string             `json:"name"`
+}
+
 // HealthFixRequest defines model for HealthFixRequest.
 type HealthFixRequest struct {
 	// Checks Names of checks to run with fix=true. Empty array runs all checks.
@@ -247,6 +259,9 @@ type ServerInterface interface {
 	// validate user/password and return token
 	// (POST /v1/authorize)
 	Authorize(w http.ResponseWriter, r *http.Request)
+	// return family info with members
+	// (GET /v1/family)
+	GetFamily(w http.ResponseWriter, r *http.Request)
 	// fix storage issues for current user
 	// (POST /v1/health/fix)
 	FixHealthIssues(w http.ResponseWriter, r *http.Request)
@@ -349,6 +364,25 @@ func (siw *ServerInterfaceWrapper) UploadAssetsBatch(w http.ResponseWriter, r *h
 func (siw *ServerInterfaceWrapper) Authorize(w http.ResponseWriter, r *http.Request) {
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Authorize(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetFamily operation middleware
+func (siw *ServerInterfaceWrapper) GetFamily(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetFamily(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -761,6 +795,8 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 
 	r.HandleFunc(options.BaseURL+"/v1/authorize", wrapper.Authorize).Methods("POST")
 
+	r.HandleFunc(options.BaseURL+"/v1/family", wrapper.GetFamily).Methods("GET")
+
 	r.HandleFunc(options.BaseURL+"/v1/health/fix", wrapper.FixHealthIssues).Methods("POST")
 
 	r.HandleFunc(options.BaseURL+"/v1/health/issues", wrapper.GetHealthIssues).Methods("GET")
@@ -887,6 +923,35 @@ type Authorize401Response struct{}
 
 func (response Authorize401Response) VisitAuthorizeResponse(w http.ResponseWriter) error {
 	w.WriteHeader(401)
+	return nil
+}
+
+type GetFamilyRequestObject struct{}
+
+type GetFamilyResponseObject interface {
+	VisitGetFamilyResponse(w http.ResponseWriter) error
+}
+
+type GetFamily200JSONResponse FamilyResponse
+
+func (response GetFamily200JSONResponse) VisitGetFamilyResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetFamily401Response struct{}
+
+func (response GetFamily401Response) VisitGetFamilyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type GetFamily404Response struct{}
+
+func (response GetFamily404Response) VisitGetFamilyResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
 	return nil
 }
 
@@ -1229,6 +1294,9 @@ type StrictServerInterface interface {
 	// validate user/password and return token
 	// (POST /v1/authorize)
 	Authorize(ctx context.Context, request AuthorizeRequestObject) (AuthorizeResponseObject, error)
+	// return family info with members
+	// (GET /v1/family)
+	GetFamily(ctx context.Context, request GetFamilyRequestObject) (GetFamilyResponseObject, error)
 	// fix storage issues for current user
 	// (POST /v1/health/fix)
 	FixHealthIssues(ctx context.Context, request FixHealthIssuesRequestObject) (FixHealthIssuesResponseObject, error)
@@ -1373,6 +1441,30 @@ func (sh *strictHandler) Authorize(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(AuthorizeResponseObject); ok {
 		if err := validResponse.VisitAuthorizeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetFamily operation middleware
+func (sh *strictHandler) GetFamily(w http.ResponseWriter, r *http.Request) {
+	var request GetFamilyRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetFamily(ctx, request.(GetFamilyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetFamily")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetFamilyResponseObject); ok {
+		if err := validResponse.VisitGetFamilyResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

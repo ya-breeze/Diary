@@ -45,6 +45,7 @@ type Storage interface {
 
 	GetFamilyByName(name string) (*models.Family, error)
 	CreateFamily(name string) (*models.Family, error)
+	GetFamily(familyID uuid.UUID) (*models.Family, error)
 
 	GetItem(familyID uuid.UUID, date string) (*models.Item, error)
 	GetItems(familyID uuid.UUID, searchParams SearchParams) ([]*models.Item, int, error)
@@ -215,6 +216,17 @@ func (s *storage) CreateFamily(name string) (*models.Family, error) {
 		},
 	}
 	if err := s.db.Create(&family).Error; err != nil {
+		return nil, fmt.Errorf(StorageError, err)
+	}
+	return &family, nil
+}
+
+func (s *storage) GetFamily(familyID uuid.UUID) (*models.Family, error) {
+	var family models.Family
+	if err := s.db.Preload("Users").Where("id = ?", familyID).First(&family).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
 		return nil, fmt.Errorf(StorageError, err)
 	}
 	return &family, nil

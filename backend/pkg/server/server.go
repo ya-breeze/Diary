@@ -52,6 +52,7 @@ func Server(logger *slog.Logger, cfg *config.Config) error {
 func createControllers(logger *slog.Logger, cfg *config.Config, db database.Storage, checkerTask *tasks.CheckerTask) goserver.CustomControllers {
 	return goserver.CustomControllers{
 		AuthAPIService:   api.NewAuthAPIService(logger, db, cfg),
+		FamilyAPIService: api.NewFamilyAPIService(logger, db),
 		UserAPIService:   api.NewUserAPIService(logger, db),
 		AssetsAPIService: api.NewAssetsAPIService(logger, cfg),
 		HealthAPIService: api.NewHealthAPIServiceImpl(checkerTask),
