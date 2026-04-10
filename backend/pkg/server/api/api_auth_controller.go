@@ -57,7 +57,7 @@ func (c *CustomAuthAPIController) Routes() goserver.Routes {
 		},
 		"Refresh": goserver.Route{
 			Method:      strings.ToUpper("Post"),
-			Pattern:     "/v1/refresh",
+			Pattern:     "/auth/refresh",
 			HandlerFunc: c.Refresh,
 		},
 	}

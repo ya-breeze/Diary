@@ -21,7 +21,7 @@ import (
 // skipAuthPaths lists paths that don't require authentication.
 var skipAuthPaths = map[string]bool{
 	"/v1/authorize": true,
-	"/v1/refresh":   true,
+	"/auth/refresh": true,
 }
 
 func AuthMiddleware(logger *slog.Logger, cfg *config.Config, db *gorm.DB) mux.MiddlewareFunc {
