@@ -10,87 +10,59 @@ import (
 	"sync"
 
 	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
-	"github.com/ya-breeze/diary.be/pkg/auth"
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/server/common"
+	kincookies "github.com/ya-breeze/kin-core/cookies"
+	kinmiddleware "github.com/ya-breeze/kin-core/middleware"
 	"golang.org/x/time/rate"
+	"gorm.io/gorm"
 )
 
-func AuthMiddleware(logger *slog.Logger, cfg *config.Config) mux.MiddlewareFunc {
-	// Initialize cookie store
-	cookieStore := sessions.NewCookieStore([]byte(cfg.SessionSecret))
+// skipAuthPaths lists paths that don't require authentication.
+var skipAuthPaths = map[string]bool{
+	"/v1/authorize": true,
+	"/auth/refresh": true,
+}
+
+func AuthMiddleware(logger *slog.Logger, cfg *config.Config, db *gorm.DB) mux.MiddlewareFunc {
+	kinCfg := kinmiddleware.Config{
+		JWTSecret: []byte(cfg.JWTSecret),
+		DB:        db,
+		CookieCfg: kincookies.Config{Secure: cfg.CookieSecure},
+	}
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(writer http.ResponseWriter, req *http.Request) {
-			log.Printf(
-				"%s %s",
-				req.Method,
-				req.RequestURI)
+			log.Printf("%s %s", req.Method, req.RequestURI)
 
-			// Skip authorization for the root endpoint
-			if req.URL.Path == "/" || strings.HasPrefix(req.URL.Path, "/web/") {
+			// Skip auth for root, web assets, and public endpoints
+			if req.URL.Path == "/" || strings.HasPrefix(req.URL.Path, "/web/") ||
+				skipAuthPaths[req.URL.Path] {
 				next.ServeHTTP(writer, req)
 				return
 			}
 
-			// Skip authorization for the authorize endpoint - there is no way to do it with
-			// go-server openapi templates now :(
-			if req.URL.Path == "/v1/authorize" {
-				next.ServeHTTP(writer, req)
+			claims, err := kinmiddleware.ValidateRequest(req, kinCfg)
+			if err != nil {
+				logger.Warn("Unauthorized request", "path", req.URL.Path, "error", err)
+				http.Error(writer, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
 
-			checkToken(logger, cfg.Issuer, cfg.JWTSecret, cfg.CookieName, cookieStore, next, writer, req)
+			logger.Info("Request authenticated",
+				"userID", claims.UserID,
+				"familyID", claims.FamilyID,
+				"path", req.URL.Path,
+				"method", req.Method,
+			)
+
+			ctx := context.WithValue(req.Context(), common.UserIDKey, claims.UserID)
+			if claims.FamilyID != nil {
+				ctx = context.WithValue(ctx, common.FamilyIDKey, *claims.FamilyID)
+			}
+			next.ServeHTTP(writer, req.WithContext(ctx))
 		})
 	}
-}
-
-func checkToken(
-	logger *slog.Logger, issuer, jwtSecret, cookieName string, cookieStore *sessions.CookieStore,
-	next http.Handler, writer http.ResponseWriter, req *http.Request,
-) {
-	var token string
-
-	// 1. Try Authorization header
-	authHeader := req.Header.Get("Authorization")
-	if authHeader != "" {
-		authHeaderParts := strings.Split(authHeader, " ")
-		if len(authHeaderParts) == 2 && authHeaderParts[0] == "Bearer" {
-			token = authHeaderParts[1]
-		}
-	}
-
-	// 2. Try Session Cookie if header is missing
-	if token == "" {
-		if cookieName == "" {
-			cookieName = "diarycookie"
-		}
-		if session, err := cookieStore.Get(req, cookieName); err == nil {
-			if t, ok := session.Values["token"].(string); ok {
-				token = t
-			}
-		}
-	}
-
-	if token == "" {
-		http.Error(writer, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	// Parse the token
-	userID, err := auth.CheckJWT(token, issuer, jwtSecret)
-	if err != nil {
-		logger.With("err", err).Warn("Invalid token")
-		http.Error(writer, "Invalid token", http.StatusUnauthorized)
-		return
-	}
-
-	// Log successful authentication with user ID
-	logger.Info("Request authenticated", "userID", userID, "path", req.URL.Path, "method", req.Method)
-
-	req = req.WithContext(context.WithValue(req.Context(), common.UserIDKey, userID))
-	next.ServeHTTP(writer, req)
 }
 
 // RateLimiterStore manages per-IP rate limiters for authentication endpoints

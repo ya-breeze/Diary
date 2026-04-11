@@ -23,21 +23,21 @@ func (r *WebAppRouter) editHandler(w http.ResponseWriter, req *http.Request) {
 	}
 	data := utils.CreateTemplateData(req, "edit")
 
-	userID, err := r.ValidateUserID(tmpl, w, req)
+	familyID, err := r.ValidateFamilyID(tmpl, w, req)
 	if err != nil {
-		r.logger.Error("Failed to get user ID from session", "error", err)
+		r.logger.Error("Failed to get family ID from cookie", "error", err)
 		return
 	}
-	data["UserID"] = userID
+	data["FamilyID"] = familyID.String()
 
 	date := req.URL.Query().Get("date")
 	if date == "" {
 		date = utils.GetCurrentDate()
 	}
-	item, err := r.db.GetItem(userID, date)
+	item, err := r.db.GetItem(familyID, date)
 	if err != nil {
 		if !errors.Is(err, database.ErrNotFound) {
-			r.logger.Error("Failed to get item", "error", err, "date", date, "userID", userID)
+			r.logger.Error("Failed to get item", "error", err, "date", date, "familyID", familyID)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -65,12 +65,12 @@ func (r *WebAppRouter) saveHandler(w http.ResponseWriter, req *http.Request) {
 	}
 	data := utils.CreateTemplateData(req, "edit")
 
-	userID, err := r.ValidateUserID(tmpl, w, req)
+	familyID, err := r.ValidateFamilyID(tmpl, w, req)
 	if err != nil {
-		r.logger.Error("Failed to get user ID from session", "error", err)
+		r.logger.Error("Failed to get family ID from cookie", "error", err)
 		return
 	}
-	data["UserID"] = userID
+	data["FamilyID"] = familyID.String()
 
 	date := req.FormValue("date")
 	if date == "" {
@@ -93,8 +93,8 @@ func (r *WebAppRouter) saveHandler(w http.ResponseWriter, req *http.Request) {
 		Tags:  &tags,
 	}
 
-	// Ensure the service can read the user ID from context (the API service expects it there)
-	ctx := context.WithValue(req.Context(), common.UserIDKey, userID)
+	// Ensure the service can read the family ID from context (the API service expects it there)
+	ctx := context.WithValue(req.Context(), common.FamilyIDKey, familyID)
 
 	implResp, svcErr := r.itemsService.PutItems(ctx, itemsRequest)
 	if svcErr != nil {

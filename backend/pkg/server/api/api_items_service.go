@@ -7,6 +7,7 @@ import (
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
+	"github.com/google/uuid"
 	"github.com/ya-breeze/diary.be/pkg/database"
 	"github.com/ya-breeze/diary.be/pkg/database/models"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
@@ -32,38 +33,32 @@ func (s *ItemsAPIServiceImpl) GetItems(
 	search string,
 	tags string,
 ) (goserver.ImplResponse, error) {
-	// Get user ID from context (set by auth middleware)
-	userID, ok := ctx.Value(common.UserIDKey).(string)
+	familyID, ok := common.GetFamilyID(ctx)
 	if !ok {
-		s.logger.Error("User ID not found in context")
+		s.logger.Error("Family ID not found in context")
 		return goserver.Response(401, nil), nil
 	}
 
-	s.logger.Info("Getting items", "userID", userID, "date", date, "search", search, "tags", tags)
+	s.logger.Info("Getting items", "familyID", familyID, "date", date, "search", search, "tags", tags)
 
-	// Parse search parameters
 	searchParams := database.SearchParams{
 		Date:       date,
 		SearchText: search,
 	}
 
-	// Parse tags parameter (comma-separated)
 	if tags != "" {
 		searchParams.Tags = strings.Split(tags, ",")
-		// Trim whitespace from each tag
 		for i, tag := range searchParams.Tags {
 			searchParams.Tags[i] = strings.TrimSpace(tag)
 		}
 	}
 
-	// Get items using the new search method
-	items, totalCount, err := s.db.GetItems(userID, searchParams)
+	items, totalCount, err := s.db.GetItems(familyID, searchParams)
 	if err != nil {
-		s.logger.Error("Failed to get items", "error", err, "userID", userID, "searchParams", searchParams)
+		s.logger.Error("Failed to get items", "error", err, "familyID", familyID, "searchParams", searchParams)
 		return goserver.Response(500, nil), nil
 	}
 
-	// Convert database items to API response items
 	responseItems := make([]goserver.ItemsResponse, len(items))
 	for i, item := range items {
 		tags := []string(item.Tags)
@@ -74,12 +69,9 @@ func (s *ItemsAPIServiceImpl) GetItems(
 			Body:  &body,
 			Tags:  &tags,
 		}
-		// Add navigation dates for each item
-		s.addNavigationDates(&responseItems[i], userID, item.Date)
+		s.addNavigationDates(&responseItems[i], familyID, item.Date)
 	}
 
-	// Special case: when filtering by a specific date and no items found,
-	// return an empty item with navigation dates to enable Previous/Next buttons
 	if date != "" && len(items) == 0 {
 		emptyTags := []string{}
 		emptyBody := ""
@@ -89,12 +81,11 @@ func (s *ItemsAPIServiceImpl) GetItems(
 			Body:  &emptyBody,
 			Tags:  &emptyTags,
 		}
-		s.addNavigationDates(&emptyItem, userID, date)
+		s.addNavigationDates(&emptyItem, familyID, date)
 		responseItems = []goserver.ItemsResponse{emptyItem}
 		totalCount = 1
 	}
 
-	// Create the list response
 	response := goserver.ItemsListResponse{
 		Items:      responseItems,
 		TotalCount: totalCount,
@@ -108,17 +99,15 @@ func (s *ItemsAPIServiceImpl) PutItems(
 	ctx context.Context,
 	itemsRequest goserver.ItemsRequest,
 ) (goserver.ImplResponse, error) {
-	// Get user ID from context (set by auth middleware)
-	userID, ok := ctx.Value(common.UserIDKey).(string)
+	familyID, ok := common.GetFamilyID(ctx)
 	if !ok {
-		s.logger.Error("User ID not found in context")
+		s.logger.Error("Family ID not found in context")
 		return goserver.Response(401, nil), nil
 	}
 
 	dateStr := itemsRequest.Date.Time.Format("2006-01-02")
-	s.logger.Info("Saving item", "userID", userID, "date", dateStr)
+	s.logger.Info("Saving item", "familyID", familyID, "date", dateStr)
 
-	// Filter tags: trim spaces and skip empty values
 	var filteredTags []string
 	if itemsRequest.Tags != nil {
 		filteredTags = make([]string, 0, len(*itemsRequest.Tags))
@@ -136,22 +125,18 @@ func (s *ItemsAPIServiceImpl) PutItems(
 		body = *itemsRequest.Body
 	}
 
-	// Convert request to database model
 	item := &models.Item{
-		UserID: userID,
-		Date:   dateStr,
-		Title:  itemsRequest.Title,
-		Body:   body,
-		Tags:   models.StringList(filteredTags),
+		Date:  dateStr,
+		Title: itemsRequest.Title,
+		Body:  body,
+		Tags:  models.StringList(filteredTags),
 	}
 
-	// Save the item to database
-	if err := s.db.PutItem(userID, item); err != nil {
+	if err := s.db.PutItem(familyID, item); err != nil {
 		s.logger.Error("Failed to save item", "error", err, "item", item)
 		return goserver.Response(500, nil), nil
 	}
 
-	// Return the saved item as response
 	savedTags := []string(item.Tags)
 	savedBody := item.Body
 	response := goserver.ItemsResponse{
@@ -161,19 +146,18 @@ func (s *ItemsAPIServiceImpl) PutItems(
 		Tags:  &savedTags,
 	}
 
-	// Add navigation dates
-	s.addNavigationDates(&response, userID, item.Date)
+	s.addNavigationDates(&response, familyID, item.Date)
 
 	return goserver.Response(200, response), nil
 }
 
 // addNavigationDates adds previous and next dates to the response
-func (s *ItemsAPIServiceImpl) addNavigationDates(response *goserver.ItemsResponse, userID, date string) {
-	if previousDate, err := s.db.GetPreviousDate(userID, date); err == nil {
+func (s *ItemsAPIServiceImpl) addNavigationDates(response *goserver.ItemsResponse, familyID uuid.UUID, date string) {
+	if previousDate, err := s.db.GetPreviousDate(familyID, date); err == nil {
 		d := openapi_types.Date{Time: parseDate(previousDate).Time}
 		response.PreviousDate = &d
 	}
-	if nextDate, err := s.db.GetNextDate(userID, date); err == nil {
+	if nextDate, err := s.db.GetNextDate(familyID, date); err == nil {
 		d := openapi_types.Date{Time: parseDate(nextDate).Time}
 		response.NextDate = &d
 	}

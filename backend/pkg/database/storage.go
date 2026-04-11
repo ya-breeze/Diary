@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/database/models"
+	coremodels "github.com/ya-breeze/kin-core/models"
 	"gorm.io/gorm"
 )
 
@@ -36,30 +37,36 @@ type Storage interface {
 	Open() error
 	Close() error
 
-	GetUserID(username string) (string, error)
-	GetUser(userID string) (*models.User, error)
+	GetUserByUsername(username string) (*models.User, error)
+	GetUser(userID uuid.UUID) (*models.User, error)
 	GetAllUsers() ([]*models.User, error)
-	CreateUser(username, password string) (*models.User, error)
+	CreateUser(username, password string, familyID uuid.UUID) (*models.User, error)
 	PutUser(user *models.User) error
 
-	GetItem(userID, itemID string) (*models.Item, error)
-	GetItems(userID string, searchParams SearchParams) ([]*models.Item, int, error)
-	PutItem(userID string, item *models.Item) error
-	DeleteItem(userID, itemID string) error
+	GetFamilyByName(name string) (*models.Family, error)
+	CreateFamily(name string) (*models.Family, error)
 
-	GetPreviousDate(userID, date string) (string, error)
-	GetNextDate(userID, date string) (string, error)
+	GetItem(familyID uuid.UUID, date string) (*models.Item, error)
+	GetItems(familyID uuid.UUID, searchParams SearchParams) ([]*models.Item, int, error)
+	PutItem(familyID uuid.UUID, item *models.Item) error
+	DeleteItem(familyID uuid.UUID, date string) error
+
+	GetPreviousDate(familyID uuid.UUID, date string) (string, error)
+	GetNextDate(familyID uuid.UUID, date string) (string, error)
 
 	// Change tracking methods for synchronization
-	CreateChangeRecord(userID, date string, operationType models.OperationType,
+	CreateChangeRecord(familyID uuid.UUID, date string, operationType models.OperationType,
 		itemSnapshot *models.Item, metadata []string) error
-	GetChangesSince(userID string, sinceID uint, limit int) ([]*models.ItemChange, error)
-	GetLatestChangeID(userID string) (uint, error)
+	GetChangesSince(familyID uuid.UUID, sinceID uint, limit int) ([]*models.ItemChange, error)
+	GetLatestChangeID(familyID uuid.UUID) (uint, error)
 
 	// Orphan ignore list
-	GetIgnoredOrphans(userID string) ([]string, error)
-	AddIgnoredOrphan(userID, filename string) error
-	RemoveIgnoredOrphan(userID, filename string) error
+	GetIgnoredOrphans(familyID uuid.UUID) ([]string, error)
+	AddIgnoredOrphan(familyID uuid.UUID, filename string) error
+	RemoveIgnoredOrphan(familyID uuid.UUID, filename string) error
+
+	// GetDB returns the underlying gorm.DB for use with authdb helpers.
+	GetDB() *gorm.DB
 }
 
 type storage struct {
@@ -101,6 +108,12 @@ func (s *storage) Open() error {
 		s.log.Error("failed to connect database", "error", err)
 		panic("failed to connect database")
 	}
+
+	if err := runMigrationIfNeeded(s.log, s.db, s.cfg); err != nil {
+		s.log.Error("failed to run migration", "error", err)
+		panic("failed to run migration")
+	}
+
 	if err := autoMigrateModels(s.db); err != nil {
 		s.log.Error("failed to migrate database", "error", err)
 		panic("failed to migrate database")
@@ -110,22 +123,30 @@ func (s *storage) Open() error {
 }
 
 func (s *storage) Close() error {
-	// return s.db.Close()
 	return nil
 }
 
-func (s *storage) CreateUser(username, hashedPassword string) (*models.User, error) {
-	_, err := s.GetUserID(username)
+func (s *storage) GetDB() *gorm.DB {
+	return s.db
+}
+
+// #region User
+
+func (s *storage) CreateUser(username, hashedPassword string, familyID uuid.UUID) (*models.User, error) {
+	_, err := s.GetUserByUsername(username)
 	if err == nil {
 		s.log.Error("user already exists", "username", username)
 		return nil, fmt.Errorf("user %q already exists", username)
 	}
 
 	user := models.User{
-		ID:             uuid.New(),
-		Login:          username,
-		HashedPassword: hashedPassword,
-		StartDate:      time.Now(),
+		User: coremodels.User{
+			ID:           uuid.New(),
+			Username:     username,
+			PasswordHash: hashedPassword,
+			FamilyID:     familyID,
+		},
+		StartDate: time.Now(),
 	}
 	if err := s.db.Create(&user).Error; err != nil {
 		return nil, fmt.Errorf(StorageError, err)
@@ -142,69 +163,81 @@ func (s *storage) GetAllUsers() ([]*models.User, error) {
 	return users, nil
 }
 
-func (s *storage) GetUser(userID string) (*models.User, error) {
+func (s *storage) GetUser(userID uuid.UUID) (*models.User, error) {
 	var user models.User
 	if err := s.db.Where("id = ?", userID).First(&user).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}
-
 		return nil, fmt.Errorf(StorageError, err)
 	}
+	return &user, nil
+}
 
+func (s *storage) GetUserByUsername(username string) (*models.User, error) {
+	var user models.User
+	if err := s.db.Where("username = ?", username).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf(StorageError, err)
+	}
 	return &user, nil
 }
 
 func (s *storage) PutUser(user *models.User) error {
-	existingUserID, err := s.GetUserID(user.Login)
-	if err != nil {
-		s.log.Error("failed to get user ID", "error", err, "user", user.Login)
-		return fmt.Errorf("failed to get user ID: %w", err)
-	}
-	if existingUserID != user.ID.String() {
-		s.log.Error("user ID mismatch", "expected", user.ID.String(), "actual", existingUserID)
-		return fmt.Errorf("user ID mismatch: expected %s, actual %s", user.ID.String(), existingUserID)
-	}
-
-	// Update the user in the database
 	if err := s.db.Save(user).Error; err != nil {
 		return fmt.Errorf(StorageError, err)
 	}
-
 	return nil
 }
 
-func (s *storage) GetUserID(username string) (string, error) {
-	var user models.User
-	if err := s.db.Where("login = ?", username).First(&user).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", ErrNotFound
-		}
+// #endregion User
 
-		return "", fmt.Errorf(StorageError, err)
-	}
+// #region Family
 
-	return user.ID.String(), nil
-}
-
-// #region Item
-
-func (s *storage) GetItem(userID, date string) (*models.Item, error) {
-	var item models.Item
-	if err := s.db.Where("date = ? and user_id = ?", date, userID).First(&item).Error; err != nil {
+func (s *storage) GetFamilyByName(name string) (*models.Family, error) {
+	var family models.Family
+	if err := s.db.Where("name = ?", name).First(&family).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}
-
 		return nil, fmt.Errorf(StorageError, err)
 	}
+	return &family, nil
+}
 
+func (s *storage) CreateFamily(name string) (*models.Family, error) {
+	family := models.Family{
+		Family: coremodels.Family{
+			ID:   uuid.New(),
+			Name: name,
+		},
+	}
+	if err := s.db.Create(&family).Error; err != nil {
+		return nil, fmt.Errorf(StorageError, err)
+	}
+	return &family, nil
+}
+
+// #endregion Family
+
+// #region Item
+
+func (s *storage) GetItem(familyID uuid.UUID, date string) (*models.Item, error) {
+	var item models.Item
+	if err := s.db.Where("date = ? AND family_id = ?", date, familyID).First(&item).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf(StorageError, err)
+	}
 	return &item, nil
 }
 
-func (s *storage) GetItems(userID string, searchParams SearchParams) ([]*models.Item, int, error) {
+func (s *storage) GetItems(familyID uuid.UUID, searchParams SearchParams) ([]*models.Item, int, error) {
 	var items []*models.Item
-	query := s.db.Where("user_id = ?", userID)
+	query := s.db.Where("family_id = ?", familyID)
 
 	// Apply date filter if specified (for backward compatibility)
 	if searchParams.Date != "" {
@@ -244,8 +277,8 @@ func (s *storage) GetItems(userID string, searchParams SearchParams) ([]*models.
 	return items, int(totalCount), nil
 }
 
-func (s *storage) PutItem(userID string, item *models.Item) error {
-	item.UserID = userID
+func (s *storage) PutItem(familyID uuid.UUID, item *models.Item) error {
+	item.FamilyID = familyID
 
 	// Start a transaction to ensure atomicity
 	tx := s.db.Begin()
@@ -260,7 +293,14 @@ func (s *storage) PutItem(userID string, item *models.Item) error {
 
 	// Check if item exists to determine operation type
 	var existingItem models.Item
-	isUpdate := tx.Where("user_id = ? AND date = ?", userID, item.Date).First(&existingItem).Error == nil
+	isUpdate := tx.Where("family_id = ? AND date = ?", familyID, item.Date).First(&existingItem).Error == nil
+
+	// Preserve existing ID on update
+	if isUpdate {
+		item.ID = existingItem.ID
+	} else {
+		item.ID = uuid.New()
+	}
 
 	// Save the item
 	if err := tx.Save(item).Error; err != nil {
@@ -274,7 +314,7 @@ func (s *storage) PutItem(userID string, item *models.Item) error {
 		operationType = models.OperationTypeUpdated
 	}
 
-	if err := s.createChangeRecordInTx(tx, userID, item.Date, operationType, item, nil); err != nil {
+	if err := s.createChangeRecordInTx(tx, familyID, item.Date, operationType, item, nil); err != nil {
 		tx.Rollback()
 		return fmt.Errorf("failed to create change record: %w", err)
 	}
@@ -287,7 +327,7 @@ func (s *storage) PutItem(userID string, item *models.Item) error {
 	return nil
 }
 
-func (s *storage) DeleteItem(userID, itemID string) error {
+func (s *storage) DeleteItem(familyID uuid.UUID, date string) error {
 	// Start a transaction to ensure atomicity
 	tx := s.db.Begin()
 	if tx.Error != nil {
@@ -301,7 +341,7 @@ func (s *storage) DeleteItem(userID, itemID string) error {
 
 	// Get the item before deletion for the change record
 	var item models.Item
-	if err := tx.Where("user_id = ? AND date = ?", userID, itemID).First(&item).Error; err != nil {
+	if err := tx.Where("family_id = ? AND date = ?", familyID, date).First(&item).Error; err != nil {
 		tx.Rollback()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrNotFound
@@ -310,13 +350,13 @@ func (s *storage) DeleteItem(userID, itemID string) error {
 	}
 
 	// Delete the item
-	if err := tx.Where("user_id = ? AND date = ?", userID, itemID).Delete(&models.Item{}).Error; err != nil {
+	if err := tx.Where("family_id = ? AND date = ?", familyID, date).Delete(&models.Item{}).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf(StorageError, err)
 	}
 
 	// Create change record for deletion
-	if err := s.createChangeRecordInTx(tx, userID, itemID, models.OperationTypeDeleted, &item, nil); err != nil {
+	if err := s.createChangeRecordInTx(tx, familyID, date, models.OperationTypeDeleted, &item, nil); err != nil {
 		tx.Rollback()
 		return fmt.Errorf("failed to create change record: %w", err)
 	}
@@ -333,29 +373,25 @@ func (s *storage) DeleteItem(userID, itemID string) error {
 
 // #region Dates
 
-func (s *storage) GetPreviousDate(userID, date string) (string, error) {
+func (s *storage) GetPreviousDate(familyID uuid.UUID, date string) (string, error) {
 	var item models.Item
-	if err := s.db.Where("user_id = ? and date < ?", userID, date).Order("date desc").First(&item).Error; err != nil {
+	if err := s.db.Where("family_id = ? AND date < ?", familyID, date).Order("date desc").First(&item).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return "", ErrNotFound
 		}
-
 		return "", fmt.Errorf(StorageError, err)
 	}
-
 	return item.Date, nil
 }
 
-func (s *storage) GetNextDate(userID, date string) (string, error) {
+func (s *storage) GetNextDate(familyID uuid.UUID, date string) (string, error) {
 	var item models.Item
-	if err := s.db.Where("user_id = ? and date > ?", userID, date).Order("date asc").First(&item).Error; err != nil {
+	if err := s.db.Where("family_id = ? AND date > ?", familyID, date).Order("date asc").First(&item).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return "", ErrNotFound
 		}
-
 		return "", fmt.Errorf(StorageError, err)
 	}
-
 	return item.Date, nil
 }
 
@@ -364,11 +400,11 @@ func (s *storage) GetNextDate(userID, date string) (string, error) {
 // #region Change Tracking
 
 // createChangeRecordInTx creates a change record within an existing transaction
-func (s *storage) createChangeRecordInTx(tx *gorm.DB, userID, date string,
+func (s *storage) createChangeRecordInTx(tx *gorm.DB, familyID uuid.UUID, date string,
 	operationType models.OperationType, itemSnapshot *models.Item, metadata []string,
 ) error {
 	change := &models.ItemChange{
-		UserID:        userID,
+		FamilyID:      familyID,
 		Date:          date,
 		OperationType: operationType,
 		Timestamp:     time.Now(),
@@ -384,11 +420,11 @@ func (s *storage) createChangeRecordInTx(tx *gorm.DB, userID, date string,
 }
 
 // CreateChangeRecord creates a change record for synchronization
-func (s *storage) CreateChangeRecord(userID, date string, operationType models.OperationType,
+func (s *storage) CreateChangeRecord(familyID uuid.UUID, date string, operationType models.OperationType,
 	itemSnapshot *models.Item, metadata []string,
 ) error {
 	change := &models.ItemChange{
-		UserID:        userID,
+		FamilyID:      familyID,
 		Date:          date,
 		OperationType: operationType,
 		Timestamp:     time.Now(),
@@ -403,11 +439,11 @@ func (s *storage) CreateChangeRecord(userID, date string, operationType models.O
 	return nil
 }
 
-// GetChangesSince retrieves changes for a user since a given change ID
-func (s *storage) GetChangesSince(userID string, sinceID uint, limit int) ([]*models.ItemChange, error) {
+// GetChangesSince retrieves changes for a family since a given change ID
+func (s *storage) GetChangesSince(familyID uuid.UUID, sinceID uint, limit int) ([]*models.ItemChange, error) {
 	var changes []*models.ItemChange
 
-	query := s.db.Where("user_id = ? AND id > ?", userID, sinceID).
+	query := s.db.Where("family_id = ? AND id > ?", familyID, sinceID).
 		Order("id ASC").
 		Limit(limit)
 
@@ -418,11 +454,11 @@ func (s *storage) GetChangesSince(userID string, sinceID uint, limit int) ([]*mo
 	return changes, nil
 }
 
-// GetLatestChangeID returns the latest change ID for a user
-func (s *storage) GetLatestChangeID(userID string) (uint, error) {
+// GetLatestChangeID returns the latest change ID for a family
+func (s *storage) GetLatestChangeID(familyID uuid.UUID) (uint, error) {
 	var change models.ItemChange
 
-	err := s.db.Where("user_id = ?", userID).
+	err := s.db.Where("family_id = ?", familyID).
 		Order("id DESC").
 		First(&change).Error
 	if err != nil {
@@ -439,9 +475,9 @@ func (s *storage) GetLatestChangeID(userID string) (uint, error) {
 
 // #region Orphan Ignore
 
-func (s *storage) GetIgnoredOrphans(userID string) ([]string, error) {
+func (s *storage) GetIgnoredOrphans(familyID uuid.UUID) ([]string, error) {
 	var records []models.OrphanIgnore
-	if err := s.db.Where("user_id = ?", userID).Find(&records).Error; err != nil {
+	if err := s.db.Where("family_id = ?", familyID).Find(&records).Error; err != nil {
 		return nil, fmt.Errorf(StorageError, err)
 	}
 	filenames := make([]string, len(records))
@@ -451,17 +487,17 @@ func (s *storage) GetIgnoredOrphans(userID string) ([]string, error) {
 	return filenames, nil
 }
 
-func (s *storage) AddIgnoredOrphan(userID, filename string) error {
-	record := models.OrphanIgnore{UserID: userID, Filename: filename}
-	if err := s.db.Where(models.OrphanIgnore{UserID: userID, Filename: filename}).
+func (s *storage) AddIgnoredOrphan(familyID uuid.UUID, filename string) error {
+	record := models.OrphanIgnore{FamilyID: familyID, Filename: filename}
+	if err := s.db.Where(models.OrphanIgnore{FamilyID: familyID, Filename: filename}).
 		FirstOrCreate(&record).Error; err != nil {
 		return fmt.Errorf(StorageError, err)
 	}
 	return nil
 }
 
-func (s *storage) RemoveIgnoredOrphan(userID, filename string) error {
-	if err := s.db.Where("user_id = ? AND filename = ?", userID, filename).
+func (s *storage) RemoveIgnoredOrphan(familyID uuid.UUID, filename string) error {
+	if err := s.db.Where("family_id = ? AND filename = ?", familyID, filename).
 		Delete(&models.OrphanIgnore{}).Error; err != nil {
 		return fmt.Errorf(StorageError, err)
 	}

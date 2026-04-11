@@ -20,22 +20,22 @@ func NewHealthAPIServiceImpl(task *tasks.CheckerTask) goserver.HealthAPIService 
 }
 
 func (s *HealthAPIServiceImpl) GetHealthIssues(ctx context.Context) (goserver.ImplResponse, error) {
-	userID, _ := ctx.Value(common.UserIDKey).(string)
-	if userID == "" {
+	familyID, ok := common.GetFamilyID(ctx)
+	if !ok {
 		return goserver.Response(http.StatusUnauthorized, nil), nil
 	}
 
-	result := s.task.GetIssues(userID)
+	result := s.task.GetIssues(familyID)
 	return goserver.Response(http.StatusOK, toGoserverResponse(result)), nil
 }
 
 func (s *HealthAPIServiceImpl) FixHealthIssues(ctx context.Context, req goserver.HealthFixRequest) (goserver.ImplResponse, error) {
-	userID, _ := ctx.Value(common.UserIDKey).(string)
-	if userID == "" {
+	familyID, ok := common.GetFamilyID(ctx)
+	if !ok {
 		return goserver.Response(http.StatusUnauthorized, nil), nil
 	}
 
-	result, err := s.task.RunFix(userID, req.Checks)
+	result, err := s.task.RunFix(familyID, req.Checks)
 	if err != nil {
 		return goserver.Response(http.StatusInternalServerError, nil), err
 	}
@@ -44,12 +44,12 @@ func (s *HealthAPIServiceImpl) FixHealthIssues(ctx context.Context, req goserver
 }
 
 func (s *HealthAPIServiceImpl) DeleteOrphan(ctx context.Context, filename string) (goserver.ImplResponse, error) {
-	userID, _ := ctx.Value(common.UserIDKey).(string)
-	if userID == "" {
+	familyID, ok := common.GetFamilyID(ctx)
+	if !ok {
 		return goserver.Response(http.StatusUnauthorized, nil), nil
 	}
 
-	result, err := s.task.DeleteOrphan(userID, filename)
+	result, err := s.task.DeleteOrphan(familyID, filename)
 	if err != nil {
 		if errors.Is(err, database.ErrNotFound) {
 			return goserver.Response(http.StatusNotFound, nil), nil
@@ -64,12 +64,12 @@ func (s *HealthAPIServiceImpl) DeleteOrphan(ctx context.Context, filename string
 }
 
 func (s *HealthAPIServiceImpl) AttachOrphan(ctx context.Context, filename string, req goserver.AttachOrphanRequest) (goserver.ImplResponse, error) {
-	userID, _ := ctx.Value(common.UserIDKey).(string)
-	if userID == "" {
+	familyID, ok := common.GetFamilyID(ctx)
+	if !ok {
 		return goserver.Response(http.StatusUnauthorized, nil), nil
 	}
 
-	result, err := s.task.AttachOrphan(userID, filename, req.Date)
+	result, err := s.task.AttachOrphan(familyID, filename, req.Date)
 	if err != nil {
 		if isValidationError(err) {
 			return goserver.Response(http.StatusBadRequest, nil), nil
@@ -81,12 +81,12 @@ func (s *HealthAPIServiceImpl) AttachOrphan(ctx context.Context, filename string
 }
 
 func (s *HealthAPIServiceImpl) IgnoreOrphan(ctx context.Context, filename string) (goserver.ImplResponse, error) {
-	userID, _ := ctx.Value(common.UserIDKey).(string)
-	if userID == "" {
+	familyID, ok := common.GetFamilyID(ctx)
+	if !ok {
 		return goserver.Response(http.StatusUnauthorized, nil), nil
 	}
 
-	result, err := s.task.IgnoreOrphan(userID, filename)
+	result, err := s.task.IgnoreOrphan(familyID, filename)
 	if err != nil {
 		if isValidationError(err) {
 			return goserver.Response(http.StatusBadRequest, nil), nil
@@ -98,12 +98,12 @@ func (s *HealthAPIServiceImpl) IgnoreOrphan(ctx context.Context, filename string
 }
 
 func (s *HealthAPIServiceImpl) UnignoreOrphan(ctx context.Context, filename string) (goserver.ImplResponse, error) {
-	userID, _ := ctx.Value(common.UserIDKey).(string)
-	if userID == "" {
+	familyID, ok := common.GetFamilyID(ctx)
+	if !ok {
 		return goserver.Response(http.StatusUnauthorized, nil), nil
 	}
 
-	result, err := s.task.UnignoreOrphan(userID, filename)
+	result, err := s.task.UnignoreOrphan(familyID, filename)
 	if err != nil {
 		if isValidationError(err) {
 			return goserver.Response(http.StatusBadRequest, nil), nil

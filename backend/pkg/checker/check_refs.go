@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/google/uuid"
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/database"
 	"github.com/ya-breeze/diary.be/pkg/utils"
@@ -27,25 +28,25 @@ func (RefsCheck) Run(db database.Storage, cfg *config.Config, logger *slog.Logge
 	assetsBase := filepath.Join(cfg.DataPath, config.AssetsDirName)
 
 	for _, user := range users {
-		userID := user.ID.String()
-		userDir := filepath.Join(assetsBase, userID)
+		familyID := user.FamilyID
+		familyDir := filepath.Join(assetsBase, familyID.String())
 
-		items, _, err := db.GetItems(userID, database.SearchParams{})
+		items, _, err := db.GetItems(familyID, database.SearchParams{})
 		if err != nil {
-			return nil, fmt.Errorf("getting items for user %s: %w", userID, err)
+			return nil, fmt.Errorf("getting items for family %s: %w", familyID, err)
 		}
 
 		for _, item := range items {
 			for _, name := range utils.GetAssetsFromMarkdown(item.Body) {
-				filePath := filepath.Join(userDir, name)
+				filePath := filepath.Join(familyDir, name)
 				if _, err := os.Stat(filePath); os.IsNotExist(err) {
 					issues = append(issues, Issue{
-						Check:   "refs",
-						UserID:  userID,
-						Path:    item.Date + "/" + name,
-						Message: fmt.Sprintf("entry %q references missing file %q", item.Date, name),
-						Fixable: true,
-						fix:     makeRefsFix(db, logger, userID, item.Date, name),
+						Check:    "refs",
+						FamilyID: familyID.String(),
+						Path:     item.Date + "/" + name,
+						Message:  fmt.Sprintf("entry %q references missing file %q", item.Date, name),
+						Fixable:  true,
+						fix:      makeRefsFix(db, logger, familyID, item.Date, name),
 					})
 				}
 			}
@@ -56,19 +57,19 @@ func (RefsCheck) Run(db database.Storage, cfg *config.Config, logger *slog.Logge
 }
 
 // makeRefsFix returns a closure that removes a broken image reference from a diary entry.
-func makeRefsFix(db database.Storage, logger *slog.Logger, userID, date, filename string) func() error {
+func makeRefsFix(db database.Storage, logger *slog.Logger, familyID uuid.UUID, date, filename string) func() error {
 	return func() error {
-		item, err := db.GetItem(userID, date)
+		item, err := db.GetItem(familyID, date)
 		if err != nil {
-			return fmt.Errorf("getting item %s/%s: %w", userID, date, err)
+			return fmt.Errorf("getting item %s/%s: %w", familyID, date, err)
 		}
 		newBody := removeMarkdownImageRef(item.Body, filename)
 		if newBody == item.Body {
 			return nil // already clean
 		}
 		item.Body = newBody
-		if err := db.PutItem(userID, item); err != nil {
-			return fmt.Errorf("saving item %s/%s: %w", userID, date, err)
+		if err := db.PutItem(familyID, item); err != nil {
+			return fmt.Errorf("saving item %s/%s: %w", familyID, date, err)
 		}
 		logger.Info("Removed broken image reference", "date", date, "file", filename)
 		return nil

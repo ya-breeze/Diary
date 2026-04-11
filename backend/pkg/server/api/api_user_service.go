@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 
+	"github.com/google/uuid"
 	"github.com/ya-breeze/diary.be/pkg/database"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
 	"github.com/ya-breeze/diary.be/pkg/server/common"
@@ -24,7 +25,7 @@ func NewUserAPIService(logger *slog.Logger, db database.Storage) goserver.UserAP
 
 // GetUser - return user object
 func (s *UserAPIServiceImpl) GetUser(ctx context.Context) (goserver.ImplResponse, error) {
-	userID, ok := ctx.Value(common.UserIDKey).(string)
+	userID, ok := ctx.Value(common.UserIDKey).(uuid.UUID)
 	if !ok {
 		return goserver.Response(500, nil), nil
 	}

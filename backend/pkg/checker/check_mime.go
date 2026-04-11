@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/database"
 )
@@ -27,15 +28,15 @@ func (MimeCheck) Run(db database.Storage, cfg *config.Config, logger *slog.Logge
 	assetsBase := filepath.Join(cfg.DataPath, config.AssetsDirName)
 
 	for _, user := range users {
-		userID := user.ID.String()
-		userDir := filepath.Join(assetsBase, userID)
+		familyID := user.FamilyID
+		familyDir := filepath.Join(assetsBase, familyID.String())
 
-		entries, err := os.ReadDir(userDir)
+		entries, err := os.ReadDir(familyDir)
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
 			}
-			return nil, fmt.Errorf("reading asset dir for user %s: %w", userID, err)
+			return nil, fmt.Errorf("reading asset dir for family %s: %w", familyID, err)
 		}
 
 		for _, entry := range entries {
@@ -43,7 +44,7 @@ func (MimeCheck) Run(db database.Storage, cfg *config.Config, logger *slog.Logge
 				continue
 			}
 
-			filePath := filepath.Join(userDir, entry.Name())
+			filePath := filepath.Join(familyDir, entry.Name())
 			ext, err := detectVideoExtension(filePath)
 			if err != nil {
 				logger.Warn("Could not read magic bytes", "file", filePath, "error", err)
@@ -54,16 +55,16 @@ func (MimeCheck) Run(db database.Storage, cfg *config.Config, logger *slog.Logge
 			}
 
 			newName := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())) + ext
-			newPath := filepath.Join(userDir, newName)
+			newPath := filepath.Join(familyDir, newName)
 			oldName := entry.Name()
 
 			issues = append(issues, Issue{
-				Check:   "mime",
-				UserID:  userID,
-				Path:    filePath,
-				Message: fmt.Sprintf("video file saved as .jpg, should be %s", ext),
-				Fixable: true,
-				fix:     makeMimeFix(db, cfg, logger, userID, filePath, newPath, oldName, newName),
+				Check:    "mime",
+				FamilyID: familyID.String(),
+				Path:     filePath,
+				Message:  fmt.Sprintf("video file saved as .jpg, should be %s", ext),
+				Fixable:  true,
+				fix:      makeMimeFix(db, logger, familyID, filePath, newPath, oldName, newName),
 			})
 		}
 	}
@@ -103,24 +104,24 @@ func detectVideoExtension(path string) (string, error) {
 
 func makeMimeFix(
 	db database.Storage,
-	cfg *config.Config,
 	logger *slog.Logger,
-	userID, oldPath, newPath, oldName, newName string,
+	familyID uuid.UUID,
+	oldPath, newPath, oldName, newName string,
 ) func() error {
 	return func() error {
-		// Update all diary entries for this user that reference the old filename first,
+		// Update all diary entries for this family that reference the old filename first,
 		// so that a partial failure never leaves the file renamed but DB still pointing to the old name.
-		items, _, err := db.GetItems(userID, database.SearchParams{SearchText: oldName})
+		items, _, err := db.GetItems(familyID, database.SearchParams{SearchText: oldName})
 		if err != nil {
-			return fmt.Errorf("querying items for user %s: %w", userID, err)
+			return fmt.Errorf("querying items for family %s: %w", familyID, err)
 		}
 		for _, item := range items {
 			if !strings.Contains(item.Body, oldName) {
 				continue
 			}
 			item.Body = strings.ReplaceAll(item.Body, oldName, newName)
-			if err := db.PutItem(userID, item); err != nil {
-				return fmt.Errorf("updating item %s/%s: %w", userID, item.Date, err)
+			if err := db.PutItem(familyID, item); err != nil {
+				return fmt.Errorf("updating item %s/%s: %w", familyID, item.Date, err)
 			}
 			logger.Info("Updated item body", "date", item.Date, "old", oldName, "new", newName)
 		}
@@ -136,7 +137,6 @@ func makeMimeFix(
 			logger.Info("Renamed asset file", "old", oldName, "new", newName)
 		}
 
-		_ = cfg
 		return nil
 	}
 }

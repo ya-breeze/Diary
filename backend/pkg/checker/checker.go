@@ -6,18 +6,19 @@ import (
 	"io"
 	"log/slog"
 
+	"github.com/google/uuid"
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/database"
 )
 
 // Issue represents a single problem found by a check.
 type Issue struct {
-	Check   string `json:"check"`
-	UserID  string `json:"userID"`
-	Path    string `json:"path"`
-	Message string `json:"message"`
-	Fixable bool   `json:"fixable"`
-	fix     func() error
+	Check    string `json:"check"`
+	FamilyID string `json:"familyID"`
+	Path     string `json:"path"`
+	Message  string `json:"message"`
+	Fixable  bool   `json:"fixable"`
+	fix      func() error
 }
 
 // Fix runs the automated repair for this issue.
@@ -44,17 +45,18 @@ func NewRunner(logger *slog.Logger, checks []Check) *Runner {
 	return &Runner{checks: checks, logger: logger}
 }
 
-// RunForUser executes all checks and filters results to the given userID.
-// If fix is true, automated fixes are applied only for that user's issues.
-func (r *Runner) RunForUser(db database.Storage, cfg *config.Config, userID string, fix bool) ([]Issue, error) {
-	// Always run without fix to avoid touching other users' data
+// RunForFamily executes all checks and filters results to the given familyID.
+// If fix is true, automated fixes are applied only for that family's issues.
+func (r *Runner) RunForFamily(db database.Storage, cfg *config.Config, familyID uuid.UUID, fix bool) ([]Issue, error) {
+	// Always run without fix to avoid touching other families' data
 	all, err := r.Run(db, cfg, false, io.Discard, false)
 	if err != nil {
 		return nil, err
 	}
+	fid := familyID.String()
 	var filtered []Issue
 	for _, i := range all {
-		if i.UserID == userID {
+		if i.FamilyID == fid {
 			filtered = append(filtered, i)
 		}
 	}
@@ -119,8 +121,8 @@ func (r *Runner) Run(db database.Storage, cfg *config.Config, fix bool, w io.Wri
 			} else if issue.Fixable {
 				status = " [fixable]"
 			}
-			fmt.Fprintf(w, "[%s] user=%s path=%s: %s%s\n",
-				issue.Check, issue.UserID, issue.Path, issue.Message, status)
+			fmt.Fprintf(w, "[%s] family=%s path=%s: %s%s\n",
+				issue.Check, issue.FamilyID, issue.Path, issue.Message, status)
 		}
 	}
 

@@ -1,18 +1,14 @@
 package models
 
-type Item struct {
-	UserID string `gorm:"primaryKey"`
-	Date   string `gorm:"primaryKey"`
+import (
+	coremodels "github.com/ya-breeze/kin-core/models"
+)
 
+type Item struct {
+	coremodels.TenantModel
+	// Composite unique index (family_id, date) is created manually in migration.
+	Date  string     `gorm:"not null"`
 	Title string
 	Body  string
 	Tags  StringList `gorm:"type:json"`
-	// AssetIDs StringList `gorm:"type:json"`
 }
-
-// func (u Item) FromDB() goserver.Item {
-// 	return goserver.Item{
-// 		Email:     u.Login,
-// 		StartDate: u.StartDate,
-// 	}
-// }

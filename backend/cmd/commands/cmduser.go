@@ -2,13 +2,12 @@
 package commands
 
 import (
-	"encoding/base64"
 	"fmt"
 	"log/slog"
 
 	"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
-	"github.com/ya-breeze/diary.be/pkg/auth"
+	kinauth "github.com/ya-breeze/kin-core/auth"
 )
 
 func CmdUser(log *slog.Logger) *cobra.Command {
@@ -27,11 +26,18 @@ func CmdUser(log *slog.Logger) *cobra.Command {
 func NewUserAdd(log *slog.Logger) *cobra.Command {
 	res := &cobra.Command{
 		Use:   "add",
-		Short: "Add a new user",
+		Short: "Add a new user (outputs a DIARY_SEED_USERS entry)",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			var familyName string
+			fmt.Print("Enter family name: ")
+			_, err := fmt.Scanln(&familyName)
+			if err != nil {
+				return fmt.Errorf("error reading family name: %w", err)
+			}
+
 			var username string
 			fmt.Print("Enter username: ")
-			_, err := fmt.Scanln(&username)
+			_, err = fmt.Scanln(&username)
 			if err != nil {
 				return fmt.Errorf("error reading username: %w", err)
 			}
@@ -42,11 +48,13 @@ func NewUserAdd(log *slog.Logger) *cobra.Command {
 				return fmt.Errorf("error reading password: %w", err)
 			}
 
-			hashed, err := auth.HashPassword(password)
-			if err != nil {
-				return fmt.Errorf("error hashing password: %w", err)
+			hash, hashErr := kinauth.HashPassword(string(password))
+			if hashErr != nil {
+				return fmt.Errorf("error hashing password: %w", hashErr)
 			}
-			fmt.Printf("Use '%s:%s' to add a user\n", username, base64.StdEncoding.EncodeToString(hashed))
+
+			log.Info("User hash generated", "username", username)
+			fmt.Printf("Add to DIARY_SEED_USERS: %s:%s:%s\n", familyName, username, hash)
 
 			return nil
 		},

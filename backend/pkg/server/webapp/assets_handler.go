@@ -9,14 +9,14 @@ import (
 )
 
 func (r *WebAppRouter) assetsHandler(w http.ResponseWriter, req *http.Request) {
-	userID, code, err := r.GetUserIDFromSession(req)
+	familyID, code, err := r.GetFamilyIDFromCookie(req)
 	if err != nil {
-		r.logger.Error("Failed to get user ID from session", "error", err)
+		r.logger.Error("Failed to get family ID from cookie", "error", err)
 		http.Error(w, err.Error(), code)
 		return
 	}
 
-	userAsset := filepath.Join(r.cfg.DataPath, config.AssetsDirName, userID, strings.TrimPrefix(req.URL.Path, "/web/assets/"))
-	r.logger.Info("Serving asset", "path", userAsset)
-	http.ServeFile(w, req, userAsset)
+	assetPath := filepath.Join(r.cfg.DataPath, config.AssetsDirName, familyID.String(), strings.TrimPrefix(req.URL.Path, "/web/assets/"))
+	r.logger.Info("Serving asset", "path", assetPath)
+	http.ServeFile(w, req, assetPath)
 }

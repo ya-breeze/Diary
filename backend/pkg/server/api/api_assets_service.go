@@ -27,58 +27,51 @@ func NewAssetsAPIService(logger *slog.Logger, cfg *config.Config) goserver.Asset
 
 // GetAsset - return asset by path
 func (s *AssetsAPIServiceImpl) GetAsset(ctx context.Context, path string) (goserver.ImplResponse, error) {
-	// Get user ID from context (set by auth middleware)
-	userID, ok := ctx.Value(common.UserIDKey).(string)
+	familyID, ok := common.GetFamilyID(ctx)
 	if !ok {
-		s.logger.Error("Failed to get user ID from context")
+		s.logger.Error("Failed to get family ID from context")
 		return goserver.Response(http.StatusUnauthorized, nil), nil
 	}
 
-	// Validate and clean the path
-	cleanPath, response := s.validateAndCleanPath(path, userID)
+	familyIDStr := familyID.String()
+
+	cleanPath, response := s.validateAndCleanPath(path, familyIDStr)
 	if response != nil {
 		return *response, nil
 	}
 
-	// Get the full asset path and validate it's within user directory
-	userAssetPath, response := s.validateAssetPath(cleanPath, userID)
+	assetPath, response := s.validateAssetPath(cleanPath, familyIDStr)
 	if response != nil {
 		return *response, nil
 	}
 
-	s.logger.Info("Serving asset", "path", userAssetPath, "userID", userID)
+	s.logger.Info("Serving asset", "path", assetPath, "familyID", familyIDStr)
 
-	// Validate file exists and is accessible
-	if response := s.validateFileAccess(userAssetPath, userID); response != nil {
+	if response := s.validateFileAccess(assetPath, familyIDStr); response != nil {
 		return *response, nil
 	}
 
-	// Open and return the file
-	file, err := os.Open(userAssetPath)
+	file, err := os.Open(assetPath)
 	if err != nil {
-		s.logger.Error("Failed to open asset file", "error", err, "path", userAssetPath, "userID", userID)
+		s.logger.Error("Failed to open asset file", "error", err, "path", assetPath, "familyID", familyIDStr)
 		return goserver.Response(http.StatusInternalServerError, nil), nil
 	}
 
-	// Return the file - the framework will handle closing it and setting appropriate headers
 	return goserver.Response(http.StatusOK, file), nil
 }
 
 // validateAndCleanPath validates the path and returns a cleaned version
-func (s *AssetsAPIServiceImpl) validateAndCleanPath(path, userID string) (string, *goserver.ImplResponse) {
-	// Validate path to prevent directory traversal attacks
+func (s *AssetsAPIServiceImpl) validateAndCleanPath(path, familyID string) (string, *goserver.ImplResponse) {
 	if strings.Contains(path, "..") {
-		s.logger.Warn("Invalid asset path requested (contains ..)", "path", path, "userID", userID)
+		s.logger.Warn("Invalid asset path requested (contains ..)", "path", path, "familyID", familyID)
 		response := goserver.Response(http.StatusBadRequest, nil)
 		return "", &response
 	}
 
-	// Clean the path to normalize separators and remove any redundant elements
 	cleanPath := filepath.Clean(path)
 
-	// Ensure the clean path doesn't start with / or \ (absolute path)
 	if filepath.IsAbs(cleanPath) {
-		s.logger.Warn("Invalid asset path requested (absolute path)", "path", path, "userID", userID)
+		s.logger.Warn("Invalid asset path requested (absolute path)", "path", path, "familyID", familyID)
 		response := goserver.Response(http.StatusBadRequest, nil)
 		return "", &response
 	}
@@ -86,55 +79,50 @@ func (s *AssetsAPIServiceImpl) validateAndCleanPath(path, userID string) (string
 	return cleanPath, nil
 }
 
-// validateAssetPath constructs and validates the asset path is within user directory
-func (s *AssetsAPIServiceImpl) validateAssetPath(cleanPath, userID string) (string, *goserver.ImplResponse) {
-	// Construct the full path to the user's asset
-	userAssetBasePath := filepath.Join(s.cfg.DataPath, config.AssetsDirName, userID)
-	userAssetPath := filepath.Join(userAssetBasePath, cleanPath)
+// validateAssetPath constructs and validates the asset path is within family directory
+func (s *AssetsAPIServiceImpl) validateAssetPath(cleanPath, familyID string) (string, *goserver.ImplResponse) {
+	familyAssetBasePath := filepath.Join(s.cfg.DataPath, config.AssetsDirName, familyID)
+	assetPath := filepath.Join(familyAssetBasePath, cleanPath)
 
-	// Ensure the resolved path is still within the user's asset directory
-	absBasePath, err := filepath.Abs(userAssetBasePath)
+	absBasePath, err := filepath.Abs(familyAssetBasePath)
 	if err != nil {
-		s.logger.Error("Failed to get absolute base path", "error", err, "basePath", userAssetBasePath)
+		s.logger.Error("Failed to get absolute base path", "error", err, "basePath", familyAssetBasePath)
 		response := goserver.Response(http.StatusInternalServerError, nil)
 		return "", &response
 	}
 
-	absAssetPath, err := filepath.Abs(userAssetPath)
+	absAssetPath, err := filepath.Abs(assetPath)
 	if err != nil {
-		s.logger.Error("Failed to get absolute asset path", "error", err, "assetPath", userAssetPath)
+		s.logger.Error("Failed to get absolute asset path", "error", err, "assetPath", assetPath)
 		response := goserver.Response(http.StatusInternalServerError, nil)
 		return "", &response
 	}
 
-	// Check if the resolved path is within the user's directory
 	if !strings.HasPrefix(absAssetPath, absBasePath+string(filepath.Separator)) && absAssetPath != absBasePath {
-		s.logger.Warn("Asset path outside user directory", "path", cleanPath, "resolvedPath", absAssetPath, "userID", userID)
+		s.logger.Warn("Asset path outside family directory", "path", cleanPath, "resolvedPath", absAssetPath, "familyID", familyID)
 		response := goserver.Response(http.StatusBadRequest, nil)
 		return "", &response
 	}
 
-	return userAssetPath, nil
+	return assetPath, nil
 }
 
 // validateFileAccess checks if the file exists and is accessible
-func (s *AssetsAPIServiceImpl) validateFileAccess(userAssetPath, userID string) *goserver.ImplResponse {
-	// Check if file exists and is accessible
-	fileInfo, err := os.Stat(userAssetPath)
+func (s *AssetsAPIServiceImpl) validateFileAccess(assetPath, familyID string) *goserver.ImplResponse {
+	fileInfo, err := os.Stat(assetPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			s.logger.Debug("Asset not found", "path", userAssetPath, "userID", userID)
+			s.logger.Debug("Asset not found", "path", assetPath, "familyID", familyID)
 			response := goserver.Response(http.StatusNotFound, nil)
 			return &response
 		}
-		s.logger.Error("Failed to stat asset file", "error", err, "path", userAssetPath, "userID", userID)
+		s.logger.Error("Failed to stat asset file", "error", err, "path", assetPath, "familyID", familyID)
 		response := goserver.Response(http.StatusInternalServerError, nil)
 		return &response
 	}
 
-	// Ensure it's a file, not a directory
 	if fileInfo.IsDir() {
-		s.logger.Warn("Requested path is a directory", "path", userAssetPath, "userID", userID)
+		s.logger.Warn("Requested path is a directory", "path", assetPath, "familyID", familyID)
 		response := goserver.Response(http.StatusBadRequest, nil)
 		return &response
 	}

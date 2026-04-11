@@ -1,5 +1,5 @@
 # Multi-stage build for Go backend
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 # Install build dependencies (including gcc for CGO/SQLite)
 RUN apk add --no-cache git make gcc musl-dev sqlite-dev
