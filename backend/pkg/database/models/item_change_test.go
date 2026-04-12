@@ -3,6 +3,7 @@ package models_test
 import (
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -14,21 +15,22 @@ var _ = Describe("ItemChange", func() {
 		itemChange *models.ItemChange
 		testTime   time.Time
 		testItem   *models.Item
+		testFamily uuid.UUID
 	)
 
 	BeforeEach(func() {
 		testTime = time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
+		testFamily = uuid.MustParse("11111111-1111-1111-1111-111111111111")
 		testItem = &models.Item{
-			UserID: "test-user",
-			Date:   "2024-01-15",
-			Title:  "Test Entry",
-			Body:   "This is a test diary entry",
-			Tags:   models.StringList{"personal", "test"},
+			Date:  "2024-01-15",
+			Title: "Test Entry",
+			Body:  "This is a test diary entry",
+			Tags:  models.StringList{"personal", "test"},
 		}
 
 		itemChange = &models.ItemChange{
 			ID:            123,
-			UserID:        "test-user",
+			FamilyID:      testFamily,
 			Date:          "2024-01-15",
 			OperationType: models.OperationTypeCreated,
 			Timestamp:     testTime,
@@ -51,17 +53,18 @@ var _ = Describe("ItemChange", func() {
 			response := itemChange.ToSyncResponse()
 
 			Expect(response.Id).To(BeNumerically("==", 123))
-			Expect(response.UserId).To(Equal("test-user"))
-			Expect(response.Date).To(Equal("2024-01-15"))
+			Expect(response.UserId).To(Equal(testFamily.String()))
+			Expect(response.Date.Time.Format("2006-01-02")).To(Equal("2024-01-15"))
 			Expect(response.OperationType).To(Equal("created"))
 			Expect(response.Metadata).To(ConsistOf("mobile-app", "v1.0.0"))
 		})
 
 		It("should handle field validation correctly", func() {
+			anotherFamily := uuid.MustParse("22222222-2222-2222-2222-222222222222")
 			// Test field validation by creating a new ItemChange
 			change := &models.ItemChange{
 				ID:            456,
-				UserID:        "another-user",
+				FamilyID:      anotherFamily,
 				Date:          "2024-01-16",
 				OperationType: models.OperationTypeUpdated,
 				Timestamp:     testTime,
@@ -69,7 +72,7 @@ var _ = Describe("ItemChange", func() {
 			}
 
 			Expect(change.ID).To(BeNumerically("==", 456))
-			Expect(change.UserID).To(Equal("another-user"))
+			Expect(change.FamilyID).To(Equal(anotherFamily))
 			Expect(change.Date).To(Equal("2024-01-16"))
 			Expect(change.OperationType).To(Equal(models.OperationTypeUpdated))
 			Expect(change.Metadata).To(ConsistOf("web-app", "v2.0.0"))
@@ -82,17 +85,19 @@ var _ = Describe("ItemChange", func() {
 				response := itemChange.ToSyncResponse()
 
 				Expect(response.Id).To(BeNumerically("==", 123))
-				Expect(response.UserId).To(Equal("test-user"))
-				Expect(response.Date).To(Equal("2024-01-15"))
+				Expect(response.UserId).To(Equal(testFamily.String()))
+				Expect(response.Date.Time.Format("2006-01-02")).To(Equal("2024-01-15"))
 				Expect(response.OperationType).To(Equal("created"))
 				Expect(response.Timestamp).To(Equal(testTime))
 				Expect(response.Metadata).To(ConsistOf("mobile-app", "v1.0.0"))
 
 				Expect(response.ItemSnapshot).NotTo(BeNil())
-				Expect(response.ItemSnapshot.Date).To(Equal("2024-01-15"))
+				Expect(response.ItemSnapshot.Date.Time.Format("2006-01-02")).To(Equal("2024-01-15"))
 				Expect(response.ItemSnapshot.Title).To(Equal("Test Entry"))
-				Expect(response.ItemSnapshot.Body).To(Equal("This is a test diary entry"))
-				Expect(response.ItemSnapshot.Tags).To(ConsistOf("personal", "test"))
+				Expect(response.ItemSnapshot.Body).NotTo(BeNil())
+				Expect(*response.ItemSnapshot.Body).To(Equal("This is a test diary entry"))
+				Expect(response.ItemSnapshot.Tags).NotTo(BeNil())
+				Expect(*response.ItemSnapshot.Tags).To(ConsistOf("personal", "test"))
 			})
 		})
 
@@ -105,8 +110,8 @@ var _ = Describe("ItemChange", func() {
 				response := itemChange.ToSyncResponse()
 
 				Expect(response.Id).To(BeNumerically("==", 123))
-				Expect(response.UserId).To(Equal("test-user"))
-				Expect(response.Date).To(Equal("2024-01-15"))
+				Expect(response.UserId).To(Equal(testFamily.String()))
+				Expect(response.Date.Time.Format("2006-01-02")).To(Equal("2024-01-15"))
 				Expect(response.OperationType).To(Equal("deleted"))
 				Expect(response.Timestamp).To(Equal(testTime))
 				Expect(response.Metadata).To(ConsistOf("mobile-app", "v1.0.0"))

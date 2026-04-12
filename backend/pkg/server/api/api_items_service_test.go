@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -23,10 +24,10 @@ func parseTestDate(s string) openapi_types.Date {
 	return openapi_types.Date{Time: t}
 }
 
-// Helper function to create context with user ID for items tests
-func createContextWithUserIDForItems(userID string) context.Context {
+// Helper function to create context with family ID for items tests
+func createContextWithFamilyIDForItems(familyID uuid.UUID) context.Context {
 	ctx := context.Background()
-	return context.WithValue(ctx, common.UserIDKey, userID)
+	return context.WithValue(ctx, common.FamilyIDKey, familyID)
 }
 
 // Helper function to assert successful PUT response and database save
@@ -51,10 +52,10 @@ func assertSuccessfulPutResponse(
 // Helper function to verify item was saved to database
 func verifyItemInDatabase(
 	storage database.Storage,
-	userID, expectedDate, expectedTitle, expectedBody string,
+	familyID uuid.UUID, expectedDate, expectedTitle, expectedBody string,
 	expectedTags []string,
 ) {
-	savedItem, err := storage.GetItem(userID, expectedDate)
+	savedItem, err := storage.GetItem(familyID, expectedDate)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(savedItem.Title).To(Equal(expectedTitle))
 	Expect(savedItem.Body).To(Equal(expectedBody))
@@ -67,15 +68,15 @@ var _ = Describe("ItemsAPIService", func() {
 		logger   *slog.Logger
 		storage  database.Storage
 		ctx      context.Context
-		userID   string
+		familyID uuid.UUID
 		testDate string
 		tempDir  string
 	)
 
 	// Create context outside of BeforeEach to avoid fatcontext linting issue
-	userID = "test-user-id"
+	familyID = uuid.New()
 	testDate = "2024-01-15"
-	ctx = createContextWithUserIDForItems(userID)
+	ctx = createContextWithFamilyIDForItems(familyID)
 
 	BeforeEach(func() {
 		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -132,21 +133,21 @@ var _ = Describe("ItemsAPIService", func() {
 				BeforeEach(func() {
 					// Create previous item
 					prevItem := &models.Item{
-						UserID: userID,
+	
 						Date:   "2024-01-14",
 						Title:  "Previous Item",
 						Body:   "Previous content",
 					}
-					Expect(storage.PutItem(userID, prevItem)).To(Succeed())
+					Expect(storage.PutItem(familyID, prevItem)).To(Succeed())
 
 					// Create next item
 					nextItem := &models.Item{
-						UserID: userID,
+	
 						Date:   "2024-01-16",
 						Title:  "Next Item",
 						Body:   "Next content",
 					}
-					Expect(storage.PutItem(userID, nextItem)).To(Succeed())
+					Expect(storage.PutItem(familyID, nextItem)).To(Succeed())
 				})
 
 				It("should include navigation dates even for empty item", func() {
@@ -175,13 +176,13 @@ var _ = Describe("ItemsAPIService", func() {
 			BeforeEach(func() {
 				// Create a test item
 				testItem := &models.Item{
-					UserID: userID,
+
 					Date:   testDate,
 					Title:  "Test Title",
 					Body:   "Test Body Content",
 					Tags:   models.StringList{"tag1", "tag2"},
 				}
-				Expect(storage.PutItem(userID, testItem)).To(Succeed())
+				Expect(storage.PutItem(familyID, testItem)).To(Succeed())
 			})
 
 			It("should return the item in list format with 200 status", func() {
@@ -208,30 +209,30 @@ var _ = Describe("ItemsAPIService", func() {
 			BeforeEach(func() {
 				// Create previous item
 				prevItem := &models.Item{
-					UserID: userID,
+
 					Date:   "2024-01-14",
 					Title:  "Previous Item",
 					Body:   "Previous content",
 				}
-				Expect(storage.PutItem(userID, prevItem)).To(Succeed())
+				Expect(storage.PutItem(familyID, prevItem)).To(Succeed())
 
 				// Create current item
 				currentItem := &models.Item{
-					UserID: userID,
+
 					Date:   testDate,
 					Title:  "Current Item",
 					Body:   "Current content",
 				}
-				Expect(storage.PutItem(userID, currentItem)).To(Succeed())
+				Expect(storage.PutItem(familyID, currentItem)).To(Succeed())
 
 				// Create next item
 				nextItem := &models.Item{
-					UserID: userID,
+
 					Date:   "2024-01-16",
 					Title:  "Next Item",
 					Body:   "Next content",
 				}
-				Expect(storage.PutItem(userID, nextItem)).To(Succeed())
+				Expect(storage.PutItem(familyID, nextItem)).To(Succeed())
 			})
 
 			It("should include previous and next dates", func() {
@@ -257,21 +258,21 @@ var _ = Describe("ItemsAPIService", func() {
 				// Create test items with different content
 				items := []*models.Item{
 					{
-						UserID: userID,
+	
 						Date:   "2024-01-10",
 						Title:  "Vacation Planning",
 						Body:   "Planning my summer vacation to the beach",
 						Tags:   models.StringList{"travel", "vacation"},
 					},
 					{
-						UserID: userID,
+	
 						Date:   "2024-01-11",
 						Title:  "Work Meeting",
 						Body:   "Had an important meeting about the project",
 						Tags:   models.StringList{"work", "meeting"},
 					},
 					{
-						UserID: userID,
+	
 						Date:   "2024-01-12",
 						Title:  "Beach Day",
 						Body:   "Spent the day at the beach with family",
@@ -279,7 +280,7 @@ var _ = Describe("ItemsAPIService", func() {
 					},
 				}
 				for _, item := range items {
-					Expect(storage.PutItem(userID, item)).To(Succeed())
+					Expect(storage.PutItem(familyID, item)).To(Succeed())
 				}
 			})
 
@@ -323,21 +324,21 @@ var _ = Describe("ItemsAPIService", func() {
 				// Create test items with different tags
 				items := []*models.Item{
 					{
-						UserID: userID,
+	
 						Date:   "2024-01-10",
 						Title:  "Work Project",
 						Body:   "Working on the new project",
 						Tags:   models.StringList{"work", "project"},
 					},
 					{
-						UserID: userID,
+	
 						Date:   "2024-01-11",
 						Title:  "Family Time",
 						Body:   "Spending time with family",
 						Tags:   models.StringList{"family", "personal"},
 					},
 					{
-						UserID: userID,
+	
 						Date:   "2024-01-12",
 						Title:  "Work Meeting",
 						Body:   "Important work meeting",
@@ -345,7 +346,7 @@ var _ = Describe("ItemsAPIService", func() {
 					},
 				}
 				for _, item := range items {
-					Expect(storage.PutItem(userID, item)).To(Succeed())
+					Expect(storage.PutItem(familyID, item)).To(Succeed())
 				}
 			})
 
@@ -389,14 +390,14 @@ var _ = Describe("ItemsAPIService", func() {
 				// Create test items
 				items := []*models.Item{
 					{
-						UserID: userID,
+	
 						Date:   "2024-01-10",
 						Title:  "Work Project Meeting",
 						Body:   "Important project discussion",
 						Tags:   models.StringList{"work", "project"},
 					},
 					{
-						UserID: userID,
+	
 						Date:   "2024-01-11",
 						Title:  "Personal Project",
 						Body:   "Working on personal coding project",
@@ -404,7 +405,7 @@ var _ = Describe("ItemsAPIService", func() {
 					},
 				}
 				for _, item := range items {
-					Expect(storage.PutItem(userID, item)).To(Succeed())
+					Expect(storage.PutItem(familyID, item)).To(Succeed())
 				}
 			})
 
@@ -455,7 +456,7 @@ var _ = Describe("ItemsAPIService", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				assertSuccessfulPutResponse(response, "New Test Title", "New Test Body", []string{"new", "test"}, testDate)
-				verifyItemInDatabase(storage, userID, testDate, "New Test Title", "New Test Body", []string{"new", "test"})
+				verifyItemInDatabase(storage, familyID, testDate, "New Test Title", "New Test Body", []string{"new", "test"})
 			})
 		})
 
@@ -463,13 +464,13 @@ var _ = Describe("ItemsAPIService", func() {
 			BeforeEach(func() {
 				// Create an initial item
 				initialItem := &models.Item{
-					UserID: userID,
+
 					Date:   testDate,
 					Title:  "Original Title",
 					Body:   "Original Body",
 					Tags:   models.StringList{"original"},
 				}
-				Expect(storage.PutItem(userID, initialItem)).To(Succeed())
+				Expect(storage.PutItem(familyID, initialItem)).To(Succeed())
 			})
 
 			It("should update and return the item with 200 status", func() {
@@ -486,7 +487,7 @@ var _ = Describe("ItemsAPIService", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				assertSuccessfulPutResponse(response, "Updated Title", "Updated Body", []string{"updated", "modified"}, testDate)
-				verifyItemInDatabase(storage, userID, testDate, "Updated Title", "Updated Body", []string{"updated", "modified"})
+				verifyItemInDatabase(storage, familyID, testDate, "Updated Title", "Updated Body", []string{"updated", "modified"})
 			})
 		})
 
@@ -494,21 +495,21 @@ var _ = Describe("ItemsAPIService", func() {
 			BeforeEach(func() {
 				// Create previous item
 				prevItem := &models.Item{
-					UserID: userID,
+
 					Date:   "2024-01-14",
 					Title:  "Previous Item",
 					Body:   "Previous content",
 				}
-				Expect(storage.PutItem(userID, prevItem)).To(Succeed())
+				Expect(storage.PutItem(familyID, prevItem)).To(Succeed())
 
 				// Create next item
 				nextItem := &models.Item{
-					UserID: userID,
+
 					Date:   "2024-01-16",
 					Title:  "Next Item",
 					Body:   "Next content",
 				}
-				Expect(storage.PutItem(userID, nextItem)).To(Succeed())
+				Expect(storage.PutItem(familyID, nextItem)).To(Succeed())
 			})
 
 			It("should include previous and next dates in response", func() {

@@ -5,6 +5,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -15,10 +16,10 @@ import (
 
 var _ = Describe("Storage Atomicity and Transactions", func() {
 	var (
-		storage database.Storage
-		logger  *slog.Logger
-		userID  string
-		tempDir string
+		storage  database.Storage
+		logger   *slog.Logger
+		familyID uuid.UUID
+		tempDir  string
 	)
 
 	BeforeEach(func() {
@@ -33,7 +34,7 @@ var _ = Describe("Storage Atomicity and Transactions", func() {
 		storage = database.NewStorage(logger, cfg)
 		Expect(storage.Open()).To(Succeed())
 
-		userID = "test-user-id"
+		familyID = uuid.New()
 	})
 
 	AfterEach(func() {
@@ -44,24 +45,23 @@ var _ = Describe("Storage Atomicity and Transactions", func() {
 	Describe("PutItem atomicity", func() {
 		It("should create both item and change record atomically", func() {
 			testItem := &models.Item{
-				UserID: userID,
-				Date:   "2024-01-15",
-				Title:  "Atomic Test Entry",
-				Body:   "This tests atomic operations",
-				Tags:   models.StringList{"atomic", "test"},
+				Date:  "2024-01-15",
+				Title: "Atomic Test Entry",
+				Body:  "This tests atomic operations",
+				Tags:  models.StringList{"atomic", "test"},
 			}
 
 			// Put the item
-			err := storage.PutItem(userID, testItem)
+			err := storage.PutItem(familyID, testItem)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Verify item was created
-			retrievedItem, err := storage.GetItem(userID, testItem.Date)
+			retrievedItem, err := storage.GetItem(familyID, testItem.Date)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(retrievedItem.Title).To(Equal("Atomic Test Entry"))
 
 			// Verify change record was created
-			changes, err := storage.GetChangesSince(userID, 0, 10)
+			changes, err := storage.GetChangesSince(familyID, 0, 10)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].OperationType).To(Equal(models.OperationTypeCreated))
@@ -70,15 +70,14 @@ var _ = Describe("Storage Atomicity and Transactions", func() {
 
 		It("should update both item and create change record atomically", func() {
 			testItem := &models.Item{
-				UserID: userID,
-				Date:   "2024-01-15",
-				Title:  "Original Title",
-				Body:   "Original body",
-				Tags:   models.StringList{"original"},
+				Date:  "2024-01-15",
+				Title: "Original Title",
+				Body:  "Original body",
+				Tags:  models.StringList{"original"},
 			}
 
 			// Create initial item
-			err := storage.PutItem(userID, testItem)
+			err := storage.PutItem(familyID, testItem)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Update the item
@@ -86,17 +85,17 @@ var _ = Describe("Storage Atomicity and Transactions", func() {
 			testItem.Body = "Updated body"
 			testItem.Tags = models.StringList{"updated"}
 
-			err = storage.PutItem(userID, testItem)
+			err = storage.PutItem(familyID, testItem)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Verify item was updated
-			retrievedItem, err := storage.GetItem(userID, testItem.Date)
+			retrievedItem, err := storage.GetItem(familyID, testItem.Date)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(retrievedItem.Title).To(Equal("Updated Title"))
 			Expect(retrievedItem.Body).To(Equal("Updated body"))
 
 			// Verify both create and update change records exist
-			changes, err := storage.GetChangesSince(userID, 0, 10)
+			changes, err := storage.GetChangesSince(familyID, 0, 10)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(changes).To(HaveLen(2))
 			Expect(changes[0].OperationType).To(Equal(models.OperationTypeCreated))
@@ -108,27 +107,26 @@ var _ = Describe("Storage Atomicity and Transactions", func() {
 		BeforeEach(func() {
 			// Create an item to delete
 			testItem := &models.Item{
-				UserID: userID,
-				Date:   "2024-01-15",
-				Title:  "Item to Delete",
-				Body:   "This item will be deleted",
-				Tags:   models.StringList{"delete-test"},
+				Date:  "2024-01-15",
+				Title: "Item to Delete",
+				Body:  "This item will be deleted",
+				Tags:  models.StringList{"delete-test"},
 			}
-			err := storage.PutItem(userID, testItem)
+			err := storage.PutItem(familyID, testItem)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should delete item and create change record atomically", func() {
 			// Delete the item
-			err := storage.DeleteItem(userID, "2024-01-15")
+			err := storage.DeleteItem(familyID, "2024-01-15")
 			Expect(err).NotTo(HaveOccurred())
 
 			// Verify item was deleted
-			_, err = storage.GetItem(userID, "2024-01-15")
+			_, err = storage.GetItem(familyID, "2024-01-15")
 			Expect(err).To(Equal(database.ErrNotFound))
 
 			// Verify change records exist (create + delete)
-			changes, err := storage.GetChangesSince(userID, 0, 10)
+			changes, err := storage.GetChangesSince(familyID, 0, 10)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(changes).To(HaveLen(2))
 			Expect(changes[0].OperationType).To(Equal(models.OperationTypeCreated))
@@ -141,11 +139,11 @@ var _ = Describe("Storage Atomicity and Transactions", func() {
 		})
 
 		It("should handle deletion of non-existent item", func() {
-			err := storage.DeleteItem(userID, "non-existent-date")
+			err := storage.DeleteItem(familyID, "non-existent-date")
 			Expect(err).To(Equal(database.ErrNotFound))
 
 			// Verify no additional change records were created
-			changes, err := storage.GetChangesSince(userID, 0, 10)
+			changes, err := storage.GetChangesSince(familyID, 0, 10)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(changes).To(HaveLen(1)) // Only the create from BeforeEach
 		})
@@ -163,13 +161,12 @@ var _ = Describe("Storage Atomicity and Transactions", func() {
 				go func() {
 					defer wg.Done()
 					testItem := &models.Item{
-						UserID: userID,
-						Date:   "2024-01-15", // Same date for all
-						Title:  "Concurrent Test",
-						Body:   "Concurrent operation test",
-						Tags:   models.StringList{"concurrent"},
+						Date:  "2024-01-15", // Same date for all
+						Title: "Concurrent Test",
+						Body:  "Concurrent operation test",
+						Tags:  models.StringList{"concurrent"},
 					}
-					err := storage.PutItem(userID, testItem)
+					err := storage.PutItem(familyID, testItem)
 					if err != nil {
 						errors <- err
 					}
@@ -185,12 +182,12 @@ var _ = Describe("Storage Atomicity and Transactions", func() {
 			}
 
 			// Verify final state - should have one item
-			item, err := storage.GetItem(userID, "2024-01-15")
+			item, err := storage.GetItem(familyID, "2024-01-15")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(item.Title).To(Equal("Concurrent Test"))
 
 			// Verify change records - should have 1 create + (numGoroutines-1) updates
-			changes, err := storage.GetChangesSince(userID, 0, 100)
+			changes, err := storage.GetChangesSince(familyID, 0, 100)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(changes).To(HaveLen(numGoroutines))
 
@@ -213,13 +210,12 @@ var _ = Describe("Storage Atomicity and Transactions", func() {
 					defer wg.Done()
 					dateStr := "2024-01-" + string(rune('1'+index))
 					testItem := &models.Item{
-						UserID: userID,
-						Date:   dateStr, // Different dates
-						Title:  "Concurrent Test " + dateStr,
-						Body:   "Concurrent operation test",
-						Tags:   models.StringList{"concurrent"},
+						Date:  dateStr, // Different dates
+						Title: "Concurrent Test " + dateStr,
+						Body:  "Concurrent operation test",
+						Tags:  models.StringList{"concurrent"},
 					}
-					err := storage.PutItem(userID, testItem)
+					err := storage.PutItem(familyID, testItem)
 					if err != nil {
 						errors <- err
 					}
@@ -237,13 +233,13 @@ var _ = Describe("Storage Atomicity and Transactions", func() {
 			// Verify all items were created
 			for i := 0; i < numGoroutines; i++ {
 				date := "2024-01-" + string(rune('1'+i))
-				item, err := storage.GetItem(userID, date)
+				item, err := storage.GetItem(familyID, date)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(item.Date).To(Equal(date))
 			}
 
 			// Verify change records
-			changes, err := storage.GetChangesSince(userID, 0, 100)
+			changes, err := storage.GetChangesSince(familyID, 0, 100)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(changes).To(HaveLen(numGoroutines))
 
@@ -260,38 +256,36 @@ var _ = Describe("Storage Atomicity and Transactions", func() {
 			dates := []string{"2024-01-15", "2024-01-16", "2024-01-17"}
 			for _, date := range dates {
 				testItem := &models.Item{
-					UserID: userID,
-					Date:   date,
-					Title:  "Entry for " + date,
-					Body:   "Body for " + date,
-					Tags:   models.StringList{"consistency-test"},
+					Date:  date,
+					Title: "Entry for " + date,
+					Body:  "Body for " + date,
+					Tags:  models.StringList{"consistency-test"},
 				}
-				err := storage.PutItem(userID, testItem)
+				err := storage.PutItem(familyID, testItem)
 				Expect(err).NotTo(HaveOccurred())
 			}
 
 			// Update one item
 			updateItem := &models.Item{
-				UserID: userID,
-				Date:   "2024-01-16",
-				Title:  "Updated Entry for 2024-01-16",
-				Body:   "Updated body for 2024-01-16",
-				Tags:   models.StringList{"consistency-test", "updated"},
+				Date:  "2024-01-16",
+				Title: "Updated Entry for 2024-01-16",
+				Body:  "Updated body for 2024-01-16",
+				Tags:  models.StringList{"consistency-test", "updated"},
 			}
-			err := storage.PutItem(userID, updateItem)
+			err := storage.PutItem(familyID, updateItem)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Delete one item
-			err = storage.DeleteItem(userID, "2024-01-17")
+			err = storage.DeleteItem(familyID, "2024-01-17")
 			Expect(err).NotTo(HaveOccurred())
 
 			// Verify final state
-			items, _, err := storage.GetItems(userID, database.SearchParams{})
+			items, _, err := storage.GetItems(familyID, database.SearchParams{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(items).To(HaveLen(2)) // Two remaining items
 
 			// Verify change records match operations
-			changes, err := storage.GetChangesSince(userID, 0, 100)
+			changes, err := storage.GetChangesSince(familyID, 0, 100)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(changes).To(HaveLen(5)) // 3 creates + 1 update + 1 delete
 

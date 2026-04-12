@@ -3,7 +3,6 @@ package flows_test
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,8 +18,8 @@ import (
 	. "github.com/onsi/gomega"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
-	"github.com/ya-breeze/diary.be/pkg/auth"
 	"github.com/ya-breeze/diary.be/pkg/config"
+	kinauth "github.com/ya-breeze/kin-core/auth"
 	"github.com/ya-breeze/diary.be/pkg/database"
 	"github.com/ya-breeze/diary.be/pkg/generated/goclient"
 	"github.com/ya-breeze/diary.be/pkg/server"
@@ -385,9 +384,7 @@ func SetupTestEnvironment() *SharedTestSetup {
 	setup.Cfg = &config.Config{
 		Port:             0,
 		DataPath:         setup.TempDir,
-		Issuer:           "test-issuer",
 		JWTSecret:        "test-secret-key-for-jwt-tokens",
-		SessionSecret:    "test-session-secret-key-minimum-32-characters-long",
 		DisableRateLimit: true,
 		CookieSecure:     false,
 	}
@@ -398,11 +395,13 @@ func SetupTestEnvironment() *SharedTestSetup {
 	setup.TestEmail = "test@test.com"
 	setup.TestPass = "testpassword123"
 
-	hashedPassBytes, err := auth.HashPassword([]byte(setup.TestPass))
+	family, err := setup.Storage.CreateFamily("TestFamily")
 	Expect(err).ToNot(HaveOccurred())
-	hashedPass := base64.StdEncoding.EncodeToString(hashedPassBytes)
 
-	_, err = setup.Storage.CreateUser(setup.TestEmail, hashedPass)
+	hashedPass, err := kinauth.HashPassword(setup.TestPass)
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = setup.Storage.CreateUser(setup.TestEmail, hashedPass, family.ID)
 	Expect(err).ToNot(HaveOccurred())
 
 	setup.Ctx, setup.Cancel = newCancellableContext()

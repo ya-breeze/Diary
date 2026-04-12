@@ -1,6 +1,7 @@
 package database
 
 import (
+	"encoding/base64"
 	"fmt"
 	"log/slog"
 	"os"
@@ -155,17 +156,29 @@ func runMigrationIfNeeded(log *slog.Logger, db *gorm.DB, cfg *config.Config) err
 	}
 	log.Info("Families inserted", "count", len(oldUsers))
 
-	// Users: remap login→username, hashed_password→password_hash, add family_id
+	// Users: remap login→username, hashed_password→password_hash, add family_id.
+	// The old schema stored passwords as base64(bcrypt); kin-core expects raw bcrypt strings.
+	// Decode the base64 layer so existing passwords continue to work after migration.
 	for _, u := range oldUsers {
 		m := mappings[u.ID]
 		user := models.User{}
 		user.ID = uuid.MustParse(u.ID)
 		user.Username = u.Login
-		user.PasswordHash = u.HashedPassword
 		user.FamilyID = m.familyID
 		user.StartDate = u.StartDate
 		user.CreatedAt = now
 		user.UpdatedAt = now
+
+		// Decode base64-encoded bcrypt → raw bcrypt string expected by kin-core
+		rawBcrypt, decodeErr := base64.StdEncoding.DecodeString(u.HashedPassword)
+		if decodeErr != nil {
+			// If not base64 (e.g. already raw bcrypt starting with $2a$), use as-is
+			log.Warn("Password hash is not base64-encoded, using as-is", "username", u.Login)
+			user.PasswordHash = u.HashedPassword
+		} else {
+			user.PasswordHash = string(rawBcrypt)
+		}
+
 		if err := db.Create(&user).Error; err != nil {
 			return fmt.Errorf("insert migrated user %s: %w", u.Login, err)
 		}
