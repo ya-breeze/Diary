@@ -10,8 +10,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/ya-breeze/diary.be/pkg/auth"
 	"github.com/ya-breeze/diary.be/pkg/config"
+	kinauth "github.com/ya-breeze/kin-core/auth"
 )
 
 var _ = Describe("Login and Missing Asset Flow", func() {
@@ -73,11 +73,12 @@ var _ = Describe("Login and Missing Asset Flow", func() {
 
 				setup.APIClient.SetToken(authResp.Token)
 
-				// Create a test asset in the user's directory
-				userID, err := auth.CheckJWT(authResp.Token, setup.Cfg.Issuer, setup.Cfg.JWTSecret)
+				// Create a test asset in the family's directory
+				claims, err := kinauth.ParseToken(authResp.Token, []byte(setup.Cfg.JWTSecret))
 				Expect(err).ToNot(HaveOccurred())
+				Expect(claims.FamilyID).ToNot(BeNil())
 
-				userAssetDir := filepath.Join(setup.TempDir, config.AssetsDirName, userID)
+				userAssetDir := filepath.Join(setup.TempDir, config.AssetsDirName, claims.FamilyID.String())
 				Expect(os.MkdirAll(userAssetDir, 0o755)).To(Succeed())
 
 				testAssetPath := "images/photos/test-photo.jpg"

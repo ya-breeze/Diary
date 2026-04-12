@@ -2,14 +2,14 @@ package api_test
 
 import (
 	"context"
-	"encoding/base64"
 	"log/slog"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/ya-breeze/diary.be/pkg/auth"
+	kinauth "github.com/ya-breeze/kin-core/auth"
+
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/database"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
@@ -18,15 +18,14 @@ import (
 
 var _ = Describe("AuthAPIService", func() {
 	var (
-		service    goserver.AuthAPIService
-		logger     *slog.Logger
-		cfg        *config.Config
-		storage    database.Storage
-		ctx        context.Context
-		testEmail  string
-		testPass   string
-		hashedPass string
-		tempDir    string
+		service   goserver.AuthAPIService
+		logger    *slog.Logger
+		cfg       *config.Config
+		storage   database.Storage
+		ctx       context.Context
+		testEmail string
+		testPass  string
+		tempDir   string
 	)
 
 	BeforeEach(func() {
@@ -36,11 +35,9 @@ var _ = Describe("AuthAPIService", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		cfg = &config.Config{
-			DataPath:      tempDir,
-			Issuer:        "test-issuer",
-			JWTSecret:     "test-secret-key-for-jwt-tokens",
-			SessionSecret: "test-session-secret-key-minimum-32-characters-long",
-			CookieSecure:  false, // Allow HTTP for tests
+			DataPath:     tempDir,
+			JWTSecret:    "test-secret-key-for-jwt-tokens",
+			CookieSecure: false,
 		}
 		storage = database.NewStorage(logger, cfg)
 		Expect(storage.Open()).To(Succeed())
@@ -50,12 +47,14 @@ var _ = Describe("AuthAPIService", func() {
 		testEmail = "test@test.com"
 		testPass = "testpassword123"
 
-		// Create a test user
-		hashedPassBytes, err := auth.HashPassword([]byte(testPass))
+		// Create family and user with kin-core compatible bcrypt hash
+		family, err := storage.CreateFamily("TestFamily")
 		Expect(err).ToNot(HaveOccurred())
-		hashedPass = base64.StdEncoding.EncodeToString(hashedPassBytes)
 
-		_, err = storage.CreateUser(testEmail, hashedPass)
+		hashedPass, err := kinauth.HashPassword(testPass)
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = storage.CreateUser(testEmail, hashedPass, family.ID)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -76,15 +75,14 @@ var _ = Describe("AuthAPIService", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(response.Code).To(Equal(200))
 
-				// Check that response body contains a token
 				responseBody, ok := response.Body.(goserver.Authorize200Response)
 				Expect(ok).To(BeTrue())
 				Expect(responseBody.Token).ToNot(BeEmpty())
 
-				// Verify the token is valid
-				userID, err := auth.CheckJWT(responseBody.Token, cfg.Issuer, cfg.JWTSecret)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(userID).ToNot(BeEmpty())
+				// Verify the token is a valid kin-core JWT
+				claims, parseErr := kinauth.ParseToken(responseBody.Token, []byte(cfg.JWTSecret))
+				Expect(parseErr).ToNot(HaveOccurred())
+				Expect(claims.UserID).ToNot(Equal(""))
 			})
 		})
 

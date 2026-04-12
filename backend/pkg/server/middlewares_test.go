@@ -6,13 +6,15 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	kinauth "github.com/ya-breeze/kin-core/auth"
 
-	"github.com/gorilla/sessions"
-	"github.com/ya-breeze/diary.be/pkg/auth"
 	"github.com/ya-breeze/diary.be/pkg/config"
+	"github.com/ya-breeze/diary.be/pkg/database"
 )
 
 func TestMiddlewares(t *testing.T) {
@@ -24,30 +26,46 @@ var _ = Describe("AuthMiddleware", func() {
 	var (
 		logger    *slog.Logger
 		cfg       *config.Config
+		storage   database.Storage
+		tempDir   string
 		jwtSecret string
-		issuer    string
+		userID    uuid.UUID
+		familyID  uuid.UUID
 	)
 
 	BeforeEach(func() {
 		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 		jwtSecret = "secret"
-		issuer = "issuer"
+		var err error
+		tempDir, err = os.MkdirTemp("", "middleware_test")
+		Expect(err).NotTo(HaveOccurred())
+
 		cfg = &config.Config{
-			JWTSecret:     jwtSecret,
-			Issuer:        issuer,
-			CookieName:    "diarycookie",
-			SessionSecret: "session-secret",
+			JWTSecret:    jwtSecret,
+			CookieSecure: false,
+			DataPath:     tempDir,
 		}
+
+		storage = database.NewStorage(logger, cfg)
+		Expect(storage.Open()).To(Succeed())
+
+		userID = uuid.New()
+		familyID = uuid.New()
+	})
+
+	AfterEach(func() {
+		storage.Close()
+		os.RemoveAll(tempDir)
 	})
 
 	Context("when authenticating requests", func() {
-		It("should allow request with valid Authorization header", func() {
-			middleware := AuthMiddleware(logger, cfg)
+		It("should allow request with valid Authorization header (Bearer token)", func() {
+			middleware := AuthMiddleware(logger, cfg, storage.GetDB())
 			handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			}))
 
-			token, err := auth.CreateJWT("user123", issuer, jwtSecret)
+			token, err := kinauth.GenerateAccessToken(userID, &familyID, []byte(jwtSecret), 15*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 
 			req := httptest.NewRequest("GET", "/v1/items", nil)
@@ -58,32 +76,17 @@ var _ = Describe("AuthMiddleware", func() {
 			Expect(w.Code).To(Equal(http.StatusOK))
 		})
 
-		It("should allow request with valid Session Cookie", func() {
-			middleware := AuthMiddleware(logger, cfg)
+		It("should allow request with valid kin_access cookie", func() {
+			middleware := AuthMiddleware(logger, cfg, storage.GetDB())
 			handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			}))
 
-			token, err := auth.CreateJWT("user123", issuer, jwtSecret)
+			token, err := kinauth.GenerateAccessToken(userID, &familyID, []byte(jwtSecret), 15*time.Minute)
 			Expect(err).NotTo(HaveOccurred())
 
 			req := httptest.NewRequest("GET", "/v1/media/123", nil)
-
-			// Set up the cookie
-			store := sessions.NewCookieStore([]byte(cfg.SessionSecret))
-			session, _ := store.Get(req, cfg.CookieName)
-			session.Values["token"] = token
-
-			// We need to encode the cookie and set it in the request header
-			// The easiest way is to use the store to save it to a response recorder, then steal the cookie
-			rec := httptest.NewRecorder()
-			session.Save(req, rec)
-
-			// Copy the Set-Cookie header to the Cookie header of the request
-			for _, cookie := range rec.Result().Cookies() {
-				req.AddCookie(cookie)
-			}
-
+			req.AddCookie(&http.Cookie{Name: "kin_access", Value: token})
 			w := httptest.NewRecorder()
 
 			handler.ServeHTTP(w, req)
@@ -91,7 +94,7 @@ var _ = Describe("AuthMiddleware", func() {
 		})
 
 		It("should reject request with no auth", func() {
-			middleware := AuthMiddleware(logger, cfg)
+			middleware := AuthMiddleware(logger, cfg, storage.GetDB())
 			handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			}))
@@ -104,7 +107,7 @@ var _ = Describe("AuthMiddleware", func() {
 		})
 
 		It("should reject request with invalid token", func() {
-			middleware := AuthMiddleware(logger, cfg)
+			middleware := AuthMiddleware(logger, cfg, storage.GetDB())
 			handler := middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
 			}))

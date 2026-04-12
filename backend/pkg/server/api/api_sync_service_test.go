@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -18,17 +19,17 @@ import (
 
 var _ = Describe("SyncAPIService", func() {
 	var (
-		service goserver.SyncAPIService
-		logger  *slog.Logger
-		storage database.Storage
-		ctx     context.Context
-		userID  string
-		tempDir string
+		service  goserver.SyncAPIService
+		logger   *slog.Logger
+		storage  database.Storage
+		ctx      context.Context
+		familyID uuid.UUID
+		tempDir  string
 	)
 
 	// Create context outside of BeforeEach to avoid fatcontext linting issue
-	userID = "test-user-id"
-	ctx = context.WithValue(context.Background(), common.UserIDKey, userID)
+	familyID = uuid.New()
+	ctx = context.WithValue(context.Background(), common.FamilyIDKey, familyID)
 
 	BeforeEach(func() {
 		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -52,7 +53,7 @@ var _ = Describe("SyncAPIService", func() {
 	})
 
 	Describe("GetChanges", func() {
-		Context("when user ID is missing from context", func() {
+		Context("when family ID is missing from context", func() {
 			It("should return unauthorized", func() {
 				emptyCtx := context.Background()
 				response, err := service.GetChanges(emptyCtx, 0, 100)
@@ -62,7 +63,7 @@ var _ = Describe("SyncAPIService", func() {
 			})
 		})
 
-		Context("when user has no changes", func() {
+		Context("when family has no changes", func() {
 			It("should return empty changes list", func() {
 				response, err := service.GetChanges(ctx, 0, 100)
 
@@ -77,20 +78,19 @@ var _ = Describe("SyncAPIService", func() {
 			})
 		})
 
-		Context("when user has changes", func() {
+		Context("when family has changes", func() {
 			BeforeEach(func() {
 				// Create test changes
 				testItem := &models.Item{
-					UserID: userID,
-					Date:   "2024-01-15",
-					Title:  "Test Entry",
-					Body:   "This is a test diary entry",
-					Tags:   models.StringList{"personal", "test"},
+					Date:  "2024-01-15",
+					Title: "Test Entry",
+					Body:  "This is a test diary entry",
+					Tags:  models.StringList{"personal", "test"},
 				}
 
 				for i := 0; i < 5; i++ {
 					err := storage.CreateChangeRecord(
-						userID,
+						familyID,
 						testItem.Date,
 						models.OperationTypeCreated,
 						testItem,
@@ -113,7 +113,7 @@ var _ = Describe("SyncAPIService", func() {
 
 				// Verify change content
 				change := syncResponse.Changes[0]
-				Expect(change.UserId).To(Equal(userID))
+				Expect(change.UserId).To(Equal(familyID.String()))
 				Expect(change.Date.Time.Format("2006-01-02")).To(Equal("2024-01-15"))
 				Expect(string(change.OperationType)).To(Equal("created"))
 				Expect(change.ItemSnapshot).NotTo(BeNil())
@@ -232,15 +232,14 @@ var _ = Describe("SyncAPIService", func() {
 			BeforeEach(func() {
 				// Create a change for a deleted item
 				testItem := &models.Item{
-					UserID: userID,
-					Date:   "2024-01-15",
-					Title:  "Deleted Entry",
-					Body:   "This entry was deleted",
-					Tags:   models.StringList{"deleted"},
+					Date:  "2024-01-15",
+					Title: "Deleted Entry",
+					Body:  "This entry was deleted",
+					Tags:  models.StringList{"deleted"},
 				}
 
 				err := storage.CreateChangeRecord(
-					userID,
+					familyID,
 					testItem.Date,
 					models.OperationTypeDeleted,
 					testItem,

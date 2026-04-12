@@ -42,6 +42,16 @@ func AuthMiddleware(logger *slog.Logger, cfg *config.Config, db *gorm.DB) mux.Mi
 				return
 			}
 
+			// kin-core middleware only reads kin_access cookie.
+			// Fall back to Authorization: Bearer header for API clients.
+			if bearer := req.Header.Get("Authorization"); bearer != "" &&
+				strings.HasPrefix(bearer, "Bearer ") {
+				if c, _ := req.Cookie("kin_access"); c == nil {
+					token := strings.TrimPrefix(bearer, "Bearer ")
+					req.AddCookie(&http.Cookie{Name: "kin_access", Value: token})
+				}
+			}
+
 			claims, err := kinmiddleware.ValidateRequest(req, kinCfg)
 			if err != nil {
 				logger.Warn("Unauthorized request", "path", req.URL.Path, "error", err)

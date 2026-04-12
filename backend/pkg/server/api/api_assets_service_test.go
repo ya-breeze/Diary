@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -15,10 +16,10 @@ import (
 	"github.com/ya-breeze/diary.be/pkg/server/common"
 )
 
-// Helper function to create context with user ID for assets tests
-func createContextWithUserIDForAssets(userID string) context.Context {
+// Helper function to create context with family ID for assets tests
+func createContextWithFamilyIDForAssets(familyID uuid.UUID) context.Context {
 	ctx := context.Background()
-	return context.WithValue(ctx, common.UserIDKey, userID)
+	return context.WithValue(ctx, common.FamilyIDKey, familyID)
 }
 
 var _ = Describe("AssetsAPIService", func() {
@@ -27,14 +28,14 @@ var _ = Describe("AssetsAPIService", func() {
 		logger   *slog.Logger
 		cfg      *config.Config
 		tempDir  string
-		userID   string
+		familyID uuid.UUID
 		testFile string
 		ctx      context.Context
 	)
 
 	// Create context outside of BeforeEach to avoid fatcontext linting issue
-	userID = "test-user-123"
-	ctx = createContextWithUserIDForAssets(userID)
+	familyID = uuid.MustParse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+	ctx = createContextWithFamilyIDForAssets(familyID)
 
 	BeforeEach(func() {
 		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -47,12 +48,12 @@ var _ = Describe("AssetsAPIService", func() {
 			DataPath: tempDir,
 		}
 
-		// Create user directory and test file
-		userDir := filepath.Join(tempDir, config.AssetsDirName, userID)
-		err = os.MkdirAll(userDir, 0o755)
+		// Create family directory and test file
+		familyDir := filepath.Join(tempDir, config.AssetsDirName, familyID.String())
+		err = os.MkdirAll(familyDir, 0o755)
 		Expect(err).NotTo(HaveOccurred())
 
-		testFile = filepath.Join(userDir, "test-image.jpg")
+		testFile = filepath.Join(familyDir, "test-image.jpg")
 		err = os.WriteFile(testFile, []byte("fake image content"), 0o600)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -67,7 +68,7 @@ var _ = Describe("AssetsAPIService", func() {
 	})
 
 	Describe("GetAsset", func() {
-		Context("when user ID is missing from context", func() {
+		Context("when family ID is missing from context", func() {
 			It("should return unauthorized", func() {
 				emptyCtx := context.Background()
 				response, err := service.GetAsset(emptyCtx, "test-image.jpg")
@@ -96,7 +97,7 @@ var _ = Describe("AssetsAPIService", func() {
 		Context("when accessing files in subdirectories", func() {
 			BeforeEach(func() {
 				// Create a subdirectory with a file
-				subDir := filepath.Join(tempDir, config.AssetsDirName, userID, "images")
+				subDir := filepath.Join(tempDir, config.AssetsDirName, familyID.String(), "images")
 				err := os.MkdirAll(subDir, 0o755)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -124,7 +125,7 @@ var _ = Describe("AssetsAPIService", func() {
 
 			It("should handle nested subdirectories", func() {
 				// Create deeper nesting
-				deepDir := filepath.Join(tempDir, config.AssetsDirName, userID, "docs", "2023", "reports")
+				deepDir := filepath.Join(tempDir, config.AssetsDirName, familyID.String(), "docs", "2023", "reports")
 				err := os.MkdirAll(deepDir, 0o755)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -170,7 +171,7 @@ var _ = Describe("AssetsAPIService", func() {
 		Context("when path points to a directory", func() {
 			It("should return bad request", func() {
 				// Create a subdirectory
-				subDir := filepath.Join(tempDir, config.AssetsDirName, userID, "emptydir")
+				subDir := filepath.Join(tempDir, config.AssetsDirName, familyID.String(), "emptydir")
 				err := os.MkdirAll(subDir, 0o755)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -180,6 +181,5 @@ var _ = Describe("AssetsAPIService", func() {
 				Expect(response.Code).To(Equal(http.StatusBadRequest))
 			})
 		})
-
 	})
 })

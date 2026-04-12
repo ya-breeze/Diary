@@ -46,12 +46,13 @@ func (r *AssetsBatchRouter) Routes() goserver.Routes {
 }
 
 func (r *AssetsBatchRouter) handleBatch(w http.ResponseWriter, req *http.Request) {
-	userID, _ := req.Context().Value(common.UserIDKey).(string)
-	if userID == "" {
-		r.logger.Error("Batch upload unauthorized - no user ID in context")
+	familyID, ok := common.GetFamilyID(req.Context())
+	if !ok {
+		r.logger.Error("Batch upload unauthorized - no family ID in context")
 		writeJSONError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	userID := familyID.String()
 
 	limits := assets.ComputeBatchLimits(r.cfg)
 	r.logger.Info("Batch upload request received",

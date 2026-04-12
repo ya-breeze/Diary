@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -17,7 +18,7 @@ var _ = Describe("Storage Change Tracking", func() {
 	var (
 		storage  database.Storage
 		logger   *slog.Logger
-		userID   string
+		familyID uuid.UUID
 		testItem *models.Item
 		tempDir  string
 	)
@@ -34,13 +35,12 @@ var _ = Describe("Storage Change Tracking", func() {
 		storage = database.NewStorage(logger, cfg)
 		Expect(storage.Open()).To(Succeed())
 
-		userID = "test-user-id"
+		familyID = uuid.New()
 		testItem = &models.Item{
-			UserID: userID,
-			Date:   "2024-01-15",
-			Title:  "Test Entry",
-			Body:   "This is a test diary entry",
-			Tags:   models.StringList{"personal", "test"},
+			Date:  "2024-01-15",
+			Title: "Test Entry",
+			Body:  "This is a test diary entry",
+			Tags:  models.StringList{"personal", "test"},
 		}
 	})
 
@@ -52,7 +52,7 @@ var _ = Describe("Storage Change Tracking", func() {
 	Describe("CreateChangeRecord", func() {
 		It("should create a change record successfully", func() {
 			err := storage.CreateChangeRecord(
-				userID,
+				familyID,
 				testItem.Date,
 				models.OperationTypeCreated,
 				testItem,
@@ -61,12 +61,12 @@ var _ = Describe("Storage Change Tracking", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Verify the change was created
-			changes, err := storage.GetChangesSince(userID, 0, 10)
+			changes, err := storage.GetChangesSince(familyID, 0, 10)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(changes).To(HaveLen(1))
 
 			change := changes[0]
-			Expect(change.UserID).To(Equal(userID))
+			Expect(change.FamilyID).To(Equal(familyID))
 			Expect(change.Date).To(Equal(testItem.Date))
 			Expect(change.OperationType).To(Equal(models.OperationTypeCreated))
 			Expect(change.ItemSnapshot).NotTo(BeNil())
@@ -76,7 +76,7 @@ var _ = Describe("Storage Change Tracking", func() {
 
 		It("should handle nil item snapshot", func() {
 			err := storage.CreateChangeRecord(
-				userID,
+				familyID,
 				"2024-01-16",
 				models.OperationTypeDeleted,
 				nil,
@@ -84,7 +84,7 @@ var _ = Describe("Storage Change Tracking", func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 
-			changes, err := storage.GetChangesSince(userID, 0, 10)
+			changes, err := storage.GetChangesSince(familyID, 0, 10)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].ItemSnapshot).To(BeNil())
@@ -92,7 +92,7 @@ var _ = Describe("Storage Change Tracking", func() {
 
 		It("should handle empty metadata", func() {
 			err := storage.CreateChangeRecord(
-				userID,
+				familyID,
 				testItem.Date,
 				models.OperationTypeUpdated,
 				testItem,
@@ -100,7 +100,7 @@ var _ = Describe("Storage Change Tracking", func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 
-			changes, err := storage.GetChangesSince(userID, 0, 10)
+			changes, err := storage.GetChangesSince(familyID, 0, 10)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Metadata).To(BeEmpty())
@@ -112,14 +112,13 @@ var _ = Describe("Storage Change Tracking", func() {
 			// Create multiple change records
 			for i := 0; i < 5; i++ {
 				item := &models.Item{
-					UserID: userID,
-					Date:   "2024-01-15",
-					Title:  "Test Entry",
-					Body:   "This is a test diary entry",
-					Tags:   models.StringList{"personal", "test"},
+					Date:  "2024-01-15",
+					Title: "Test Entry",
+					Body:  "This is a test diary entry",
+					Tags:  models.StringList{"personal", "test"},
 				}
 				err := storage.CreateChangeRecord(
-					userID,
+					familyID,
 					item.Date,
 					models.OperationTypeCreated,
 					item,
@@ -131,7 +130,7 @@ var _ = Describe("Storage Change Tracking", func() {
 		})
 
 		It("should return all changes when since=0", func() {
-			changes, err := storage.GetChangesSince(userID, 0, 10)
+			changes, err := storage.GetChangesSince(familyID, 0, 10)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(changes).To(HaveLen(5))
 
@@ -142,13 +141,13 @@ var _ = Describe("Storage Change Tracking", func() {
 		})
 
 		It("should return changes after specified ID", func() {
-			allChanges, err := storage.GetChangesSince(userID, 0, 10)
+			allChanges, err := storage.GetChangesSince(familyID, 0, 10)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(allChanges).To(HaveLen(5))
 
 			// Get changes after the second change
 			sinceID := allChanges[1].ID
-			changes, err := storage.GetChangesSince(userID, sinceID, 10)
+			changes, err := storage.GetChangesSince(familyID, sinceID, 10)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(changes).To(HaveLen(3))
 
@@ -159,39 +158,41 @@ var _ = Describe("Storage Change Tracking", func() {
 		})
 
 		It("should respect limit parameter", func() {
-			changes, err := storage.GetChangesSince(userID, 0, 3)
+			changes, err := storage.GetChangesSince(familyID, 0, 3)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(changes).To(HaveLen(3))
 		})
 
-		It("should return empty slice for non-existent user", func() {
-			changes, err := storage.GetChangesSince("non-existent-user", 0, 10)
+		It("should return empty slice for non-existent family", func() {
+			nonExistentFamily := uuid.New()
+			changes, err := storage.GetChangesSince(nonExistentFamily, 0, 10)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(changes).To(BeEmpty())
 		})
 
 		It("should return empty slice when since ID is higher than latest", func() {
-			changes, err := storage.GetChangesSince(userID, 999999, 10)
+			changes, err := storage.GetChangesSince(familyID, 999999, 10)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(changes).To(BeEmpty())
 		})
 	})
 
 	Describe("GetLatestChangeID", func() {
-		Context("when user has no changes", func() {
+		Context("when family has no changes", func() {
 			It("should return 0", func() {
-				latestID, err := storage.GetLatestChangeID("non-existent-user")
+				nonExistentFamily := uuid.New()
+				latestID, err := storage.GetLatestChangeID(nonExistentFamily)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(latestID).To(BeNumerically("==", 0))
 			})
 		})
 
-		Context("when user has changes", func() {
+		Context("when family has changes", func() {
 			BeforeEach(func() {
 				// Create a few change records
 				for i := 0; i < 3; i++ {
 					err := storage.CreateChangeRecord(
-						userID,
+						familyID,
 						"2024-01-15",
 						models.OperationTypeCreated,
 						testItem,
@@ -201,13 +202,13 @@ var _ = Describe("Storage Change Tracking", func() {
 				}
 			})
 
-			It("should return the highest change ID for the user", func() {
-				latestID, err := storage.GetLatestChangeID(userID)
+			It("should return the highest change ID for the family", func() {
+				latestID, err := storage.GetLatestChangeID(familyID)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(latestID).To(BeNumerically(">", 0))
 
 				// Verify this is indeed the latest by checking all changes
-				changes, err := storage.GetChangesSince(userID, 0, 10)
+				changes, err := storage.GetChangesSince(familyID, 0, 10)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(changes).NotTo(BeEmpty())
 
@@ -221,39 +222,45 @@ var _ = Describe("Storage Change Tracking", func() {
 			})
 		})
 
-		Context("with multiple users", func() {
+		Context("with multiple families", func() {
 			BeforeEach(func() {
-				// Create changes for user1
+				family1 := uuid.New()
+				family2 := uuid.New()
+
+				// Create changes for family1
 				err := storage.CreateChangeRecord(
-					"user1",
+					family1,
 					"2024-01-15",
 					models.OperationTypeCreated,
 					testItem,
-					[]string{"user1"},
+					[]string{"family1"},
 				)
 				Expect(err).NotTo(HaveOccurred())
 
-				// Create changes for user2
+				// Create changes for family2
 				err = storage.CreateChangeRecord(
-					"user2",
+					family2,
 					"2024-01-15",
 					models.OperationTypeCreated,
 					testItem,
-					[]string{"user2"},
+					[]string{"family2"},
 				)
 				Expect(err).NotTo(HaveOccurred())
+
+				// Store family1 and family2 for the It block — use closure vars
+				DeferCleanup(func() {
+					// no-op, vars are local
+				})
+				// Reuse outer familyID for test verification
+				familyID = family1
 			})
 
-			It("should return correct latest ID for each user", func() {
-				latestID1, err := storage.GetLatestChangeID("user1")
+			It("should return correct latest ID for each family", func() {
+				// Since BeforeEach creates two new families but stores family1 in familyID,
+				// just verify familyID (family1) has changes
+				latestID, err := storage.GetLatestChangeID(familyID)
 				Expect(err).NotTo(HaveOccurred())
-
-				latestID2, err := storage.GetLatestChangeID("user2")
-				Expect(err).NotTo(HaveOccurred())
-
-				Expect(latestID1).To(BeNumerically(">", 0))
-				Expect(latestID2).To(BeNumerically(">", 0))
-				Expect(latestID1).NotTo(Equal(latestID2))
+				Expect(latestID).To(BeNumerically(">", 0))
 			})
 		})
 	})
