@@ -41,7 +41,26 @@ export async function apiClient<T>(
   });
 
   if (!response.ok) {
-    if (response.status === 401 && !endpoint.includes('/authorize')) {
+    if (response.status === 401 && !endpoint.includes('/authorize') && !endpoint.includes('/auth/refresh')) {
+      const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (refreshResponse.ok) {
+        const retryResponse = await fetch(url, {
+          ...fetchOptions,
+          headers,
+          credentials: 'include',
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        if (retryResponse.ok) {
+          const retryContentType = retryResponse.headers.get('content-type');
+          if (retryContentType?.includes('application/json')) {
+            return retryResponse.json();
+          }
+          return retryResponse.text() as unknown as T;
+        }
+      }
       if (typeof window !== 'undefined') {
         window.location.href = '/login';
       }
