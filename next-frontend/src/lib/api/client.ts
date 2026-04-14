@@ -7,6 +7,18 @@ interface FetchOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
 }
 
+let isRefreshing = false;
+let refreshSubscribers: Array<(success: boolean) => void> = [];
+
+function subscribeTokenRefresh(cb: (success: boolean) => void) {
+  refreshSubscribers.push(cb);
+}
+
+function onRefreshed(success: boolean) {
+  refreshSubscribers.forEach(cb => cb(success));
+  refreshSubscribers = [];
+}
+
 export async function apiClient<T>(
   endpoint: string,
   options: FetchOptions = {}
@@ -41,10 +53,45 @@ export async function apiClient<T>(
   });
 
   if (!response.ok) {
-    if (response.status === 401 && !endpoint.includes('/authorize')) {
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+    if (response.status === 401 && !endpoint.includes('/authorize') && !endpoint.includes('/auth/refresh')) {
+      if (!isRefreshing) {
+        isRefreshing = true;
+        fetch(`${API_BASE_URL}/auth/refresh`, { method: 'POST', credentials: 'include' })
+          .then(r => { isRefreshing = false; onRefreshed(r.ok); })
+          .catch(() => { isRefreshing = false; onRefreshed(false); });
       }
+
+      return new Promise<T>((resolve, reject) => {
+        subscribeTokenRefresh(async success => {
+          if (success) {
+            try {
+              const retryResponse = await fetch(url, {
+                ...fetchOptions,
+                headers,
+                credentials: 'include',
+                body: body ? JSON.stringify(body) : undefined,
+              });
+              if (retryResponse.ok) {
+                const retryContentType = retryResponse.headers.get('content-type');
+                if (retryContentType?.includes('application/json')) {
+                  resolve(retryResponse.json());
+                } else {
+                  resolve(retryResponse.text() as unknown as T);
+                }
+              } else {
+                reject(new ApiError(retryResponse.status, `HTTP ${retryResponse.status}`));
+              }
+            } catch (err) {
+              reject(err);
+            }
+          } else {
+            if (typeof window !== 'undefined') {
+              window.location.href = '/login';
+            }
+            reject(new ApiError(401, 'Session expired'));
+          }
+        });
+      });
     }
     const errorText = await response.text();
     throw new ApiError(response.status, errorText || `HTTP ${response.status}`);
