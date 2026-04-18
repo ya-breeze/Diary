@@ -48,3 +48,8 @@ type SyncAPIService interface {
 type UserAPIService interface {
 	GetUser(ctx context.Context) (ImplResponse, error)
 }
+
+// FamilyAPIService defines the business logic for the Family API.
+type FamilyAPIService interface {
+	GetFamily(ctx context.Context) (ImplResponse, error)
+}

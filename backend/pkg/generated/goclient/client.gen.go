@@ -82,6 +82,18 @@ type Entity struct {
 	Id openapi_types.UUID `json:"id"`
 }
 
+// FamilyMember defines model for FamilyMember.
+type FamilyMember struct {
+	Email string `json:"email"`
+}
+
+// FamilyResponse defines model for FamilyResponse.
+type FamilyResponse struct {
+	Id      openapi_types.UUID `json:"id"`
+	Members []FamilyMember     `json:"members"`
+	Name    string             `json:"name"`
+}
+
 // HealthFixRequest defines model for HealthFixRequest.
 type HealthFixRequest struct {
 	// Checks Names of checks to run with fix=true. Empty array runs all checks.
@@ -320,6 +332,9 @@ type ClientInterface interface {
 
 	Authorize(ctx context.Context, body AuthorizeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetFamily request
+	GetFamily(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// FixHealthIssuesWithBody request with any body
 	FixHealthIssuesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -395,6 +410,18 @@ func (c *Client) AuthorizeWithBody(ctx context.Context, contentType string, body
 
 func (c *Client) Authorize(ctx context.Context, body AuthorizeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAuthorizeRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetFamily(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFamilyRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -671,6 +698,33 @@ func NewAuthorizeRequestWithBody(server string, contentType string, body io.Read
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetFamilyRequest generates requests for GetFamily
+func NewGetFamilyRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/family")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -1148,6 +1202,9 @@ type ClientWithResponsesInterface interface {
 
 	AuthorizeWithResponse(ctx context.Context, body AuthorizeJSONRequestBody, reqEditors ...RequestEditorFn) (*AuthorizeResponse, error)
 
+	// GetFamilyWithResponse request
+	GetFamilyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetFamilyResponse, error)
+
 	// FixHealthIssuesWithBodyWithResponse request with any body
 	FixHealthIssuesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FixHealthIssuesResponse, error)
 
@@ -1246,6 +1303,28 @@ func (r AuthorizeResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r AuthorizeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetFamilyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FamilyResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetFamilyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetFamilyResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1507,6 +1586,15 @@ func (c *ClientWithResponses) AuthorizeWithResponse(ctx context.Context, body Au
 	return ParseAuthorizeResponse(rsp)
 }
 
+// GetFamilyWithResponse request returning *GetFamilyResponse
+func (c *ClientWithResponses) GetFamilyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetFamilyResponse, error) {
+	rsp, err := c.GetFamily(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetFamilyResponse(rsp)
+}
+
 // FixHealthIssuesWithBodyWithResponse request with arbitrary body returning *FixHealthIssuesResponse
 func (c *ClientWithResponses) FixHealthIssuesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FixHealthIssuesResponse, error) {
 	rsp, err := c.FixHealthIssuesWithBody(ctx, contentType, body, reqEditors...)
@@ -1680,6 +1768,31 @@ func ParseAuthorizeResponse(rsp *http.Response) (*AuthorizeResponse, error) {
 		var dest struct {
 			Token string `json:"token"`
 		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+	}
+
+	return response, nil
+}
+
+// ParseGetFamilyResponse parses an HTTP response from a GetFamilyWithResponse call
+func ParseGetFamilyResponse(rsp *http.Response) (*GetFamilyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetFamilyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FamilyResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

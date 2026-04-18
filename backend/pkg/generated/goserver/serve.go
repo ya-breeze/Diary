@@ -19,6 +19,7 @@ import (
 type CustomControllers struct {
 	AssetsAPIService AssetsAPIService
 	AuthAPIService   AuthAPIService
+	FamilyAPIService FamilyAPIService
 	HealthAPIService HealthAPIService
 	ItemsAPIService  ItemsAPIService
 	SyncAPIService   SyncAPIService
