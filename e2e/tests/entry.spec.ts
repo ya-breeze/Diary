@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-const TEST_DATE = '2010-06-15';
+const TEST_DATE = '2010-06-15';      // used by test 1 (create+persist)
+const EDIT_TEST_DATE = '2010-06-16'; // used by test 2 (edit flow)
 
 test.describe('Diary entries', () => {
     test('create entry: write, save, reload, content persists', async ({ page }) => {
@@ -14,8 +15,8 @@ test.describe('Diary entries', () => {
         // Save
         await page.click('button[type="submit"]:has-text("Save Changes")');
 
-        // Should return to view mode at same date
-        await expect(page).toHaveURL(new RegExp(`/diary/${TEST_DATE}`), { timeout: 10000 });
+        // Should return to view mode at same date (anchored to confirm edit mode exited)
+        await expect(page).toHaveURL(new RegExp(`/diary/${TEST_DATE}$`), { timeout: 10000 });
 
         // Reload and verify content is still there
         await page.reload();
@@ -24,23 +25,23 @@ test.describe('Diary entries', () => {
 
     test('edit existing entry: update title, save, verify update', async ({ page }) => {
         // Ensure entry exists first
-        await page.goto(`/diary/${TEST_DATE}?edit=true`);
+        await page.goto(`/diary/${EDIT_TEST_DATE}?edit=true`);
         await page.fill('input[placeholder="Enter a title..."]', 'Original Title');
         await page.fill('textarea[placeholder="Write your thoughts..."]', 'Original body');
         await page.click('button[type="submit"]:has-text("Save Changes")');
-        await expect(page).toHaveURL(new RegExp(`/diary/${TEST_DATE}`), { timeout: 10000 });
+        await expect(page).toHaveURL(new RegExp(`/diary/${EDIT_TEST_DATE}$`), { timeout: 10000 });
 
         // Now edit it
         await page.click('button:has-text("Edit")');
-        await expect(page).toHaveURL(new RegExp(`/diary/${TEST_DATE}\\?edit=true`), { timeout: 5000 });
+        await expect(page).toHaveURL(new RegExp(`/diary/${EDIT_TEST_DATE}\\?edit=true`), { timeout: 5000 });
 
         const titleInput = page.locator('input[placeholder="Enter a title..."]');
         await titleInput.clear();
         await titleInput.fill('Updated Title');
         await page.click('button[type="submit"]:has-text("Save Changes")');
 
-        await expect(page).toHaveURL(new RegExp(`/diary/${TEST_DATE}`), { timeout: 10000 });
-        await expect(page.locator('text=Updated Title')).toBeVisible({ timeout: 5000 });
+        await expect(page).toHaveURL(new RegExp(`/diary/${EDIT_TEST_DATE}$`), { timeout: 10000 });
+        await expect(page.getByRole('article').getByRole('heading', { name: 'Updated Title' })).toBeVisible({ timeout: 5000 });
     });
 
     test('navigating to date with no entry shows empty editor', async ({ page }) => {

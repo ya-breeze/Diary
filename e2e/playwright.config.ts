@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import * as path from 'path';
 
 export default defineConfig({
     testDir: './tests',
@@ -32,7 +33,7 @@ export default defineConfig({
             dependencies: ['entry-setup'],
             use: {
                 ...devices['Desktop Chrome'],
-                storageState: 'entry-auth-state.json',
+                storageState: path.resolve(__dirname, 'entry-auth-state.json'),
             },
         },
     ],

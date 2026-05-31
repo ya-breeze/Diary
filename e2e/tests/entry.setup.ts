@@ -5,8 +5,9 @@
  */
 import { test as setup, expect, request } from '@playwright/test';
 import * as fs from 'fs';
+import * as path from 'path';
 
-const AUTH_STATE_FILE = 'entry-auth-state.json';
+const AUTH_STATE_FILE = path.resolve(__dirname, '..', 'entry-auth-state.json');
 
 setup('authenticate for entry tests', async ({ page, baseURL }) => {
     // Reuse the existing session if still valid — avoids the per-IP rate limiter

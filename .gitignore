@@ -27,6 +27,9 @@ frontend/*.pid
 
 # E2E
 e2e/node_modules/
+e2e/*-auth-state.json
+e2e/test-results/
+test-results/
 
 # Other
 .vscode/*
