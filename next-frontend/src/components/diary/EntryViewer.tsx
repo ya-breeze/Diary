@@ -75,7 +75,7 @@ export function EntryViewer({ entry, className, onEdit }: EntryViewerProps) {
               ref={datePickerRef}
               type="date"
               onChange={handleDateChange}
-              className="absolute opacity-0 pointer-events-none w-0 h-0"
+              className="absolute opacity-0 pointer-events-none w-px h-px"
               tabIndex={-1}
               aria-hidden="true"
             />

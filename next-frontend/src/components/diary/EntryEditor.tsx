@@ -46,6 +46,7 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
     watch,
     reset,
     getValues,
+    trigger,
     formState: { errors, isDirty },
   } = useForm<EntryFormData>({
     resolver: zodResolver(entrySchema),
@@ -68,20 +69,24 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
   }, [entry?.body]);
 
   const reloadForDate = useCallback(async (date: string) => {
-    const fetched = await diaryApi.getItemByDate(date);
-    if (fetched) {
-      reset({
-        title: fetched.title || '',
-        body: fetched.body || '',
-        tags: fetched.tags?.join(', ') || '',
-      });
-      const imageMatches = (fetched.body || '').matchAll(/!\[.*?\]\(([^)]+)\)/g);
-      setAttachedImages(Array.from(imageMatches, (m) => m[1]));
-    } else {
-      reset({ title: '', body: '', tags: '' });
-      setAttachedImages([]);
+    try {
+      const fetched = await diaryApi.getItemByDate(date);
+      if (fetched) {
+        reset({
+          title: fetched.title || '',
+          body: fetched.body || '',
+          tags: fetched.tags?.join(', ') || '',
+        });
+        const imageMatches = (fetched.body || '').matchAll(/!\[.*?\]\(([^)]+)\)/g);
+        setAttachedImages(Array.from(imageMatches, (m) => m[1]));
+      } else {
+        reset({ title: '', body: '', tags: '' });
+        setAttachedImages([]);
+      }
+      setCurrentDate(date);
+    } catch (error) {
+      console.error('Failed to load entry for date:', error);
     }
-    setCurrentDate(date);
   }, [reset]);
 
   const handleDateChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,13 +101,20 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
   }, [currentDate, isDirty, reloadForDate]);
 
   const handleSaveAndSwitch = async () => {
+    const isValid = await trigger();
+    if (!isValid) return;
     const data = getValues();
-    await saveEntry.mutateAsync({
-      title: data.title,
-      date: currentDate,
-      body: data.body,
-      tags: data.tags.split(',').map((t) => t.trim()).filter(Boolean),
-    });
+    try {
+      await saveEntry.mutateAsync({
+        title: data.title,
+        date: currentDate,
+        body: data.body,
+        tags: data.tags.split(',').map((t) => t.trim()).filter(Boolean),
+      });
+    } catch (error) {
+      console.error('Save failed:', error);
+      return;
+    }
     const target = pendingDate!;
     setPendingDate(null);
     await reloadForDate(target);
@@ -162,11 +174,7 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
       });
 
       onSave?.();
-      if (onClose) {
-        onClose();
-      } else {
-        router.push(`/diary/${currentDate}`);
-      }
+      router.push(`/diary/${currentDate}`);
     } catch (error) {
       console.error('Save failed:', error);
     }
@@ -314,6 +322,9 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
             You have unsaved changes to <span className="font-medium text-zinc-900 dark:text-white">{formatFullDate(currentDate)}</span>.
             What would you like to do?
           </p>
+          {saveEntry.isError && (
+            <p className="mb-2 text-sm text-red-600 dark:text-red-400">Save failed. Please try again.</p>
+          )}
           <div className="flex flex-col gap-3">
             <Button onClick={handleSaveAndSwitch} isLoading={saveEntry.isPending} className="w-full">
               Save to {formatFullDate(currentDate)}
