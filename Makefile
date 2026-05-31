@@ -76,6 +76,16 @@ test:
 		go tool github.com/onsi/ginkgo/v2/ginkgo -r
 	@echo "✅ Tests complete"
 
+.PHONY: test-e2e
+test-e2e:
+	@echo "🚀 Running Playwright E2E tests..."
+	@cd e2e && BASE_URL=$(or $(BASE_URL),http://192.168.1.54:8885) npx playwright test --reporter=line
+	@echo "✅ E2E tests complete"
+
+.PHONY: test-all
+test-all: test test-e2e
+	@echo "✅ All tests complete"
+
 .PHONY: watch
 watch:
 	@cd ${ROOT_DIR}/backend && ginkgo watch -r
