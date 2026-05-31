@@ -14,42 +14,36 @@ export default defineConfig({
         trace: 'on-first-retry',
     },
     projects: [
-        // Auth tests run without any stored session
+        // Auth tests run without any stored session (tests login flow itself)
         {
             name: 'auth',
             testMatch: '**/auth.spec.ts',
             use: { ...devices['Desktop Chrome'] },
         },
-        // One-time login to save session for entry tests
+        // One-time login shared by all non-auth tests
         {
-            name: 'entry-setup',
-            testMatch: '**/entry.setup.ts',
+            name: 'global-setup',
+            testMatch: '**/global.setup.ts',
             use: { ...devices['Desktop Chrome'] },
         },
         // Entry tests reuse the saved session
         {
             name: 'entry',
             testMatch: '**/entry.spec.ts',
-            dependencies: ['entry-setup'],
+            dependencies: ['global-setup'],
             use: {
                 ...devices['Desktop Chrome'],
-                storageState: path.resolve(__dirname, 'entry-auth-state.json'),
+                storageState: path.resolve(__dirname, 'auth-state.json'),
             },
-        },
-        // One-time login to save session for navigation tests
-        {
-            name: 'navigation-setup',
-            testMatch: '**/navigation.setup.ts',
-            use: { ...devices['Desktop Chrome'] },
         },
         // Navigation tests reuse the saved session
         {
             name: 'navigation',
             testMatch: '**/navigation.spec.ts',
-            dependencies: ['navigation-setup'],
+            dependencies: ['global-setup'],
             use: {
                 ...devices['Desktop Chrome'],
-                storageState: path.resolve(__dirname, 'navigation-auth-state.json'),
+                storageState: path.resolve(__dirname, 'auth-state.json'),
             },
         },
     ],

@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const DATE_A = '2010-07-01';
+// NOTE: 2010-07-02 must remain empty for next/prev navigation to jump correctly between A and B
 const DATE_B = '2010-07-03';
 
 async function ensureEntry(page: import('@playwright/test').Page, date: string, title: string) {
@@ -12,9 +13,11 @@ async function ensureEntry(page: import('@playwright/test').Page, date: string, 
 }
 
 test.describe('Date navigation', () => {
-    test.beforeEach(async ({ page }) => {
+    test.beforeAll(async ({ browser }) => {
+        const page = await browser.newPage();
         await ensureEntry(page, DATE_A, 'Nav Test Entry A');
         await ensureEntry(page, DATE_B, 'Nav Test Entry B');
+        await page.close();
     });
 
     test('direct URL navigation loads the correct entry', async ({ page }) => {

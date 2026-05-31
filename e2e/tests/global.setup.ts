@@ -1,16 +1,10 @@
-/**
- * One-time auth setup for entry tests.
- * Logs in and saves the session to avoid hitting the rate limiter (burst=1, 5 req/min)
- * on each test's beforeEach. Reuses an existing session if it is still valid.
- */
 import { test as setup, expect, request } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 
-const AUTH_STATE_FILE = path.resolve(__dirname, '..', 'entry-auth-state.json');
+const AUTH_STATE_FILE = path.resolve(__dirname, '..', 'auth-state.json');
 
-setup('authenticate for entry tests', async ({ page, baseURL }) => {
-    // Reuse the existing session if still valid — avoids the per-IP rate limiter
+setup('authenticate', async ({ page, baseURL }) => {
     if (fs.existsSync(AUTH_STATE_FILE)) {
         const ctx = await request.newContext({
             baseURL: baseURL || process.env.BASE_URL || 'http://localhost',
@@ -19,7 +13,7 @@ setup('authenticate for entry tests', async ({ page, baseURL }) => {
         const resp = await ctx.get('/api/v1/user');
         await ctx.dispose();
         if (resp.ok()) {
-            return; // Session still valid — skip login
+            return;
         }
     }
 
