@@ -1,5 +1,7 @@
 'use client';
 
+import { useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Calendar, ChevronLeft, ChevronRight, Edit } from 'lucide-react';
 import { Badge, Button } from '@/components/ui';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -14,8 +16,27 @@ export interface EntryViewerProps {
 }
 
 export function EntryViewer({ entry, className, onEdit }: EntryViewerProps) {
-  // Get mood from first tag
+  const router = useRouter();
+  const datePickerRef = useRef<HTMLInputElement>(null);
+
   const mood = entry.tags?.[0];
+
+  const handleDateBadgeClick = () => {
+    const input = datePickerRef.current;
+    if (!input) return;
+    input.value = entry.date;
+    if (typeof input.showPicker === 'function') {
+      input.showPicker();
+    } else {
+      input.click();
+    }
+  };
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.value) {
+      router.push(`/diary/${e.target.value}`);
+    }
+  };
 
   return (
     <article className={className}>
@@ -49,10 +70,25 @@ export function EntryViewer({ entry, className, onEdit }: EntryViewerProps) {
             </span>
           )}
 
-          <Badge variant="outline" className="gap-1.5 px-3 py-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-400">
-            <Calendar className="h-3.5 w-3.5" />
-            {formatFullDate(entry.date)}
-          </Badge>
+          <div className="relative">
+            <input
+              ref={datePickerRef}
+              type="date"
+              onChange={handleDateChange}
+              className="absolute opacity-0 pointer-events-none w-0 h-0"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+            <Badge
+              variant="outline"
+              className="cursor-pointer gap-1.5 px-3 py-1.5 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:ring-1 hover:ring-zinc-300 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:ring-zinc-600"
+              onClick={handleDateBadgeClick}
+              title="Jump to date"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              {formatFullDate(entry.date)}
+            </Badge>
+          </div>
 
           {entry.nextDate ? (
             <Link
@@ -92,6 +128,6 @@ export function EntryViewer({ entry, className, onEdit }: EntryViewerProps) {
 
       {/* Body */}
       <MarkdownRenderer content={entry.body} />
-    </article >
+    </article>
   );
 }
