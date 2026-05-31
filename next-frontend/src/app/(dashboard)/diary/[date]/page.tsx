@@ -31,7 +31,6 @@ export default function DiaryEntryPage() {
 
   const handleSaved = () => {
     refetch();
-    handleCloseEdit();
   };
 
 

@@ -1,7 +1,8 @@
 'use client';
 
+import { useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Plus, BookOpen, ShieldAlert, Search, User } from 'lucide-react';
+import { Plus, Calendar, BookOpen, ShieldAlert, Search, User } from 'lucide-react';
 import { Button } from '@/components/ui';
 import { EntryCard } from './EntryCard';
 import { useDiaryEntries, useHealthIssues } from '@/hooks';
@@ -19,6 +20,7 @@ export interface SidebarProps {
 export function Sidebar({ selectedDate, onSelectEntry, onHealthClick, className }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const datePickerRef = useRef<HTMLInputElement>(null);
   const { data, isLoading } = useDiaryEntries();
   const { data: healthData } = useHealthIssues();
 
@@ -35,6 +37,24 @@ export function Sidebar({ selectedDate, onSelectEntry, onHealthClick, className 
   const handleNewEntry = () => {
     const today = getTodayString();
     router.push(`/diary/${today}?edit=true`);
+  };
+
+  const handleOpenDatePicker = () => {
+    const input = datePickerRef.current;
+    if (!input) return;
+    input.value = getTodayString();
+    if (typeof input.showPicker === 'function') {
+      input.showPicker();
+    } else {
+      input.click();
+    }
+  };
+
+  const handleDatePickerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.value) {
+      router.push(`/diary/${e.target.value}`);
+      onSelectEntry?.(e.target.value);
+    }
   };
 
   // Determine selected date from URL if not provided
@@ -61,10 +81,30 @@ export function Sidebar({ selectedDate, onSelectEntry, onHealthClick, className 
           )}
         </div>
 
-        <Button onClick={handleNewEntry} className="w-full gap-2">
-          <Plus className="h-4 w-4" />
-          New Entry
-        </Button>
+        <div className="flex gap-1">
+          <Button onClick={handleNewEntry} className="flex-1 gap-2">
+            <Plus className="h-4 w-4" />
+            New Entry
+          </Button>
+          <div className="relative">
+            <input
+              ref={datePickerRef}
+              type="date"
+              onChange={handleDatePickerChange}
+              className="absolute opacity-0 pointer-events-none w-px h-px"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+            <Button
+              variant="secondary"
+              onClick={handleOpenDatePicker}
+              title="Jump to date"
+              className="h-full px-2.5"
+            >
+              <Calendar className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Entry List */}
