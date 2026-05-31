@@ -36,5 +36,21 @@ export default defineConfig({
                 storageState: path.resolve(__dirname, 'entry-auth-state.json'),
             },
         },
+        // One-time login to save session for navigation tests
+        {
+            name: 'navigation-setup',
+            testMatch: '**/navigation.setup.ts',
+            use: { ...devices['Desktop Chrome'] },
+        },
+        // Navigation tests reuse the saved session
+        {
+            name: 'navigation',
+            testMatch: '**/navigation.spec.ts',
+            dependencies: ['navigation-setup'],
+            use: {
+                ...devices['Desktop Chrome'],
+                storageState: path.resolve(__dirname, 'navigation-auth-state.json'),
+            },
+        },
     ],
 });
