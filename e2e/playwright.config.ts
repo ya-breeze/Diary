@@ -13,9 +13,27 @@ export default defineConfig({
         trace: 'on-first-retry',
     },
     projects: [
+        // Auth tests run without any stored session
         {
-            name: 'chromium',
+            name: 'auth',
+            testMatch: '**/auth.spec.ts',
             use: { ...devices['Desktop Chrome'] },
+        },
+        // One-time login to save session for entry tests
+        {
+            name: 'entry-setup',
+            testMatch: '**/entry.setup.ts',
+            use: { ...devices['Desktop Chrome'] },
+        },
+        // Entry tests reuse the saved session
+        {
+            name: 'entry',
+            testMatch: '**/entry.spec.ts',
+            dependencies: ['entry-setup'],
+            use: {
+                ...devices['Desktop Chrome'],
+                storageState: 'entry-auth-state.json',
+            },
         },
     ],
 });
