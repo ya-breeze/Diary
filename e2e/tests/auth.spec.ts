@@ -17,7 +17,7 @@ test.describe('Authentication', () => {
         await page.fill('#email', EMAIL);
         await page.fill('#password', 'wrong-password');
         await page.click('button[type="submit"]');
-        await expect(page.locator('.bg-red-50')).toBeVisible({ timeout: 5000 });
+        await expect(page.locator('[data-testid="login-error"]')).toBeVisible({ timeout: 5000 });
         await expect(page).toHaveURL(/\/login/);
     });
 
