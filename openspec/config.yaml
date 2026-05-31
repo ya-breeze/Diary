@@ -1,0 +1,11 @@
+schema: spec-driven
+
+context: |
+  Tech stack: Go backend (Gin/oapi-codegen), Next.js 15 frontend (React, Zustand, TanStack Query)
+  Auth: JWT access token (15min TTL) + refresh token (1yr) stored as HttpOnly cookies
+  Data scoping: all diary data is scoped to a family (not individual user); family members share entries and assets
+  Database: SQLite via GORM
+  Assets: stored on disk under <data_path>/assets/<familyID>/
+  Backups: tar.gz archives under <data_path>/backups/
+  Entry identity: one entry per date per family (upsert semantics — saving replaces the whole entry)
+  Tags: comma-separated in the UI, stored as a string list; empty/whitespace-only tags are stripped on save
