@@ -65,7 +65,7 @@ export default function LoginPage() {
           className="rounded-xl bg-white p-6 shadow-lg dark:bg-zinc-900"
         >
           {(submitError || error) && (
-            <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+            <div data-testid="login-error" className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
               {submitError || error}
             </div>
           )}
