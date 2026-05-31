@@ -26,6 +26,7 @@ var _ = Describe("Auth Error Flows", func() {
 					context.Background(), setup.TestEmail, "wrong-password",
 				)
 				Expect(err).To(HaveOccurred())
+				Expect(httpResp).NotTo(BeNil())
 				Expect(httpResp.StatusCode).To(Equal(http.StatusUnauthorized))
 			})
 
@@ -34,6 +35,7 @@ var _ = Describe("Auth Error Flows", func() {
 					context.Background(), "nobody@example.com", setup.TestPass,
 				)
 				Expect(err).To(HaveOccurred())
+				Expect(httpResp).NotTo(BeNil())
 				Expect(httpResp.StatusCode).To(Equal(http.StatusUnauthorized))
 			})
 		})
@@ -45,7 +47,8 @@ var _ = Describe("Auth Error Flows", func() {
 				// Do not call LoginAndGetToken — client has no token
 				_, httpResp, err := setup.APIClient.GetItems(context.Background(), "", "", "")
 				Expect(err).To(HaveOccurred())
-				_ = httpResp
+				Expect(httpResp).NotTo(BeNil())
+				Expect(httpResp.StatusCode).To(Equal(http.StatusUnauthorized))
 			})
 		})
 
@@ -54,6 +57,7 @@ var _ = Describe("Auth Error Flows", func() {
 				setup.APIClient.SetToken("not-a-valid-jwt")
 				_, httpResp, err := setup.APIClient.GetItems(context.Background(), "", "", "")
 				Expect(err).To(HaveOccurred())
+				Expect(httpResp).NotTo(BeNil())
 				Expect(httpResp.StatusCode).To(Equal(http.StatusUnauthorized))
 			})
 		})
@@ -68,6 +72,7 @@ var _ = Describe("Auth Error Flows", func() {
 				)
 				_, httpResp, err := setup.APIClient.GetItems(context.Background(), "", "", "")
 				Expect(err).To(HaveOccurred())
+				Expect(httpResp).NotTo(BeNil())
 				Expect(httpResp.StatusCode).To(Equal(http.StatusUnauthorized))
 			})
 		})

@@ -1,16 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { ensureEntry } from './helpers';
 
-const DATE_A = '2010-07-01';
-// NOTE: 2010-07-02 must remain empty for next/prev navigation to jump correctly between A and B
-const DATE_B = '2010-07-03';
-
-async function ensureEntry(page: import('@playwright/test').Page, date: string, title: string) {
-    await page.goto(`/diary/${date}?edit=true`);
-    await page.fill('input[placeholder="Enter a title..."]', title);
-    await page.fill('textarea[placeholder="Write your thoughts..."]', `Entry for ${date}`);
-    await page.click('button[type="submit"]:has-text("Save Changes")');
-    await expect(page).toHaveURL(new RegExp(`/diary/${date}$`), { timeout: 10000 });
-}
+const DATE_A = '2009-11-10';
+const DATE_B = '2009-11-11';
 
 test.describe('Date navigation', () => {
     test.beforeAll(async ({ browser }) => {

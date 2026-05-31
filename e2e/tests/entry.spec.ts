@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { ensureEntry } from './helpers';
 
 const TEST_DATE = '2010-06-15';      // used by test 1 (create+persist)
 const EDIT_TEST_DATE = '2010-06-16'; // used by test 2 (edit flow)
@@ -20,16 +21,11 @@ test.describe('Diary entries', () => {
 
         // Reload and verify content is still there
         await page.reload();
-        await expect(page.locator('h1, h2, h3').filter({ hasText: 'E2E Test Entry' })).toBeVisible({ timeout: 5000 });
+        await expect(page.getByRole('article').getByRole('heading', { name: 'E2E Test Entry' })).toBeVisible({ timeout: 5000 });
     });
 
     test('edit existing entry: update title, save, verify update', async ({ page }) => {
-        // Ensure entry exists first
-        await page.goto(`/diary/${EDIT_TEST_DATE}?edit=true`);
-        await page.fill('input[placeholder="Enter a title..."]', 'Original Title');
-        await page.fill('textarea[placeholder="Write your thoughts..."]', 'Original body');
-        await page.click('button[type="submit"]:has-text("Save Changes")');
-        await expect(page).toHaveURL(new RegExp(`/diary/${EDIT_TEST_DATE}$`), { timeout: 10000 });
+        await ensureEntry(page, EDIT_TEST_DATE, 'Original Title', 'Original body');
 
         // Now edit it
         await page.click('button:has-text("Edit")');
