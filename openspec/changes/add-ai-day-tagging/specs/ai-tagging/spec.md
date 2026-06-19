@@ -61,6 +61,34 @@ Suggestions SHALL be stored in a `pending_tags` field separate from the confirme
 - **WHEN** suggestions are produced
 - **THEN** `"work"` does not appear in `pending_tags`
 
+### Requirement: AI never removes a confirmed tag
+AI tagging SHALL only ever add to the confirmed `tags` list; it SHALL NOT delete, rename, or replace any confirmed tag. Removal of a confirmed tag SHALL only occur through explicit user action.
+
+#### Scenario: Retag preserves a user-added tag not suggested by AI
+- **GIVEN** an entry whose confirmed `tags` include `"anniversary"` (added manually, never suggested by AI)
+- **WHEN** the entry's text changes and the day is retagged (in any mode)
+- **THEN** `"anniversary"` remains in the confirmed `tags`
+
+#### Scenario: Retag never replaces the confirmed tag list wholesale
+- **GIVEN** an entry with confirmed `tags` `["work", "anniversary"]`
+- **WHEN** the day is retagged and the model returns a completely different set of suggestions
+- **THEN** the confirmed `tags` still contain `"work"` and `"anniversary"`
+- **AND** any new tags are only added (auto mode, confident) or staged in `pending_tags` — never substituted for the existing list
+
+### Requirement: Pending and confirmed tags are kept disjoint
+The system SHALL ensure a tag never appears in both `pending_tags` and confirmed `tags` at the same time. Whenever confirmed tags change (user edit, acceptance, or auto-apply) or a retag runs, any pending entry already present in confirmed `tags` SHALL be pruned.
+
+#### Scenario: User manually adds a tag the AI had pending
+- **GIVEN** an entry with `pending_tags` containing `"beach"` and no confirmed `"beach"` tag
+- **WHEN** the user manually adds `"beach"` to the confirmed `tags` and saves
+- **THEN** `"beach"` is present in confirmed `tags`
+- **AND** `"beach"` is removed from `pending_tags` (no duplicate across the two lists)
+
+#### Scenario: Retag prunes pending entries now confirmed
+- **GIVEN** an entry whose confirmed `tags` include `"family"`
+- **WHEN** a retag runs and would otherwise stage `"family"` as a suggestion
+- **THEN** `"family"` is not added to `pending_tags`
+
 ### Requirement: Explicit suggestion trigger
 The system SHALL expose an explicit "suggest tags" action for a day that returns suggestions without modifying confirmed tags.
 
@@ -90,7 +118,7 @@ While an entry is being edited, the system SHALL fetch suggestions automatically
 - **THEN** suggestions are still only shown as chips and are not auto-applied
 
 ### Requirement: Confidence-based routing for unattended triggers
-For triggers where the user is not present (save-and-leave, backfill), the destination of suggestions SHALL be governed by `ai_tagging_auto`.
+For triggers where the user is not present (save-and-leave, backfill), the destination of suggestions SHALL be governed by `ai_tagging_auto`. Confident auto-apply SHALL only seed days that have **no confirmed tags**; once a day has any confirmed tag, unattended triggers SHALL only stage suggestions in `pending_tags` and never auto-apply. This prevents AI from re-adding a tag the user has curated or removed.
 
 #### Scenario: Default mode stages suggestions
 - **GIVEN** a family with `ai_tagging_auto = false`
@@ -99,10 +127,24 @@ For triggers where the user is not present (save-and-leave, backfill), the desti
 - **AND** the day is surfaced as a tagging health issue
 - **AND** no confirmed tag is written
 
-#### Scenario: Auto mode applies confident suggestions
+#### Scenario: Auto mode applies confident suggestions to an untagged day
 - **GIVEN** a family with `ai_tagging_auto = true` and confidence threshold τ
+- **AND** a day with no confirmed tags
 - **WHEN** an unattended trigger produces a suggestion with confidence ≥ τ
 - **THEN** that tag is added to the day's confirmed `tags`
+
+#### Scenario: Auto mode does not auto-apply to a day the user has already tagged
+- **GIVEN** a family with `ai_tagging_auto = true` and confidence threshold τ
+- **AND** a day with at least one confirmed tag (curated by the user)
+- **WHEN** an unattended trigger produces a suggestion with confidence ≥ τ
+- **THEN** that suggestion is stored in `pending_tags` (not auto-applied)
+- **AND** the user's existing confirmed tags are unchanged
+
+#### Scenario: Removed tag is not re-applied after subsequent edits
+- **GIVEN** a family with `ai_tagging_auto = true`
+- **AND** a day where the user deleted an AI-applied tag, leaving at least one other confirmed tag
+- **WHEN** the day's text changes and it is retagged
+- **THEN** the previously removed tag is not auto-applied again (the day is no longer untagged, so auto-apply does not run)
 
 #### Scenario: Auto mode routes uncertain suggestions to manual review
 - **GIVEN** a family with `ai_tagging_auto = true` and confidence threshold τ

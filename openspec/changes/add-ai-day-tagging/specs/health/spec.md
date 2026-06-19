@@ -22,10 +22,17 @@ When a family has `ai_tagging_backfill` enabled, the health subsystem SHALL run 
 
 #### Scenario: Confident auto-apply under auto mode
 - **GIVEN** a family with `ai_tagging_backfill = true` and `ai_tagging_auto = true` and threshold τ
-- **AND** an untagged day for which the model returns a suggestion with confidence ≥ τ
+- **AND** a day with no confirmed tags for which the model returns a suggestion with confidence ≥ τ
 - **WHEN** the issue's fix is applied (via `POST /v1/health/fix`)
 - **THEN** the confident tags are written to the day's confirmed `tags`
 - **AND** the issue is reported as `fixable`
+
+#### Scenario: Stale day that already has confirmed tags is not auto-applied
+- **GIVEN** a family with `ai_tagging_backfill = true` and `ai_tagging_auto = true`
+- **AND** a stale day that already has at least one confirmed tag
+- **WHEN** the `untagged` check runs
+- **THEN** suggestions are stored in `pending_tags` (never auto-applied over the user's tags)
+- **AND** the issue is reported as not `fixable` (the user reviews chips on the day)
 
 #### Scenario: Uncertain day routed to manual review
 - **GIVEN** a family with `ai_tagging_backfill = true` and `ai_tagging_auto = true` and threshold τ

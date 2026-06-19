@@ -35,11 +35,14 @@ The suggester always returns `{tags: [{name, confidence 0..1}]}`. Where results 
 attended (button, in-editor debounce):  always → pending_tags (suggest)
 unattended (on-save-and-leave, backfill):
     ai_tagging_auto = false → all → pending_tags  (health issue: "N days suggested")
-    ai_tagging_auto = true  → conf ≥ τ → Tags (auto-apply)
-                              conf < τ → pending_tags (health issue: "solve manually")
+    ai_tagging_auto = true  → day has confirmed tags? → pending_tags (suggest only)
+                              day untagged + conf ≥ τ → Tags (auto-apply)
+                              day untagged + conf < τ → pending_tags (health issue: "solve manually")
 ```
 
 τ is a single configurable threshold (default chosen during phase 4, e.g. 0.8). **Why:** keeps decision #2 ("suggest, not apply") the default while letting power users opt into automation, with the in-editor experience invariant.
+
+**Auto-apply is scoped to untagged days only.** Once a day has any confirmed tag, unattended triggers only stage suggestions — they never auto-apply. This is the v1 guard against the "AI re-adds a tag the user removed" fight: a user who deletes an auto-applied tag leaves the day curated (still has ≥1 tag, or is intentionally emptied via the editor which the user owns), so subsequent retags won't silently re-add it. AI is additive-only and never deletes a confirmed tag; pending and confirmed lists are kept disjoint (a name confirmed by the user is pruned from pending). A per-entry "dismissed tags" memory is deferred as a later enhancement if this proves insufficient.
 
 ### 4. Backfill is a 4th `checker.Check`, not a new subsystem
 Implement an `UntaggedCheck` satisfying the existing `Check` interface. It emits an `Issue` per stale/untagged day. Under `ai_tagging_auto`, confident days get a populated `fix func()` (applies tags) and are reported `Fixable: true`; uncertain days are reported `Fixable: false` with a "solve manually" message and stored `pending_tags`. **Why:** reuses the 24h runner, `GET /v1/health/issues`, `POST /v1/health/fix`, and the family-scoping already in `Runner.RunForFamily`. The check is a no-op unless `ai_tagging_backfill` is enabled for the family.
