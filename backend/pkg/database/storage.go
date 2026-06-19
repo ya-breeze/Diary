@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -47,6 +48,11 @@ type Storage interface {
 	GetFamilyByName(name string) (*models.Family, error)
 	CreateFamily(name string) (*models.Family, error)
 	GetFamily(familyID uuid.UUID) (*models.Family, error)
+	SetFamilyAITaggingEnabled(familyID uuid.UUID, enabled bool) error
+
+	// GetDistinctTags returns the family's existing tag vocabulary (deduplicated,
+	// sorted) for use as AI suggestion context.
+	GetDistinctTags(familyID uuid.UUID) ([]string, error)
 
 	GetItem(familyID uuid.UUID, date string) (*models.Item, error)
 	GetItems(familyID uuid.UUID, searchParams SearchParams) ([]*models.Item, int, error)
@@ -236,6 +242,43 @@ func (s *storage) GetFamily(familyID uuid.UUID) (*models.Family, error) {
 		return nil, fmt.Errorf(StorageError, err)
 	}
 	return &family, nil
+}
+
+func (s *storage) SetFamilyAITaggingEnabled(familyID uuid.UUID, enabled bool) error {
+	res := s.db.Model(&models.Family{}).Where("id = ?", familyID).
+		Update("ai_tagging_enabled", enabled)
+	if res.Error != nil {
+		return fmt.Errorf(StorageError, res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *storage) GetDistinctTags(familyID uuid.UUID) ([]string, error) {
+	var items []*models.Item
+	if err := s.db.Select("tags").Where("family_id = ?", familyID).Find(&items).Error; err != nil {
+		return nil, fmt.Errorf(StorageError, err)
+	}
+
+	seen := map[string]struct{}{}
+	var tags []string
+	for _, item := range items {
+		for _, t := range item.Tags {
+			t = strings.TrimSpace(t)
+			if t == "" {
+				continue
+			}
+			if _, ok := seen[t]; ok {
+				continue
+			}
+			seen[t] = struct{}{}
+			tags = append(tags, t)
+		}
+	}
+	sort.Strings(tags)
+	return tags, nil
 }
 
 // #endregion Family

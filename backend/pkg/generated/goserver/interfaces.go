@@ -37,6 +37,7 @@ type HealthAPIService interface {
 type ItemsAPIService interface {
 	GetItems(ctx context.Context, date string, search string, tags string) (ImplResponse, error)
 	PutItems(ctx context.Context, itemsRequest ItemsRequest) (ImplResponse, error)
+	SuggestItemTags(ctx context.Context, req SuggestTagsRequest) (ImplResponse, error)
 }
 
 // SyncAPIService defines the business logic for the Sync API.
@@ -52,4 +53,5 @@ type UserAPIService interface {
 // FamilyAPIService defines the business logic for the Family API.
 type FamilyAPIService interface {
 	GetFamily(ctx context.Context) (ImplResponse, error)
+	UpdateFamilySettings(ctx context.Context, req FamilySettingsRequest) (ImplResponse, error)
 }

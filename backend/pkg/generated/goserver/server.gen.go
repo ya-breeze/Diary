@@ -89,9 +89,16 @@ type FamilyMember struct {
 
 // FamilyResponse defines model for FamilyResponse.
 type FamilyResponse struct {
-	Id      openapi_types.UUID `json:"id"`
-	Members []FamilyMember     `json:"members"`
-	Name    string             `json:"name"`
+	// AiTaggingEnabled Per-family master switch for AI tag suggestion
+	AiTaggingEnabled *bool              `json:"aiTaggingEnabled,omitempty"`
+	Id               openapi_types.UUID `json:"id"`
+	Members          []FamilyMember     `json:"members"`
+	Name             string             `json:"name"`
+}
+
+// FamilySettingsRequest defines model for FamilySettingsRequest.
+type FamilySettingsRequest struct {
+	AiTaggingEnabled bool `json:"aiTaggingEnabled"`
 }
 
 // HealthFixRequest defines model for HealthFixRequest.
@@ -157,6 +164,18 @@ type ItemsResponse struct {
 	Title        string              `json:"title"`
 }
 
+// SuggestTagsRequest defines model for SuggestTagsRequest.
+type SuggestTagsRequest struct {
+	Body  *string            `json:"body,omitempty"`
+	Date  openapi_types.Date `json:"date"`
+	Title string             `json:"title"`
+}
+
+// SuggestTagsResponse defines model for SuggestTagsResponse.
+type SuggestTagsResponse struct {
+	Tags []TagSuggestion `json:"tags"`
+}
+
 // SyncChangeResponse defines model for SyncChangeResponse.
 type SyncChangeResponse struct {
 	// Date Date of the diary entry that was changed
@@ -194,6 +213,12 @@ type SyncResponse struct {
 
 	// NextId ID to use for the next sync request (if hasMore is true)
 	NextId *int32 `json:"nextId,omitempty"`
+}
+
+// TagSuggestion defines model for TagSuggestion.
+type TagSuggestion struct {
+	Confidence float64 `json:"confidence"`
+	Name       string  `json:"name"`
 }
 
 // User defines model for User.
@@ -242,6 +267,9 @@ type UploadAssetsBatchMultipartRequestBody UploadAssetsBatchMultipartBody
 // AuthorizeJSONRequestBody defines body for Authorize for application/json ContentType.
 type AuthorizeJSONRequestBody = AuthData
 
+// UpdateFamilySettingsJSONRequestBody defines body for UpdateFamilySettings for application/json ContentType.
+type UpdateFamilySettingsJSONRequestBody = FamilySettingsRequest
+
 // FixHealthIssuesJSONRequestBody defines body for FixHealthIssues for application/json ContentType.
 type FixHealthIssuesJSONRequestBody = HealthFixRequest
 
@@ -250,6 +278,9 @@ type AttachOrphanJSONRequestBody = AttachOrphanRequest
 
 // PutItemsJSONRequestBody defines body for PutItems for application/json ContentType.
 type PutItemsJSONRequestBody = ItemsRequest
+
+// SuggestItemTagsJSONRequestBody defines body for SuggestItemTags for application/json ContentType.
+type SuggestItemTagsJSONRequestBody = SuggestTagsRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -265,6 +296,9 @@ type ServerInterface interface {
 	// return family info with members
 	// (GET /v1/family)
 	GetFamily(w http.ResponseWriter, r *http.Request)
+	// update family settings (e.g. AI tagging)
+	// (PATCH /v1/family)
+	UpdateFamilySettings(w http.ResponseWriter, r *http.Request)
 	// fix storage issues for current user
 	// (POST /v1/health/fix)
 	FixHealthIssues(w http.ResponseWriter, r *http.Request)
@@ -289,6 +323,9 @@ type ServerInterface interface {
 	// upsert diary item
 	// (PUT /v1/items)
 	PutItems(w http.ResponseWriter, r *http.Request)
+	// suggest tags for draft entry content (does not save)
+	// (POST /v1/items/suggest-tags)
+	SuggestItemTags(w http.ResponseWriter, r *http.Request)
 	// get changes for synchronization
 	// (GET /v1/sync/changes)
 	GetChanges(w http.ResponseWriter, r *http.Request, params GetChangesParams)
@@ -386,6 +423,25 @@ func (siw *ServerInterfaceWrapper) GetFamily(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetFamily(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateFamilySettings operation middleware
+func (siw *ServerInterfaceWrapper) UpdateFamilySettings(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateFamilySettings(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -620,6 +676,25 @@ func (siw *ServerInterfaceWrapper) PutItems(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// SuggestItemTags operation middleware
+func (siw *ServerInterfaceWrapper) SuggestItemTags(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SuggestItemTags(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetChanges operation middleware
 func (siw *ServerInterfaceWrapper) GetChanges(w http.ResponseWriter, r *http.Request) {
 	var err error
@@ -800,6 +875,8 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 
 	r.HandleFunc(options.BaseURL+"/v1/family", wrapper.GetFamily).Methods("GET")
 
+	r.HandleFunc(options.BaseURL+"/v1/family", wrapper.UpdateFamilySettings).Methods("PATCH")
+
 	r.HandleFunc(options.BaseURL+"/v1/health/fix", wrapper.FixHealthIssues).Methods("POST")
 
 	r.HandleFunc(options.BaseURL+"/v1/health/issues", wrapper.GetHealthIssues).Methods("GET")
@@ -815,6 +892,8 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 	r.HandleFunc(options.BaseURL+"/v1/items", wrapper.GetItems).Methods("GET")
 
 	r.HandleFunc(options.BaseURL+"/v1/items", wrapper.PutItems).Methods("PUT")
+
+	r.HandleFunc(options.BaseURL+"/v1/items/suggest-tags", wrapper.SuggestItemTags).Methods("POST")
 
 	r.HandleFunc(options.BaseURL+"/v1/sync/changes", wrapper.GetChanges).Methods("GET")
 
@@ -955,6 +1034,37 @@ type GetFamily404Response struct{}
 
 func (response GetFamily404Response) VisitGetFamilyResponse(w http.ResponseWriter) error {
 	w.WriteHeader(404)
+	return nil
+}
+
+type UpdateFamilySettingsRequestObject struct {
+	Body *UpdateFamilySettingsJSONRequestBody
+}
+
+type UpdateFamilySettingsResponseObject interface {
+	VisitUpdateFamilySettingsResponse(w http.ResponseWriter) error
+}
+
+type UpdateFamilySettings200JSONResponse FamilyResponse
+
+func (response UpdateFamilySettings200JSONResponse) VisitUpdateFamilySettingsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateFamilySettings400Response struct{}
+
+func (response UpdateFamilySettings400Response) VisitUpdateFamilySettingsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type UpdateFamilySettings401Response struct{}
+
+func (response UpdateFamilySettings401Response) VisitUpdateFamilySettingsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
 	return nil
 }
 
@@ -1240,6 +1350,44 @@ func (response PutItems401Response) VisitPutItemsResponse(w http.ResponseWriter)
 	return nil
 }
 
+type SuggestItemTagsRequestObject struct {
+	Body *SuggestItemTagsJSONRequestBody
+}
+
+type SuggestItemTagsResponseObject interface {
+	VisitSuggestItemTagsResponse(w http.ResponseWriter) error
+}
+
+type SuggestItemTags200JSONResponse SuggestTagsResponse
+
+func (response SuggestItemTags200JSONResponse) VisitSuggestItemTagsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SuggestItemTags400Response struct{}
+
+func (response SuggestItemTags400Response) VisitSuggestItemTagsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type SuggestItemTags401Response struct{}
+
+func (response SuggestItemTags401Response) VisitSuggestItemTagsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type SuggestItemTags503Response struct{}
+
+func (response SuggestItemTags503Response) VisitSuggestItemTagsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(503)
+	return nil
+}
+
 type GetChangesRequestObject struct {
 	Params GetChangesParams
 }
@@ -1300,6 +1448,9 @@ type StrictServerInterface interface {
 	// return family info with members
 	// (GET /v1/family)
 	GetFamily(ctx context.Context, request GetFamilyRequestObject) (GetFamilyResponseObject, error)
+	// update family settings (e.g. AI tagging)
+	// (PATCH /v1/family)
+	UpdateFamilySettings(ctx context.Context, request UpdateFamilySettingsRequestObject) (UpdateFamilySettingsResponseObject, error)
 	// fix storage issues for current user
 	// (POST /v1/health/fix)
 	FixHealthIssues(ctx context.Context, request FixHealthIssuesRequestObject) (FixHealthIssuesResponseObject, error)
@@ -1324,6 +1475,9 @@ type StrictServerInterface interface {
 	// upsert diary item
 	// (PUT /v1/items)
 	PutItems(ctx context.Context, request PutItemsRequestObject) (PutItemsResponseObject, error)
+	// suggest tags for draft entry content (does not save)
+	// (POST /v1/items/suggest-tags)
+	SuggestItemTags(ctx context.Context, request SuggestItemTagsRequestObject) (SuggestItemTagsResponseObject, error)
 	// get changes for synchronization
 	// (GET /v1/sync/changes)
 	GetChanges(ctx context.Context, request GetChangesRequestObject) (GetChangesResponseObject, error)
@@ -1468,6 +1622,37 @@ func (sh *strictHandler) GetFamily(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetFamilyResponseObject); ok {
 		if err := validResponse.VisitGetFamilyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateFamilySettings operation middleware
+func (sh *strictHandler) UpdateFamilySettings(w http.ResponseWriter, r *http.Request) {
+	var request UpdateFamilySettingsRequestObject
+
+	var body UpdateFamilySettingsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateFamilySettings(ctx, request.(UpdateFamilySettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateFamilySettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateFamilySettingsResponseObject); ok {
+		if err := validResponse.VisitUpdateFamilySettingsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -1691,6 +1876,37 @@ func (sh *strictHandler) PutItems(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutItemsResponseObject); ok {
 		if err := validResponse.VisitPutItemsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SuggestItemTags operation middleware
+func (sh *strictHandler) SuggestItemTags(w http.ResponseWriter, r *http.Request) {
+	var request SuggestItemTagsRequestObject
+
+	var body SuggestItemTagsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SuggestItemTags(ctx, request.(SuggestItemTagsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SuggestItemTags")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SuggestItemTagsResponseObject); ok {
+		if err := validResponse.VisitSuggestItemTagsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -33,6 +33,10 @@ type Suggester interface {
 	SuggestTags(ctx context.Context, title, body string, knownTags []string) ([]TagSuggestion, error)
 }
 
+// NewDisabledSuggester returns a Suggester that is always disabled. Useful for
+// tests and for callers that want to wire a no-op suggester explicitly.
+func NewDisabledSuggester() Suggester { return disabledSuggester{} }
+
 // disabledSuggester is used when no API key is configured.
 type disabledSuggester struct{}
 

@@ -384,6 +384,64 @@ func (s *StrictServerImpl) GetFamily(ctx context.Context, _ GetFamilyRequestObje
 	}
 }
 
+// --- UpdateFamilySettings ---
+
+func (s *StrictServerImpl) UpdateFamilySettings(
+	ctx context.Context, req UpdateFamilySettingsRequestObject,
+) (UpdateFamilySettingsResponseObject, error) {
+	if req.Body == nil {
+		return UpdateFamilySettings400Response{}, nil
+	}
+	resp, err := s.family.UpdateFamilySettings(ctx, *req.Body)
+	if err != nil {
+		return nil, err
+	}
+	switch resp.Code {
+	case http.StatusOK:
+		body, ok := resp.Body.(FamilyResponse)
+		if !ok {
+			return nil, fmt.Errorf("UpdateFamilySettings: unexpected body type %T", resp.Body)
+		}
+		return UpdateFamilySettings200JSONResponse(body), nil
+	case http.StatusBadRequest:
+		return UpdateFamilySettings400Response{}, nil
+	case http.StatusUnauthorized:
+		return UpdateFamilySettings401Response{}, nil
+	default:
+		return nil, fmt.Errorf("UpdateFamilySettings: unexpected status %d", resp.Code)
+	}
+}
+
+// --- SuggestItemTags ---
+
+func (s *StrictServerImpl) SuggestItemTags(
+	ctx context.Context, req SuggestItemTagsRequestObject,
+) (SuggestItemTagsResponseObject, error) {
+	if req.Body == nil {
+		return SuggestItemTags400Response{}, nil
+	}
+	resp, err := s.items.SuggestItemTags(ctx, *req.Body)
+	if err != nil {
+		return nil, err
+	}
+	switch resp.Code {
+	case http.StatusOK:
+		body, ok := resp.Body.(SuggestTagsResponse)
+		if !ok {
+			return nil, fmt.Errorf("SuggestItemTags: unexpected body type %T", resp.Body)
+		}
+		return SuggestItemTags200JSONResponse(body), nil
+	case http.StatusBadRequest:
+		return SuggestItemTags400Response{}, nil
+	case http.StatusUnauthorized:
+		return SuggestItemTags401Response{}, nil
+	case http.StatusServiceUnavailable:
+		return SuggestItemTags503Response{}, nil
+	default:
+		return nil, fmt.Errorf("SuggestItemTags: unexpected status %d", resp.Code)
+	}
+}
+
 // UploadAssetsBatch501Response is a placeholder for the not-implemented batch upload via strict server.
 type UploadAssetsBatch501Response struct{}
 

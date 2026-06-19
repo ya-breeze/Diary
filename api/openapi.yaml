@@ -69,6 +69,28 @@ paths:
           description: Unauthorized
         "404":
           description: Family not found
+    patch:
+      tags:
+        - family
+      summary: update family settings (e.g. AI tagging)
+      operationId: updateFamilySettings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FamilySettingsRequest"
+        required: true
+      responses:
+        "200":
+          description: updated family object
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyResponse"
+        "400":
+          description: Invalid request data
+        "401":
+          description: Unauthorized
 
   /v1/assets:
     get:
@@ -194,6 +216,32 @@ paths:
           description: Invalid request data
         "401":
           description: Unauthorized
+
+  /v1/items/suggest-tags:
+    post:
+      tags:
+        - items
+      summary: suggest tags for draft entry content (does not save)
+      operationId: suggestItemTags
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuggestTagsRequest"
+        required: true
+      responses:
+        "200":
+          description: suggested tags
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuggestTagsResponse"
+        "400":
+          description: Invalid request data
+        "401":
+          description: Unauthorized
+        "503":
+          description: AI tagging is not available (no API key or disabled for family)
 
   /v1/health/issues:
     get:
@@ -456,9 +504,22 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/FamilyMember"
+            aiTaggingEnabled:
+              type: boolean
+              description: "Per-family master switch for AI tag suggestion"
+              example: false
           required:
             - name
             - members
+
+    FamilySettingsRequest:
+      type: object
+      properties:
+        aiTaggingEnabled:
+          type: boolean
+          example: true
+      required:
+        - aiTaggingEnabled
 
     ItemsRequest:
       type: object
@@ -519,6 +580,47 @@ components:
       required:
         - date
         - title
+
+    SuggestTagsRequest:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          example: "2024-01-15"
+        title:
+          type: string
+          example: "My diary entry"
+        body:
+          type: string
+          example: "Today was a great day at the beach..."
+      required:
+        - date
+        - title
+
+    TagSuggestion:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "beach"
+        confidence:
+          type: number
+          format: double
+          example: 0.92
+      required:
+        - name
+        - confidence
+
+    SuggestTagsResponse:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/TagSuggestion"
+      required:
+        - tags
 
     ItemsListResponse:
       type: object
