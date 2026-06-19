@@ -22,11 +22,11 @@ export default function DiaryEntryPage() {
   }, [editParam]);
 
   const handleEdit = () => {
-    router.push(`/diary/${date}?edit=true`);
+    router.replace(`/diary/${date}?edit=true`);
   };
 
   const handleCloseEdit = () => {
-    router.push(`/diary/${date}`);
+    router.replace(`/diary/${date}`);
   };
 
   const handleSaved = () => {
@@ -48,7 +48,7 @@ export default function DiaryEntryPage() {
       <div className="h-full">
         <EntryEditor
           initialDate={date}
-          onClose={() => router.push('/diary')}
+          onClose={() => router.replace('/diary')}
           onSave={handleSaved}
         />
       </div>

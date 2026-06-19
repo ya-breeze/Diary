@@ -174,7 +174,7 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
       });
 
       onSave?.();
-      router.push(`/diary/${currentDate}`);
+      router.replace(`/diary/${currentDate}`);
     } catch (error) {
       console.error('Save failed:', error);
     }
@@ -184,7 +184,9 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
     if (onClose) {
       onClose();
     } else {
-      router.back();
+      // Fallback: close to the viewer for the current date, consistent with
+      // the replace-based navigation model (router.back() could leave the page).
+      router.replace(`/diary/${currentDate}`);
     }
   };
 
