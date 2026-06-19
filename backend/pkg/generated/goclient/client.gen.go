@@ -146,9 +146,12 @@ type ItemsRequest struct {
 
 // ItemsResponse defines model for ItemsResponse.
 type ItemsResponse struct {
-	Body         *string             `json:"body,omitempty"`
-	Date         openapi_types.Date  `json:"date"`
-	NextDate     *openapi_types.Date `json:"nextDate,omitempty"`
+	Body     *string             `json:"body,omitempty"`
+	Date     openapi_types.Date  `json:"date"`
+	NextDate *openapi_types.Date `json:"nextDate,omitempty"`
+
+	// PendingTags AI-suggested tags awaiting user acceptance (disjoint from tags)
+	PendingTags  *[]string           `json:"pendingTags,omitempty"`
 	PreviousDate *openapi_types.Date `json:"previousDate,omitempty"`
 	Tags         *[]string           `json:"tags,omitempty"`
 	Title        string              `json:"title"`

@@ -373,3 +373,17 @@ func (mr *MockStorageMockRecorder) RemoveIgnoredOrphan(arg0, arg1 interface{}) *
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveIgnoredOrphan", reflect.TypeOf((*MockStorage)(nil).RemoveIgnoredOrphan), arg0, arg1)
 }
+
+// SetPendingTags mocks base method.
+func (m *MockStorage) SetPendingTags(arg0 uuid.UUID, arg1 string, arg2 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetPendingTags", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetPendingTags indicates an expected call of SetPendingTags.
+func (mr *MockStorageMockRecorder) SetPendingTags(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPendingTags", reflect.TypeOf((*MockStorage)(nil).SetPendingTags), arg0, arg1, arg2)
+}

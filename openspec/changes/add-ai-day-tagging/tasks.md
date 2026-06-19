@@ -4,10 +4,10 @@ Organized by the four phases from the proposal. Each phase is independently ship
 
 ## 1. Phase 1 — Data model & migration (text-only foundation)
 
-- [ ] 1.1 Add `PendingTags StringList` and `TagsSourceHash string` fields to the `Item` model
-- [ ] 1.2 Add GORM auto-migration for the two new columns; verify existing rows get empty/null values and are treated as stale
-- [ ] 1.3 Implement `ComputeTagsSourceHash(title, body, assets)` helper: hash of `title + body + join(sorted(GetAssetsFromMarkdown(body)), ",")`
-- [ ] 1.4 Add `pendingTags` to the entry read/edit schemas in `api/openapi.yaml`; run `make generate`
+- [x] 1.1 Add `PendingTags StringList` and `TagsSourceHash string` fields to the `Item` model
+- [x] 1.2 Add GORM auto-migration for the two new columns (additive nullable columns handled by existing `autoMigrateModels` AutoMigrate; existing rows get NULL → empty → stale)
+- [x] 1.3 Implement `ComputeTagsSourceHash(title, body)` helper in `pkg/utils` (strips image refs from the text component, re-adds sorted asset filenames, so reordering is invariant); covered by `tags_hash_test.go`
+- [x] 1.4 Add `pendingTags` to `ItemsResponse` in `api/openapi.yaml`, run `make generate`, surface it in `GetItems`/`PutItems`. Storage `PutItem` sets the hash and keeps pending/confirmed disjoint; added `SetPendingTags` for the async retag
 
 ## 2. Phase 1 — `pkg/ai/` suggester (text-only)
 

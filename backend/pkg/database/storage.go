@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/database/models"
+	"github.com/ya-breeze/diary.be/pkg/utils"
 	coremodels "github.com/ya-breeze/kin-core/models"
 	"gorm.io/gorm"
 )
@@ -50,6 +51,11 @@ type Storage interface {
 	GetItem(familyID uuid.UUID, date string) (*models.Item, error)
 	GetItems(familyID uuid.UUID, searchParams SearchParams) ([]*models.Item, int, error)
 	PutItem(familyID uuid.UUID, item *models.Item) error
+	// SetPendingTags overwrites the AI suggestion list for an entry without
+	// creating a change-log record (suggestions are not user content). Names
+	// already present in the entry's confirmed Tags are pruned to keep the two
+	// lists disjoint.
+	SetPendingTags(familyID uuid.UUID, date string, pending []string) error
 	DeleteItem(familyID uuid.UUID, date string) error
 
 	GetPreviousDate(familyID uuid.UUID, date string) (string, error)
@@ -310,9 +316,19 @@ func (s *storage) PutItem(familyID uuid.UUID, item *models.Item) error {
 	// Preserve existing ID on update
 	if isUpdate {
 		item.ID = existingItem.ID
+		// Suggestions are server-managed and not carried on the save request; keep
+		// any existing pending suggestions unless the caller explicitly set them.
+		if len(item.PendingTags) == 0 {
+			item.PendingTags = existingItem.PendingTags
+		}
 	} else {
 		item.ID = uuid.New()
 	}
+
+	// Always refresh the staleness hash from the saved content.
+	item.TagsSourceHash = utils.ComputeTagsSourceHash(item.Title, item.Body)
+	// Keep pending and confirmed tags disjoint: never suggest a tag the user has confirmed.
+	item.PendingTags = prunePendingTags(item.PendingTags, item.Tags)
 
 	// Save the item
 	if err := tx.Save(item).Error; err != nil {
@@ -336,6 +352,42 @@ func (s *storage) PutItem(familyID uuid.UUID, item *models.Item) error {
 		return fmt.Errorf(StorageError, err)
 	}
 
+	return nil
+}
+
+// prunePendingTags returns pending with any name present in confirmed removed,
+// preserving order. Comparison is case-sensitive to match how tags are stored.
+func prunePendingTags(pending, confirmed models.StringList) models.StringList {
+	if len(pending) == 0 {
+		return pending
+	}
+	confirmedSet := make(map[string]struct{}, len(confirmed))
+	for _, t := range confirmed {
+		confirmedSet[t] = struct{}{}
+	}
+	out := make(models.StringList, 0, len(pending))
+	for _, t := range pending {
+		if _, ok := confirmedSet[t]; ok {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
+func (s *storage) SetPendingTags(familyID uuid.UUID, date string, pending []string) error {
+	var item models.Item
+	if err := s.db.Where("family_id = ? AND date = ?", familyID, date).First(&item).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrNotFound
+		}
+		return fmt.Errorf(StorageError, err)
+	}
+
+	item.PendingTags = prunePendingTags(models.StringList(pending), item.Tags)
+	if err := s.db.Model(&item).Update("pending_tags", item.PendingTags).Error; err != nil {
+		return fmt.Errorf(StorageError, err)
+	}
 	return nil
 }
 

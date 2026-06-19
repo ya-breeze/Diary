@@ -497,6 +497,12 @@ components:
           items:
             type: string
           example: ["personal", "work", "travel"]
+        pendingTags:
+          type: array
+          items:
+            type: string
+          description: "AI-suggested tags awaiting user acceptance (disjoint from tags)"
+          example: ["beach", "family"]
         body:
           type: string
           example: "Today was a great day..."

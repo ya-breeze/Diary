@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/google/uuid"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/ya-breeze/diary.be/pkg/database"
 	"github.com/ya-breeze/diary.be/pkg/database/models"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
@@ -62,12 +62,14 @@ func (s *ItemsAPIServiceImpl) GetItems(
 	responseItems := make([]goserver.ItemsResponse, len(items))
 	for i, item := range items {
 		tags := []string(item.Tags)
+		pendingTags := []string(item.PendingTags)
 		body := item.Body
 		responseItems[i] = goserver.ItemsResponse{
-			Date:  parseDate(item.Date),
-			Title: item.Title,
-			Body:  &body,
-			Tags:  &tags,
+			Date:        parseDate(item.Date),
+			Title:       item.Title,
+			Body:        &body,
+			Tags:        &tags,
+			PendingTags: &pendingTags,
 		}
 		s.addNavigationDates(&responseItems[i], familyID, item.Date)
 	}
@@ -138,12 +140,14 @@ func (s *ItemsAPIServiceImpl) PutItems(
 	}
 
 	savedTags := []string(item.Tags)
+	savedPendingTags := []string(item.PendingTags)
 	savedBody := item.Body
 	response := goserver.ItemsResponse{
-		Date:  parseDate(item.Date),
-		Title: item.Title,
-		Body:  &savedBody,
-		Tags:  &savedTags,
+		Date:        parseDate(item.Date),
+		Title:       item.Title,
+		Body:        &savedBody,
+		Tags:        &savedTags,
+		PendingTags: &savedPendingTags,
 	}
 
 	s.addNavigationDates(&response, familyID, item.Date)
