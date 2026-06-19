@@ -62,12 +62,11 @@ The viewer shows prev/next links to adjacent entries that have content.
 ---
 
 ## Requirement: Edit an entry
-The user can edit an existing entry or create a new one for a date.
+The user can edit an existing entry or create a new one for a date. Edit mode is reflected in the URL via `?edit=true`, but entering and leaving edit mode SHALL replace the current history entry rather than push a new one, so the browser/OS Back button does not accumulate edit-mode history entries.
 
 ### Scenario: Open editor from viewer
-- **GIVEN** the user is viewing an existing entry
 - **WHEN** they click the Edit button
-- **THEN** the URL changes to `/diary/[date]?edit=true`
+- **THEN** the URL changes to `/diary/[date]?edit=true` by replacing the current history entry (not pushing a new one)
 - **AND** a full-screen editor overlay is shown pre-filled with the entry's title, date, tags, and body
 
 ### Scenario: Title is required
@@ -91,18 +90,19 @@ The user can edit an existing entry or create a new one for a date.
 
 ### Scenario: Save closes editor and refreshes data
 - **WHEN** the user saves successfully
-- **THEN** the editor closes, the URL returns to `/diary/[date]` (without `?edit=true`)
+- **THEN** the editor closes and the URL returns to `/diary/[date]` (without `?edit=true`) by replacing the current history entry
 - **AND** the viewer re-fetches and shows the updated entry
 
 ### Scenario: Cancel discards changes
 - **WHEN** the user clicks Cancel in the editor
-- **THEN** the URL returns to `/diary/[date]` without saving
+- **THEN** the URL returns to `/diary/[date]` (without `?edit=true`) by replacing the current history entry, without saving
 - **AND** the entry is unchanged
 
-### Scenario: Edit state syncs with URL
-- **GIVEN** the user is on `/diary/[date]?edit=true`
-- **WHEN** they press the browser Back button
-- **THEN** the URL changes to `/diary/[date]` and the editor closes
+### Scenario: Back button does not stack edit-mode history
+- **GIVEN** the user opened the app, navigated to `/diary/[date]`, entered edit mode, and saved or cancelled
+- **WHEN** they press the browser/OS Back button
+- **THEN** they return to the previous real page (the entry list), not back into the editor or a duplicate viewer
+- **AND** a single further Back press leaves the diary
 
 ---
 

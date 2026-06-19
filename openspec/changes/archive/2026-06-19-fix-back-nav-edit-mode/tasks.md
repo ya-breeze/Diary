@@ -13,4 +13,4 @@
 
 - [x] 3.1 Run `tsc --noEmit` in `next-frontend` and confirm no type errors
 - [x] 3.2 Deploy the branch to the diary WIP stack and run the e2e suite against it (`BASE_URL=<wip-url> npx playwright test`)
-- [ ] 3.3 Confirm on mobile that one Back press returns to the list and a second leaves the diary
+- [x] 3.3 Confirm on mobile that one Back press returns to the list and a second leaves the diary
