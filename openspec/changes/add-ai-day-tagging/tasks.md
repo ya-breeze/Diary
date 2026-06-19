@@ -66,3 +66,4 @@ Organized by the four phases from the proposal. Each phase is independently ship
 - [ ] 8.1 Update Diary `CLAUDE.md`/docs: `GEMINI_API_KEY`, `ai_tagging_*` flags, ffmpeg dependency, `pkg/ai/` overview
 - [ ] 8.2 Run `make lint` and `make build`; fix issues
 - [ ] 8.3 Run full E2E against the WIP stack; confirm graceful degradation with no API key set
+- [ ] 8.4 On merge (last step before finishing the PR): flip `docs/adr/ADR-011` status from `Proposed` to `Accepted` and archive this OpenSpec change
