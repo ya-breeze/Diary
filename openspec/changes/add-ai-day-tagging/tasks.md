@@ -32,7 +32,7 @@ Organized by the four phases from the proposal. Each phase is independently ship
 - [x] 4.2 "Suggest tags" button in the editor calling the suggest endpoint
 - [x] 4.3 In-editor debounced auto-suggest (~4s idle, content-change-gated via `lastSuggestedRef`); always suggest, never apply
 - [x] 4.4 Settings UI toggle for `ai_tagging_enabled` on the profile page
-- [~] 4.5 E2E spec written (`e2e/tests/ai-tagging.spec.ts`): toggle persists; suggest button visibility follows the setting. Suggestion content needs a live key (non-deterministic), so not asserted. **Run pending a diary-wip deploy.**
+- [x] 4.5 E2E (`e2e/tests/ai-tagging.spec.ts`, registered as a playwright project): toggle persists; suggest button visibility follows the setting. **Passed against diary-wip (3/3); entry + navigation suites also green (no regressions).** Suggestion content needs a live key (non-deterministic), so not asserted.
 
 ## 5. Phase 2 — Image-based suggestions
 
@@ -63,7 +63,7 @@ Organized by the four phases from the proposal. Each phase is independently ship
 
 ## 8. Cross-cutting & verification
 
-- [ ] 8.1 Update Diary `CLAUDE.md`/docs: `GEMINI_API_KEY`, `ai_tagging_*` flags, ffmpeg dependency, `pkg/ai/` overview
-- [ ] 8.2 Run `make lint` and `make build`; fix issues
-- [ ] 8.3 Run full E2E against the WIP stack; confirm graceful degradation with no API key set
+- [x] 8.1 Document `GEMINI_API_KEY` + the AI tag suggestion feature in `README.md` (ffmpeg/`ai_tagging_*` media+backfill flags arrive with phases 2–4)
+- [x] 8.2 `make build` clean; backend + frontend lint clean for changed files (remaining findings are pre-existing baseline)
+- [x] 8.3 Full E2E green against diary-wip; graceful degradation confirmed — no `GEMINI_API_KEY` on the stack, suggest endpoint returns 503, app otherwise unaffected
 - [ ] 8.4 On merge (last step before finishing the PR): flip `docs/adr/ADR-011` status from `Proposed` to `Accepted` and archive this OpenSpec change
