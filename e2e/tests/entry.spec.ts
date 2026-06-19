@@ -3,7 +3,8 @@ import { ensureEntry } from './helpers';
 
 const TEST_DATE = '2010-06-15';      // used by test 1 (create+persist)
 const EDIT_TEST_DATE = '2010-06-16'; // used by test 2 (edit flow)
-const BACK_NAV_DATE = '2010-06-17';  // used by test 4 (back-button history)
+const BACK_NAV_PREV_DATE = '2010-06-17'; // test 4: the back-target entry
+const BACK_NAV_DATE = '2010-06-18';      // test 4: the entry we edit
 
 test.describe('Diary entries', () => {
     test('create entry: write, save, reload, content persists', async ({ page }) => {
@@ -48,24 +49,27 @@ test.describe('Diary entries', () => {
     });
 
     test('back button after edit+save does not re-enter the editor', async ({ page }) => {
+        await ensureEntry(page, BACK_NAV_PREV_DATE, 'Prev Nav Entry', 'Prev body');
         await ensureEntry(page, BACK_NAV_DATE, 'Back Nav Entry', 'Back nav body');
 
-        // Build a real history stack via in-app clicks: viewer -> edit -> save -> viewer.
-        // Entering/leaving edit mode must replace (not push) history, so a single
-        // Back press from the viewer must NOT land back in the editor.
+        // Build a real back-target: land on the previous entry, then navigate to
+        // the entry we edit (a distinct URL, so a genuine history entry is pushed).
+        await page.goto(`/diary/${BACK_NAV_PREV_DATE}`);
+        await expect(page.getByRole('article').getByRole('heading', { name: 'Prev Nav Entry' })).toBeVisible({ timeout: 5000 });
         await page.goto(`/diary/${BACK_NAV_DATE}`);
         await expect(page.getByRole('article').getByRole('heading', { name: 'Back Nav Entry' })).toBeVisible({ timeout: 5000 });
 
+        // Edit then save. Entering/leaving edit mode must replace (not push)
+        // history, so the editor does not accumulate a history entry.
         await page.click('button:has-text("Edit")');
         await expect(page).toHaveURL(new RegExp(`/diary/${BACK_NAV_DATE}\\?edit=true`), { timeout: 5000 });
 
         await page.click('button[type="submit"]:has-text("Save Changes")');
         await expect(page).toHaveURL(new RegExp(`/diary/${BACK_NAV_DATE}$`), { timeout: 10000 });
 
-        // One Back press: editor must not reappear. Assert we land back on the
-        // viewer (not ?edit=true, not some unexpected page) with no title input.
+        // One Back press must return to the PREVIOUS entry, not re-enter the editor.
         await page.goBack();
-        await expect(page).toHaveURL(new RegExp(`/diary/${BACK_NAV_DATE}$`), { timeout: 5000 });
+        await expect(page).toHaveURL(new RegExp(`/diary/${BACK_NAV_PREV_DATE}$`), { timeout: 5000 });
         await expect(page.locator('input[placeholder="Enter a title..."]')).toHaveCount(0);
     });
 });
