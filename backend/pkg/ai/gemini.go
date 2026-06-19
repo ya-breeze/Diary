@@ -9,7 +9,7 @@ import (
 	"google.golang.org/genai"
 )
 
-const defaultModel = "gemini-2.0-flash"
+const defaultModel = "gemini-2.5-flash"
 
 // geminiSuggester is the live, API-backed Suggester.
 type geminiSuggester struct {
