@@ -4,6 +4,8 @@ Diary stores one entry per `(family, date)` with `Title`, `Body` (markdown that 
 
 The sibling project KinCart already integrates Gemini in `internal/ai/gemini.go`: `google.golang.org/genai`, model `gemini-2.0-flash`, `GEMINI_API_KEY`, strict `ResponseSchema` structured output, multimodal via inline `Blob` parts, and a "known items" list injected into the prompt to keep the model on the user's existing vocabulary. This change ports that proven pattern. Diary has no AI dependency today.
 
+The architectural decisions below are recorded as **ADR-011** (`docs/adr/ADR-011-ai-tag-suggestion-gemini.md`); this section is the working rationale, the ADR is the durable record.
+
 ## Goals / Non-Goals
 
 **Goals:**

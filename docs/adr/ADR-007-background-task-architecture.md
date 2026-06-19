@@ -26,6 +26,8 @@ Chosen: **In-process goroutines**, one per task, started in `server.Serve()` and
 
 `CheckerTask` runs health checks (`MimeCheck`, `OrphansCheck`, `RefsCheck`) on a configurable interval (`DIARY_HEALTH_CHECK_INTERVAL`, default `24h`). Results are stored in memory and served via `GET /v1/health`.
 
+> **Update (ADR-011):** a fourth check, `UntaggedCheck`, was added to this same goroutine to back AI tag backfill. It runs only for families with `ai_tagging_backfill` enabled. See ADR-011.
+
 `BackupTask` creates a `diary-backup-YYYY-MM-DD.tar.gz` of the data directory on a configurable interval (`DIARY_BACKUP_INTERVAL`, default `24h`), retaining at most `DIARY_BACKUP_MAX_COUNT` archives.
 
 ### Pros
