@@ -17,6 +17,7 @@ services:
       DIARY_MAXPERFILESIZEMB: ${DIARY_MAXPERFILESIZEMB:-200}
       DIARY_MAXBATCHFILES: ${DIARY_MAXBATCHFILES:-100}
       DIARY_MAXBATCHTOTALSIZEMB: ${DIARY_MAXBATCHTOTALSIZEMB:-1000}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     volumes:
       # External volume for database and assets
       - ${DIARY_DATA_PATH:-./diary-data}:/data
