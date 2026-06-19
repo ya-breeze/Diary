@@ -62,9 +62,10 @@ test.describe('Diary entries', () => {
         await page.click('button[type="submit"]:has-text("Save Changes")');
         await expect(page).toHaveURL(new RegExp(`/diary/${BACK_NAV_DATE}$`), { timeout: 10000 });
 
-        // One Back press: editor must not reappear (no ?edit=true, no title input).
+        // One Back press: editor must not reappear. Assert we land back on the
+        // viewer (not ?edit=true, not some unexpected page) with no title input.
         await page.goBack();
-        await expect(page).not.toHaveURL(/edit=true/, { timeout: 5000 });
+        await expect(page).toHaveURL(new RegExp(`/diary/${BACK_NAV_DATE}$`), { timeout: 5000 });
         await expect(page.locator('input[placeholder="Enter a title..."]')).toHaveCount(0);
     });
 });
