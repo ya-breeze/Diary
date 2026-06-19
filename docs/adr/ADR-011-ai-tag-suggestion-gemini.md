@@ -28,7 +28,7 @@ Tagging diary days by hand is tedious, so entries are often left untagged or tag
 
 ## Decision Outcome
 
-Chosen: **Google Gemini** (`google.golang.org/genai`, model `gemini-2.0-flash`) behind a new `pkg/ai/` package, mirroring KinCart's client shape — strict `ResponseSchema` structured output (`{tags:[{name,confidence}]}`) and a `knownTags` vocabulary list injected into the prompt ("prefer these, coin at most ~2 new").
+Chosen: **Google Gemini** (`google.golang.org/genai`, model `gemini-2.5-flash-lite`) behind a new `pkg/ai/` package, mirroring KinCart's client shape — strict `ResponseSchema` structured output (`{tags:[{name,confidence}]}`) and a `knownTags` vocabulary list injected into the prompt ("prefer these, coin at most ~2 new").
 
 - **Env-gated, graceful degradation**: the client is constructed only when `GEMINI_API_KEY` is set; absent the key, every tagging trigger is a no-op and the rest of the app is unaffected. Per-family `ai_tagging_*` settings (all default off) gate the feature beyond the key.
 - **Suggest, not apply (default)**: suggestions land in a `pending_tags` field, separate from confirmed `tags`. The user accepts per-tag (chip click) to move a suggestion into `tags`. AI is **additive-only** — it never deletes, renames, or wholesale-replaces a confirmed tag. The two lists are kept disjoint.
@@ -51,7 +51,7 @@ Chosen: **Google Gemini** (`google.golang.org/genai`, model `gemini-2.0-flash`) 
 
 - Introduces an external runtime dependency on a third-party LLM with its own latency, cost, and availability characteristics
 - Media tagging sends personal photos/video frames to a third party (mitigated: opt-in, off by default)
-- `gemini-2.0-flash` is a specific model choice that will need revisiting as models evolve
+- `gemini-2.5-flash-lite` is a specific model choice that will need revisiting as models evolve
 - ffmpeg becomes a runtime dependency for the video phase
 - No rejection memory in v1: a user who deletes a tag relies on the "untagged-only auto-apply" guard rather than an explicit dismissed-tags list (deferred enhancement)
 - `tags_source_hash` includes asset filenames, so in the text-only phase a pure image change can trigger a redundant text-only retag (harmless; correct once media phases land)

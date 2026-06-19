@@ -2,7 +2,7 @@
 
 Diary stores one entry per `(family, date)` with `Title`, `Body` (markdown that embeds asset references via `![alt](filename)`), and `Tags` (a string list). Assets live on disk under `<data_path>/assets/<familyID>/`; `utils.GetAssetsFromMarkdown(body)` already extracts the filenames a given entry references. A background health subsystem (`pkg/checker`) runs `mime`, `orphans`, and `refs` checks on a 24h schedule and exposes results via `GET /v1/health/issues` + `POST /v1/health/fix`; each `Issue` carries an optional `fix func() error`.
 
-The sibling project KinCart already integrates Gemini in `internal/ai/gemini.go`: `google.golang.org/genai`, model `gemini-2.0-flash`, `GEMINI_API_KEY`, strict `ResponseSchema` structured output, multimodal via inline `Blob` parts, and a "known items" list injected into the prompt to keep the model on the user's existing vocabulary. This change ports that proven pattern. Diary has no AI dependency today.
+The sibling project KinCart already integrates Gemini in `internal/ai/gemini.go`: `google.golang.org/genai`, `GEMINI_API_KEY`, strict `ResponseSchema` structured output, multimodal via inline `Blob` parts, and a "known items" list injected into the prompt to keep the model on the user's existing vocabulary. This change ports that proven pattern (Diary uses the cheaper `gemini-2.5-flash-lite` model). Diary has no AI dependency today.
 
 The architectural decisions below are recorded as **ADR-011** (`docs/adr/ADR-011-ai-tag-suggestion-gemini.md`); this section is the working rationale, the ADR is the durable record.
 

@@ -13,7 +13,7 @@ Organized by the four phases from the proposal. Each phase is independently ship
 
 - [x] 2.1 Add `google.golang.org/genai` to `go.mod` (v1.61.0); builds clean
 - [x] 2.2 Create `pkg/ai/` with `NewSuggester` reading `GEMINI_API_KEY`; returns a disabled suggester when unset (graceful degrade)
-- [x] 2.3 Implement text-only `SuggestTags(ctx, title, body, knownTags)` using `gemini-2.0-flash`, strict `ResponseSchema` for `{tags:[{name,confidence}]}`
+- [x] 2.3 Implement text-only `SuggestTags(ctx, title, body, knownTags)` using `gemini-2.5-flash-lite`, strict `ResponseSchema` for `{tags:[{name,confidence}]}`
 - [x] 2.4 Hybrid-vocabulary prompt: inject `knownTags`, instruct "prefer these, ≤2 new". (Exclusion of the entry's confirmed tags is owned by the service/storage layer, not the suggester — keeps the suggester focused.)
 - [x] 2.5 Unit tests: disabled suggester, blank-text short-circuit, prompt building, schema decode/clamp/dedupe, invalid JSON
 

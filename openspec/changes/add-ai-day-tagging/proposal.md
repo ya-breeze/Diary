@@ -4,7 +4,7 @@ Tagging diary days by hand is tedious, so entries are often left untagged or tag
 
 ## What Changes
 
-- Introduce a new `pkg/ai/` package wrapping Google Gemini (`google.golang.org/genai`, model `gemini-2.0-flash`), gated on `GEMINI_API_KEY`. If the key is unset, all AI features degrade gracefully (the rest of the app is unaffected). This is the first AI dependency in the project.
+- Introduce a new `pkg/ai/` package wrapping Google Gemini (`google.golang.org/genai`, model `gemini-2.5-flash-lite`), gated on `GEMINI_API_KEY`. If the key is unset, all AI features degrade gracefully (the rest of the app is unaffected). This is the first AI dependency in the project.
 - Add **tag suggestion** for a day from its `Title` + `Body` (phase 1, text-only), returning `{tags: [{name, confidence}]}` via strict structured output.
 - Suggestions never overwrite confirmed tags. A new **`pending_tags`** field on an entry holds un-accepted suggestions; the user accepts them per-tag (chip click) to move them into the confirmed `tags`.
 - **Hybrid vocabulary**: the family's existing distinct tags are passed as context so the model prefers them and may coin at most ~2 new tags per call. New tags join the known set on subsequent runs.
