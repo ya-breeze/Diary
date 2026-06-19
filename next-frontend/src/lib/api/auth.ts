@@ -15,4 +15,10 @@ export const authApi = {
 
   getUser: () => apiClient<User>('/v1/user'),
   getFamily: () => apiClient<Family>('/v1/family'),
+
+  updateFamilySettings: (settings: { aiTaggingEnabled: boolean }) =>
+    apiClient<Family>('/v1/family', {
+      method: 'PATCH',
+      body: settings,
+    }),
 };
