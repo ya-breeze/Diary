@@ -20,7 +20,7 @@ Organized by the four phases from the proposal. Each phase is independently ship
 ## 3. Phase 1 — Suggestion wiring & API
 
 - [ ] 3.1 Add per-family `ai_tagging_enabled` config (storage + read/update); default off
-- [ ] 3.2 Implement `POST /v1/entries/{date}/suggest-tags` returning `{tags:[{name,confidence}]}` without writing; 0 results / unavailable when key or flag missing
+- [ ] 3.2 Implement `POST /v1/items/suggest-tags` (draft `date`/`title`/`body` in body, matching the existing `/v1/items` resource style) returning `{tags:[{name,confidence}]}` without writing; 0 results / unavailable when key or flag missing
 - [ ] 3.3 Implement "accept suggestion" path: move a name from `pending_tags` into confirmed `tags`
 - [ ] 3.4 On entry save: recompute `tags_source_hash`; when changed, enqueue async retag that writes suggestions into `pending_tags` (non-auto default)
 - [ ] 3.5 Source the family's distinct existing tags as `knownTags` for suggestion calls

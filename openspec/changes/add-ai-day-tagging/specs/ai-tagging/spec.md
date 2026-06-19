@@ -43,12 +43,23 @@ The system SHALL bias suggestions toward the family's existing tags and SHALL li
 - **THEN** at most approximately two tags not already in the family's existing set are introduced
 
 ### Requirement: Pending suggestions never overwrite confirmed tags
-Suggestions SHALL be stored in a `pending_tags` field separate from the confirmed `tags`, and confirmed tags SHALL only change through explicit acceptance or, under auto mode, confident auto-apply.
+Every suggestion call SHALL return its suggestions in the API response. Suggestions persisted on an entry SHALL live in a `pending_tags` field separate from the confirmed `tags`, and confirmed tags SHALL only change through explicit acceptance or, under auto mode, confident auto-apply.
 
-#### Scenario: Suggestion populates pending tags
-- **WHEN** suggestions are produced for an entry in the default (non-auto) mode
+#### Scenario: Attended suggestion returns chips without persisting
+- **GIVEN** a brand-new, unsaved entry being edited
+- **WHEN** the explicit "suggest tags" action or the in-editor debounce produces suggestions
+- **THEN** the suggestions are returned in the response and shown as chips
+- **AND** nothing is written to storage (no `pending_tags` row exists yet for an unsaved entry)
+
+#### Scenario: Unattended suggestion persists to pending tags
+- **WHEN** an unattended trigger (save-and-leave or backfill) produces suggestions for an existing entry in the default (non-auto) mode
 - **THEN** the suggested tag names are stored in the entry's `pending_tags`
 - **AND** the entry's confirmed `tags` are unchanged
+
+#### Scenario: Reopening an entry shows previously persisted suggestions
+- **GIVEN** an entry whose `pending_tags` were populated by an earlier unattended trigger
+- **WHEN** the user opens that entry
+- **THEN** the persisted `pending_tags` are shown as accept-able chips
 
 #### Scenario: Accepting a suggestion moves it to confirmed tags
 - **GIVEN** an entry with `pending_tags` containing `"beach"`

@@ -8,7 +8,7 @@ Tagging diary days by hand is tedious, so entries are often left untagged or tag
 - Add **tag suggestion** for a day from its `Title` + `Body` (phase 1, text-only), returning `{tags: [{name, confidence}]}` via strict structured output.
 - Suggestions never overwrite confirmed tags. A new **`pending_tags`** field on an entry holds un-accepted suggestions; the user accepts them per-tag (chip click) to move them into the confirmed `tags`.
 - **Hybrid vocabulary**: the family's existing distinct tags are passed as context so the model prefers them and may coin at most ~2 new tags per call. New tags join the known set on subsequent runs.
-- **Explicit trigger**: a "suggest tags" action on the entry editor (`POST /v1/entries/{date}/suggest-tags`) returns suggestions without writing anything.
+- **Explicit trigger**: a "suggest tags" action on the entry editor (`POST /v1/items/suggest-tags`, with the draft `date`/`title`/`body` in the request body so it works on unsaved content) returns suggestions without writing anything.
 - **In-editor auto-suggest**: while editing, after a short debounce (~4s of inactivity, only if content changed), suggestions are fetched and shown as chips. The user is present, so this path always *suggests* — it never auto-applies.
 - **Edit-triggered retagging**: a `tags_source_hash` (hash of `Title` + `Body` + sorted asset filenames) is stored per entry. When an entry is saved and the hash changed, the day is retagged.
 - New per-family configuration: `ai_tagging_enabled`, `ai_tagging_use_images`, `ai_tagging_use_video`, `ai_tagging_backfill`, `ai_tagging_auto`.
