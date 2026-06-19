@@ -67,28 +67,12 @@ func (s *ItemsAPIServiceImpl) GetItems(
 
 	responseItems := make([]goserver.ItemsResponse, len(items))
 	for i, item := range items {
-		tags := []string(item.Tags)
-		pendingTags := []string(item.PendingTags)
-		body := item.Body
-		responseItems[i] = goserver.ItemsResponse{
-			Date:        parseDate(item.Date),
-			Title:       item.Title,
-			Body:        &body,
-			Tags:        &tags,
-			PendingTags: &pendingTags,
-		}
+		responseItems[i] = newItemResponse(item)
 		s.addNavigationDates(&responseItems[i], familyID, item.Date)
 	}
 
 	if date != "" && len(items) == 0 {
-		emptyTags := []string{}
-		emptyBody := ""
-		emptyItem := goserver.ItemsResponse{
-			Date:  parseDate(date),
-			Title: "",
-			Body:  &emptyBody,
-			Tags:  &emptyTags,
-		}
+		emptyItem := newItemResponse(&models.Item{Date: date})
 		s.addNavigationDates(&emptyItem, familyID, date)
 		responseItems = []goserver.ItemsResponse{emptyItem}
 		totalCount = 1
@@ -116,17 +100,7 @@ func (s *ItemsAPIServiceImpl) PutItems(
 	dateStr := itemsRequest.Date.Time.Format("2006-01-02")
 	s.logger.Info("Saving item", "familyID", familyID, "date", dateStr)
 
-	var filteredTags []string
-	if itemsRequest.Tags != nil {
-		filteredTags = make([]string, 0, len(*itemsRequest.Tags))
-		for _, t := range *itemsRequest.Tags {
-			t = strings.TrimSpace(t)
-			if t == "" {
-				continue
-			}
-			filteredTags = append(filteredTags, t)
-		}
-	}
+	filteredTags := filterTags(itemsRequest.Tags)
 
 	body := ""
 	if itemsRequest.Body != nil {
@@ -155,23 +129,49 @@ func (s *ItemsAPIServiceImpl) PutItems(
 	// Edit-triggered retag: when content changed and AI tagging is enabled, refresh
 	// the day's pending suggestions in the background (suggest-only in phase 1).
 	if contentChanged {
-		s.maybeRetag(familyID, dateStr, item.Title, item.Body, item.Tags)
+		s.maybeRetag(ctx, familyID, dateStr, item.Title, item.Body, item.Tags)
 	}
 
-	savedTags := []string(item.Tags)
-	savedPendingTags := []string(item.PendingTags)
-	savedBody := item.Body
-	response := goserver.ItemsResponse{
-		Date:        parseDate(item.Date),
-		Title:       item.Title,
-		Body:        &savedBody,
-		Tags:        &savedTags,
-		PendingTags: &savedPendingTags,
-	}
-
+	response := newItemResponse(item)
 	s.addNavigationDates(&response, familyID, item.Date)
 
 	return goserver.Response(200, response), nil
+}
+
+// newItemResponse maps a stored item to the API response shape. Tag lists are
+// normalized to non-nil slices so they serialize as [] rather than null.
+func newItemResponse(item *models.Item) goserver.ItemsResponse {
+	tags := nonNil([]string(item.Tags))
+	pendingTags := nonNil([]string(item.PendingTags))
+	body := item.Body
+	return goserver.ItemsResponse{
+		Date:        parseDate(item.Date),
+		Title:       item.Title,
+		Body:        &body,
+		Tags:        &tags,
+		PendingTags: &pendingTags,
+	}
+}
+
+func nonNil(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
+}
+
+// filterTags trims and drops empty entries from a request's tag list.
+func filterTags(in *[]string) []string {
+	if in == nil {
+		return nil
+	}
+	out := make([]string, 0, len(*in))
+	for _, t := range *in {
+		if t = strings.TrimSpace(t); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // SuggestItemTags - suggest tags for draft entry content without saving.
@@ -229,13 +229,15 @@ func (s *ItemsAPIServiceImpl) aiTaggingEnabled(familyID uuid.UUID) bool {
 // no-op unless AI tagging is enabled for the family. Errors are logged, not
 // surfaced — retagging is best-effort and must never block or fail a save.
 func (s *ItemsAPIServiceImpl) maybeRetag(
-	familyID uuid.UUID, date, title, body string, confirmed models.StringList,
+	ctx context.Context, familyID uuid.UUID, date, title, body string, confirmed models.StringList,
 ) {
 	if !s.aiTaggingEnabled(familyID) {
 		return
 	}
+	// Detach from the request lifecycle (preserving any context values) so the
+	// retag is not cancelled when the HTTP response returns.
+	ctx = context.WithoutCancel(ctx)
 	go func() {
-		ctx := context.Background()
 		knownTags, err := s.db.GetDistinctTags(familyID)
 		if err != nil {
 			s.logger.Error("Retag: failed to load known tags", "error", err, "familyID", familyID)
