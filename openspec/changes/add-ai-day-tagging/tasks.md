@@ -11,11 +11,11 @@ Organized by the four phases from the proposal. Each phase is independently ship
 
 ## 2. Phase 1 — `pkg/ai/` suggester (text-only)
 
-- [ ] 2.1 Add `google.golang.org/genai` to `go.mod`; run `make` to confirm it builds
-- [ ] 2.2 Create `pkg/ai/` with a `TagSuggester` constructor reading `GEMINI_API_KEY`; return a disabled/nil-capable client when unset (graceful degrade)
-- [ ] 2.3 Implement text-only `SuggestTags(ctx, title, body, knownTags []string)` using model `gemini-2.0-flash`, strict `ResponseSchema` for `{tags:[{name,confidence}]}`
-- [ ] 2.4 Implement hybrid-vocabulary prompt: inject `knownTags`, instruct "prefer these, coin at most ~2 new"; exclude already-confirmed tags from results
-- [ ] 2.5 Unit tests for schema decoding, empty-text short-circuit, and disabled-client behavior
+- [x] 2.1 Add `google.golang.org/genai` to `go.mod` (v1.61.0); builds clean
+- [x] 2.2 Create `pkg/ai/` with `NewSuggester` reading `GEMINI_API_KEY`; returns a disabled suggester when unset (graceful degrade)
+- [x] 2.3 Implement text-only `SuggestTags(ctx, title, body, knownTags)` using `gemini-2.0-flash`, strict `ResponseSchema` for `{tags:[{name,confidence}]}`
+- [x] 2.4 Hybrid-vocabulary prompt: inject `knownTags`, instruct "prefer these, ≤2 new". (Exclusion of the entry's confirmed tags is owned by the service/storage layer, not the suggester — keeps the suggester focused.)
+- [x] 2.5 Unit tests: disabled suggester, blank-text short-circuit, prompt building, schema decode/clamp/dedupe, invalid JSON
 
 ## 3. Phase 1 — Suggestion wiring & API
 
