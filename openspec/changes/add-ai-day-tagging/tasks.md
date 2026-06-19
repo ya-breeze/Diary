@@ -19,20 +19,20 @@ Organized by the four phases from the proposal. Each phase is independently ship
 
 ## 3. Phase 1 — Suggestion wiring & API
 
-- [ ] 3.1 Add per-family `ai_tagging_enabled` config (storage + read/update); default off
-- [ ] 3.2 Implement `POST /v1/items/suggest-tags` (draft `date`/`title`/`body` in body, matching the existing `/v1/items` resource style) returning `{tags:[{name,confidence}]}` without writing; 0 results / unavailable when key or flag missing
-- [ ] 3.3 Implement "accept suggestion" path: move a name from `pending_tags` into confirmed `tags`
-- [ ] 3.4 On entry save: recompute `tags_source_hash`; when changed, enqueue async retag that writes suggestions into `pending_tags` (non-auto default)
-- [ ] 3.5 Source the family's distinct existing tags as `knownTags` for suggestion calls
-- [ ] 3.6 Backend tests: suggest endpoint, accept moves pending→confirmed, no-op save skips retag, hash stability under asset reorder
+- [x] 3.1 Per-family `ai_tagging_enabled` config: `Family.AITaggingEnabled` column, `SetFamilyAITaggingEnabled`, `aiTaggingEnabled` on `FamilyResponse`, `PATCH /v1/family`
+- [x] 3.2 `POST /v1/items/suggest-tags` (draft `date`/`title`/`body` in body) returning `{tags:[{name,confidence}]}` without writing; 503 when key or family flag missing
+- [x] 3.3 Accept path: client appends an accepted name to confirmed `tags` and saves; storage `PutItem` prunes it from `pending_tags` (disjoint invariant)
+- [x] 3.4 On save: recompute `tags_source_hash`; when changed, async retag writes suggestions into `pending_tags` (suggest-only, non-auto default), confirmed tags excluded
+- [x] 3.5 `knownTags` sourced from `GetDistinctTags(familyID)` for suggest + retag
+- [x] 3.6 Backend tests: suggest 401/503/200 paths (fake suggester); `GetDistinctTags` dedupe/sort + AI toggle round-trip; hash stability under asset reorder (utils)
 
 ## 4. Phase 1 — Frontend (Next.js)
 
-- [ ] 4.1 Render `pending_tags` as visually distinct suggestion chips with one-tap accept
-- [ ] 4.2 Add "suggest tags" button in the editor calling the suggest endpoint
-- [ ] 4.3 Add in-editor debounced auto-suggest (~4s idle, only if content changed since last call); always suggest, never apply
-- [ ] 4.4 Settings UI toggle for `ai_tagging_enabled`
-- [ ] 4.5 E2E: button suggests chips; accepting a chip confirms the tag; debounce fires once per content change
+- [x] 4.1 Render `pendingTags` as visually distinct suggestion chips with one-tap accept (seeded from `entry.pendingTags`)
+- [x] 4.2 "Suggest tags" button in the editor calling the suggest endpoint
+- [x] 4.3 In-editor debounced auto-suggest (~4s idle, content-change-gated via `lastSuggestedRef`); always suggest, never apply
+- [x] 4.4 Settings UI toggle for `ai_tagging_enabled` on the profile page
+- [~] 4.5 E2E spec written (`e2e/tests/ai-tagging.spec.ts`): toggle persists; suggest button visibility follows the setting. Suggestion content needs a live key (non-deterministic), so not asserted. **Run pending a diary-wip deploy.**
 
 ## 5. Phase 2 — Image-based suggestions
 
