@@ -174,7 +174,7 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
       });
 
       onSave?.();
-      router.push(`/diary/${currentDate}`);
+      router.replace(`/diary/${currentDate}`);
     } catch (error) {
       console.error('Save failed:', error);
     }

@@ -3,6 +3,7 @@ import { ensureEntry } from './helpers';
 
 const TEST_DATE = '2010-06-15';      // used by test 1 (create+persist)
 const EDIT_TEST_DATE = '2010-06-16'; // used by test 2 (edit flow)
+const BACK_NAV_DATE = '2010-06-17';  // used by test 4 (back-button history)
 
 test.describe('Diary entries', () => {
     test('create entry: write, save, reload, content persists', async ({ page }) => {
@@ -44,5 +45,26 @@ test.describe('Diary entries', () => {
         await page.goto('/diary/1990-01-01?edit=true');
         // Empty entry shows EntryEditor when navigating with ?edit=true
         await expect(page.locator('input[placeholder="Enter a title..."]')).toBeVisible({ timeout: 5000 });
+    });
+
+    test('back button after edit+save does not re-enter the editor', async ({ page }) => {
+        await ensureEntry(page, BACK_NAV_DATE, 'Back Nav Entry', 'Back nav body');
+
+        // Build a real history stack via in-app clicks: viewer -> edit -> save -> viewer.
+        // Entering/leaving edit mode must replace (not push) history, so a single
+        // Back press from the viewer must NOT land back in the editor.
+        await page.goto(`/diary/${BACK_NAV_DATE}`);
+        await expect(page.getByRole('article').getByRole('heading', { name: 'Back Nav Entry' })).toBeVisible({ timeout: 5000 });
+
+        await page.click('button:has-text("Edit")');
+        await expect(page).toHaveURL(new RegExp(`/diary/${BACK_NAV_DATE}\\?edit=true`), { timeout: 5000 });
+
+        await page.click('button[type="submit"]:has-text("Save Changes")');
+        await expect(page).toHaveURL(new RegExp(`/diary/${BACK_NAV_DATE}$`), { timeout: 10000 });
+
+        // One Back press: editor must not reappear (no ?edit=true, no title input).
+        await page.goBack();
+        await expect(page).not.toHaveURL(/edit=true/, { timeout: 5000 });
+        await expect(page.locator('input[placeholder="Enter a title..."]')).toHaveCount(0);
     });
 });
