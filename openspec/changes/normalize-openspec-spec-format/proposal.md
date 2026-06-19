@@ -16,8 +16,11 @@ For each of the 7 spec files (`assets`, `auth`, `backup`, `entries`, `health`, `
 - Promote requirement headings `## Requirement:` → `### Requirement:`.
 - Promote scenario headings `### Scenario:` → `#### Scenario:`.
 - Remove the redundant `---` separators between requirements.
+- Reword each requirement *statement* to use a normative keyword (SHALL/MUST), which the validator requires — e.g. "Files can be added…" → "Files SHALL be addable…". (31 of 32 statements; one already used SHALL.)
 
-This is a **format-only migration** — no requirement text or scenario is added, removed, or semantically changed. Acceptance is `openspec validate --specs` passing for all 7 capabilities.
+This is a **non-behavioral migration**: scenario bodies (the GIVEN/WHEN/THEN that define actual behavior) are copied verbatim, and the requirement rewordings only add normative phrasing without changing meaning. Acceptance is `openspec validate --specs` passing for all 7 capabilities.
+
+> **Scope note:** the original plan was format-only. During implementation the validator revealed a second requirement — every requirement statement must contain SHALL/MUST — so the scope was expanded (with approval) to include normative rephrasing of 31 statements.
 
 ## Capabilities
 
