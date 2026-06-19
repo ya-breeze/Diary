@@ -9,7 +9,9 @@ import (
 	"google.golang.org/genai"
 )
 
-const defaultModel = "gemini-2.5-flash"
+// defaultModel is a low-cost flash-lite model — ample for short tagging tasks.
+// Pinned (not a -latest alias) for predictable cost/behavior; bump deliberately.
+const defaultModel = "gemini-2.5-flash-lite"
 
 // geminiSuggester is the live, API-backed Suggester.
 type geminiSuggester struct {
