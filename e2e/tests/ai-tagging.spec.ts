@@ -44,4 +44,26 @@ test.describe('AI tagging', () => {
         await expect(page.locator('input[placeholder="Enter a title..."]')).toBeVisible({ timeout: 5000 });
         await expect(page.locator(SUGGEST_BUTTON)).toHaveCount(0);
     });
+
+    test('backfill and auto sub-toggles appear only when AI tagging is on and persist', async ({ page }) => {
+        const backfill = '[data-testid="ai-backfill-toggle"]';
+        const auto = '[data-testid="ai-auto-toggle"]';
+
+        // Off: the sub-toggles are hidden.
+        await setAiTagging(page, false);
+        await expect(page.locator(backfill)).toHaveCount(0);
+        await expect(page.locator(auto)).toHaveCount(0);
+
+        // On: they appear; toggling each persists across reload.
+        await setAiTagging(page, true);
+        await expect(page.locator(backfill)).toBeVisible({ timeout: 5000 });
+        await page.locator(backfill).click();
+        await expect(page.locator(backfill)).toBeChecked({ timeout: 5000 });
+        await page.locator(auto).click();
+        await expect(page.locator(auto)).toBeChecked({ timeout: 5000 });
+
+        await page.reload();
+        await expect(page.locator(backfill)).toBeChecked();
+        await expect(page.locator(auto)).toBeChecked();
+    });
 });
