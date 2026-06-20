@@ -59,7 +59,8 @@ Every suggestion call SHALL return its suggestions in the API response. Suggesti
 #### Scenario: Reopening an entry shows previously persisted suggestions
 - **GIVEN** an entry whose `pending_tags` were populated by an earlier unattended trigger
 - **WHEN** the user opens that entry
-- **THEN** the persisted `pending_tags` are shown as accept-able chips
+- **THEN** the persisted `pending_tags` are shown as reviewable chips
+- **AND** they are shown regardless of whether AI tagging is currently enabled (they were already generated)
 
 #### Scenario: Accepting a suggestion moves it to confirmed tags
 - **GIVEN** an entry with `pending_tags` containing `"beach"`
@@ -71,6 +72,22 @@ Every suggestion call SHALL return its suggestions in the API response. Suggesti
 - **GIVEN** an entry whose confirmed `tags` already include `"work"`
 - **WHEN** suggestions are produced
 - **THEN** `"work"` does not appear in `pending_tags`
+
+### Requirement: Dismiss a pending suggestion
+A user SHALL be able to dismiss a single pending suggestion, removing it from the entry's `pending_tags` without adding it to the confirmed `tags`.
+
+#### Scenario: Dismissing a suggestion removes it from pending
+- **GIVEN** an entry with `pending_tags` containing `"hiking"` and `"mountains"`
+- **WHEN** the user dismisses the `"hiking"` suggestion
+- **THEN** `"hiking"` is removed from `pending_tags`
+- **AND** `"mountains"` remains in `pending_tags`
+- **AND** the confirmed `tags` are unchanged
+
+#### Scenario: Dismissing the last suggestion clears the entry from review
+- **GIVEN** an entry whose only pending suggestion is `"hiking"` and which appears in the backfill review list
+- **WHEN** the user dismisses `"hiking"`
+- **THEN** `pending_tags` becomes empty
+- **AND** the entry no longer appears as an untagged review item
 
 ### Requirement: AI never removes a confirmed tag
 AI tagging SHALL only ever add to the confirmed `tags` list; it SHALL NOT delete, rename, or replace any confirmed tag. Removal of a confirmed tag SHALL only occur through explicit user action.

@@ -37,5 +37,11 @@ export const diaryApi = {
       body: req,
     }),
 
+  dismissTag: (date: string, tag: string) =>
+    apiClient<DiaryEntry>('/v1/items/dismiss-tag', {
+      method: 'POST',
+      body: { date, tag },
+    }),
+
   getTags: () => apiClient<TagsResponse>('/v1/tags'),
 };

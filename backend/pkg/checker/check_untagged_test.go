@@ -39,6 +39,16 @@ func setupUntagged(t *testing.T) (database.Storage, *config.Config, func()) {
 	return s, cfg, func() { s.Close(); os.RemoveAll(tempDir) }
 }
 
+// makeLegacy clears a day's tags_source_hash, simulating an entry created before
+// AI tagging existed (an empty hash reads as "stale" → a backfill candidate).
+func makeLegacy(t *testing.T, s database.Storage, date string) {
+	t.Helper()
+	if err := s.GetDB().Model(&models.Item{}).
+		Where("date = ?", date).Update("tags_source_hash", "").Error; err != nil {
+		t.Fatalf("makeLegacy: %v", err)
+	}
+}
+
 func runUntagged(t *testing.T, s database.Storage, cfg *config.Config, sug ai.Suggester) []Issue {
 	t.Helper()
 	issues, err := UntaggedCheck{Suggester: sug}.Run(s, cfg, slog.Default())
@@ -82,6 +92,7 @@ func TestUntaggedNonAutoStagesPending(t *testing.T) {
 	_, _ = s.CreateUser("u", "p", fam.ID)
 	_ = s.SetFamilyAISettings(fam.ID, true, true, false) // backfill on, auto OFF
 	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "beach day"})
+	makeLegacy(t, s, "2024-01-01")
 
 	sug := fakeSuggester{enabled: true, suggestions: []ai.TagSuggestion{{Name: "beach", Confidence: 0.95}}}
 	issues := runUntagged(t, s, cfg, sug)
@@ -108,6 +119,7 @@ func TestUntaggedAutoConfidentFixApplies(t *testing.T) {
 	_, _ = s.CreateUser("u", "p", fam.ID)
 	_ = s.SetFamilyAISettings(fam.ID, true, true, true) // auto ON
 	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "beach day"})
+	makeLegacy(t, s, "2024-01-01")
 
 	sug := fakeSuggester{enabled: true, suggestions: []ai.TagSuggestion{{Name: "beach", Confidence: 0.95}}}
 	issues := runUntagged(t, s, cfg, sug)
@@ -129,6 +141,7 @@ func TestUntaggedAutoUncertainStagesPending(t *testing.T) {
 	_, _ = s.CreateUser("u", "p", fam.ID)
 	_ = s.SetFamilyAISettings(fam.ID, true, true, true) // auto ON
 	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "beach day"})
+	makeLegacy(t, s, "2024-01-01")
 
 	// Below threshold (0.8) → uncertain → manual review, not auto-applied.
 	sug := fakeSuggester{enabled: true, suggestions: []ai.TagSuggestion{{Name: "beach", Confidence: 0.5}}}
@@ -181,6 +194,7 @@ func TestUntaggedDoesNotRequeryStagedDays(t *testing.T) {
 	_, _ = s.CreateUser("u", "p", fam.ID)
 	_ = s.SetFamilyAISettings(fam.ID, true, true, false) // non-auto: stages pending
 	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "beach day"})
+	makeLegacy(t, s, "2024-01-01")
 
 	sug := &countingSuggester{out: []ai.TagSuggestion{{Name: "beach", Confidence: 0.95}}}
 
@@ -198,5 +212,35 @@ func TestUntaggedDoesNotRequeryStagedDays(t *testing.T) {
 	}
 	if sug.calls != 1 {
 		t.Fatalf("second run: model should not be called again, got %d calls", sug.calls)
+	}
+}
+
+func TestUntaggedDismissClearsFromReview(t *testing.T) {
+	s, cfg, done := setupUntagged(t)
+	defer done()
+	fam, _ := s.CreateFamily("f")
+	_, _ = s.CreateUser("u", "p", fam.ID)
+	_ = s.SetFamilyAISettings(fam.ID, true, true, false) // non-auto
+	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "beach day"})
+	makeLegacy(t, s, "2024-01-01")
+
+	sug := &countingSuggester{out: []ai.TagSuggestion{{Name: "beach", Confidence: 0.95}}}
+
+	// First run stages "beach" as pending and reports a review issue.
+	if issues := runUntagged(t, s, cfg, sug); len(issues) != 1 {
+		t.Fatalf("first run: expected 1 issue, got %d", len(issues))
+	}
+
+	// The user dismisses the only suggestion → pending becomes empty.
+	if err := s.SetPendingTags(fam.ID, "2024-01-01", nil); err != nil {
+		t.Fatalf("dismiss: %v", err)
+	}
+
+	// Next run must NOT re-surface or re-query the dismissed day.
+	if issues := runUntagged(t, s, cfg, sug); len(issues) != 0 {
+		t.Fatalf("after dismiss: expected no issue, got %+v", issues)
+	}
+	if sug.calls != 1 {
+		t.Fatalf("after dismiss: model should not be called again, got %d calls", sug.calls)
 	}
 }

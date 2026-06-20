@@ -67,6 +67,8 @@ Organized by the four phases from the proposal. Each phase is independently ship
 - [x] 7b.2 Staging `pending_tags` stamps `tags_source_hash`, so already-suggested days aren't re-queried every sweep (only on content change) — added `TestUntaggedDoesNotRequeryStagedDays`
 - [x] 7b.3 `untagged` issues are non-fixable review items; health panel renders them as **links to the entry** (`/diary/{date}?edit=true`), no generic Fix button
 - [x] 7b.4 Spec deltas updated (health): apply-on-sweep, no-re-query, review-link requirement
+- [x] 7b.5 Staged chips show regardless of the AI toggle (already-generated suggestions stay reviewable); refresh on editor date change
+- [x] 7b.6 Dismiss a suggestion: `POST /v1/items/dismiss-tag` removes one name from `pending_tags`; ✕ on each chip in the editor. Backfill skips already-processed days (hash current + no pending), so dismissing the last suggestion clears it from review. Spec delta added (ai-tagging: "Dismiss a pending suggestion")
 
 ## 8. Cross-cutting & verification
 

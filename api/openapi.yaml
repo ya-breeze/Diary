@@ -243,6 +243,32 @@ paths:
         "503":
           description: AI tagging is not available (no API key or disabled for family)
 
+  /v1/items/dismiss-tag:
+    post:
+      tags:
+        - items
+      summary: dismiss a pending suggested tag for a day (removes it from pending)
+      operationId: dismissItemTag
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DismissTagRequest"
+        required: true
+      responses:
+        "200":
+          description: updated item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemsResponse"
+        "400":
+          description: Invalid request data
+        "401":
+          description: Unauthorized
+        "404":
+          description: Entry not found
+
   /v1/tags:
     get:
       tags:
@@ -627,6 +653,20 @@ components:
       required:
         - date
         - title
+
+    DismissTagRequest:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          example: "2024-01-15"
+        tag:
+          type: string
+          example: "hiking"
+      required:
+        - date
+        - tag
 
     TagSuggestion:
       type: object

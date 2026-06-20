@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
@@ -106,6 +107,44 @@ func (s *ItemsAPIServiceImpl) GetTags(ctx context.Context) (goserver.ImplRespons
 	}
 
 	return goserver.Response(200, goserver.TagsResponse{Tags: tags}), nil
+}
+
+// DismissItemTag removes a single pending suggestion from a day without
+// confirming it.
+func (s *ItemsAPIServiceImpl) DismissItemTag(
+	ctx context.Context, req goserver.DismissTagRequest,
+) (goserver.ImplResponse, error) {
+	familyID, ok := common.GetFamilyID(ctx)
+	if !ok {
+		s.logger.Error("Family ID not found in context")
+		return goserver.Response(401, nil), nil
+	}
+
+	dateStr := req.Date.Time.Format("2006-01-02")
+	item, err := s.db.GetItem(familyID, dateStr)
+	if err != nil {
+		if errors.Is(err, database.ErrNotFound) {
+			return goserver.Response(404, nil), nil
+		}
+		s.logger.Error("Dismiss: failed to load item", "error", err, "familyID", familyID, "date", dateStr)
+		return goserver.Response(500, nil), nil
+	}
+
+	remaining := make([]string, 0, len(item.PendingTags))
+	for _, t := range item.PendingTags {
+		if !strings.EqualFold(t, req.Tag) {
+			remaining = append(remaining, t)
+		}
+	}
+	if err := s.db.SetPendingTags(familyID, dateStr, remaining); err != nil {
+		s.logger.Error("Dismiss: failed to update pending tags", "error", err, "familyID", familyID, "date", dateStr)
+		return goserver.Response(500, nil), nil
+	}
+
+	item.PendingTags = models.StringList(remaining)
+	resp := newItemResponse(item)
+	s.addNavigationDates(&resp, familyID, item.Date)
+	return goserver.Response(200, resp), nil
 }
 
 // PutItems - upsert diary item

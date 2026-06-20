@@ -82,8 +82,12 @@ func (c UntaggedCheck) runForFamily(
 	for _, item := range items {
 		untagged := len(item.Tags) == 0
 		stale := item.TagsSourceHash != utils.ComputeTagsSourceHash(item.Title, item.Body)
-		if !untagged && !stale {
-			continue // already tagged and up to date
+
+		// Skip days we've already processed for this content that have nothing
+		// pending — whether they got tagged or the user dismissed every suggestion.
+		// A never-processed day has an empty hash, so it reads as stale.
+		if !stale && len(item.PendingTags) == 0 {
+			continue
 		}
 
 		// Already-staged suggestions (content unchanged): surface without a new call.

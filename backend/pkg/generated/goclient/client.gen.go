@@ -77,6 +77,12 @@ type AuthData struct {
 	Password string `json:"password"`
 }
 
+// DismissTagRequest defines model for DismissTagRequest.
+type DismissTagRequest struct {
+	Date openapi_types.Date `json:"date"`
+	Tag  string             `json:"tag"`
+}
+
 // Entity defines model for Entity.
 type Entity struct {
 	Id openapi_types.UUID `json:"id"`
@@ -293,6 +299,9 @@ type AttachOrphanJSONRequestBody = AttachOrphanRequest
 // PutItemsJSONRequestBody defines body for PutItems for application/json ContentType.
 type PutItemsJSONRequestBody = ItemsRequest
 
+// DismissItemTagJSONRequestBody defines body for DismissItemTag for application/json ContentType.
+type DismissItemTagJSONRequestBody = DismissTagRequest
+
 // SuggestItemTagsJSONRequestBody defines body for SuggestItemTags for application/json ContentType.
 type SuggestItemTagsJSONRequestBody = SuggestTagsRequest
 
@@ -417,6 +426,11 @@ type ClientInterface interface {
 	PutItemsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PutItems(ctx context.Context, body PutItemsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DismissItemTagWithBody request with any body
+	DismissItemTagWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	DismissItemTag(ctx context.Context, body DismissItemTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SuggestItemTagsWithBody request with any body
 	SuggestItemTagsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -639,6 +653,30 @@ func (c *Client) PutItemsWithBody(ctx context.Context, contentType string, body 
 
 func (c *Client) PutItems(ctx context.Context, body PutItemsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutItemsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DismissItemTagWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDismissItemTagRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DismissItemTag(ctx context.Context, body DismissItemTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDismissItemTagRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1221,6 +1259,46 @@ func NewPutItemsRequestWithBody(server string, contentType string, body io.Reade
 	return req, nil
 }
 
+// NewDismissItemTagRequest calls the generic DismissItemTag builder with application/json body
+func NewDismissItemTagRequest(server string, body DismissItemTagJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDismissItemTagRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDismissItemTagRequestWithBody generates requests for DismissItemTag with any type of body
+func NewDismissItemTagRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/items/dismiss-tag")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewSuggestItemTagsRequest calls the generic SuggestItemTags builder with application/json body
 func NewSuggestItemTagsRequest(server string, body SuggestItemTagsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1467,6 +1545,11 @@ type ClientWithResponsesInterface interface {
 	PutItemsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutItemsResponse, error)
 
 	PutItemsWithResponse(ctx context.Context, body PutItemsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutItemsResponse, error)
+
+	// DismissItemTagWithBodyWithResponse request with any body
+	DismissItemTagWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DismissItemTagResponse, error)
+
+	DismissItemTagWithResponse(ctx context.Context, body DismissItemTagJSONRequestBody, reqEditors ...RequestEditorFn) (*DismissItemTagResponse, error)
 
 	// SuggestItemTagsWithBodyWithResponse request with any body
 	SuggestItemTagsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SuggestItemTagsResponse, error)
@@ -1770,6 +1853,28 @@ func (r PutItemsResponse) StatusCode() int {
 	return 0
 }
 
+type DismissItemTagResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ItemsResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DismissItemTagResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DismissItemTagResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type SuggestItemTagsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2013,6 +2118,23 @@ func (c *ClientWithResponses) PutItemsWithResponse(ctx context.Context, body Put
 		return nil, err
 	}
 	return ParsePutItemsResponse(rsp)
+}
+
+// DismissItemTagWithBodyWithResponse request with arbitrary body returning *DismissItemTagResponse
+func (c *ClientWithResponses) DismissItemTagWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DismissItemTagResponse, error) {
+	rsp, err := c.DismissItemTagWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDismissItemTagResponse(rsp)
+}
+
+func (c *ClientWithResponses) DismissItemTagWithResponse(ctx context.Context, body DismissItemTagJSONRequestBody, reqEditors ...RequestEditorFn) (*DismissItemTagResponse, error) {
+	rsp, err := c.DismissItemTag(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDismissItemTagResponse(rsp)
 }
 
 // SuggestItemTagsWithBodyWithResponse request with arbitrary body returning *SuggestItemTagsResponse
@@ -2361,6 +2483,31 @@ func ParsePutItemsResponse(rsp *http.Response) (*PutItemsResponse, error) {
 	}
 
 	response := &PutItemsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ItemsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+	}
+
+	return response, nil
+}
+
+// ParseDismissItemTagResponse parses an HTTP response from a DismissItemTagWithResponse call
+func ParseDismissItemTagResponse(rsp *http.Response) (*DismissItemTagResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DismissItemTagResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
