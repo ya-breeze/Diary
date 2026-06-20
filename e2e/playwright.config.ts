@@ -45,5 +45,15 @@ export default defineConfig({
                 storageState: path.resolve(__dirname, 'auth-state.json'),
             },
         },
+        // Tag autocomplete tests reuse the saved session
+        {
+            name: 'tag-autocomplete',
+            testMatch: '**/tag-autocomplete.spec.ts',
+            dependencies: ['global-setup'],
+            use: {
+                ...devices['Desktop Chrome'],
+                storageState: path.resolve(__dirname, 'auth-state.json'),
+            },
+        },
     ],
 });
