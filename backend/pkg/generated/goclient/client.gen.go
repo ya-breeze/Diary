@@ -89,9 +89,16 @@ type FamilyMember struct {
 
 // FamilyResponse defines model for FamilyResponse.
 type FamilyResponse struct {
-	Id      openapi_types.UUID `json:"id"`
-	Members []FamilyMember     `json:"members"`
-	Name    string             `json:"name"`
+	// AiTaggingEnabled Per-family master switch for AI tag suggestion
+	AiTaggingEnabled *bool              `json:"aiTaggingEnabled,omitempty"`
+	Id               openapi_types.UUID `json:"id"`
+	Members          []FamilyMember     `json:"members"`
+	Name             string             `json:"name"`
+}
+
+// FamilySettingsRequest defines model for FamilySettingsRequest.
+type FamilySettingsRequest struct {
+	AiTaggingEnabled bool `json:"aiTaggingEnabled"`
 }
 
 // HealthFixRequest defines model for HealthFixRequest.
@@ -146,12 +153,27 @@ type ItemsRequest struct {
 
 // ItemsResponse defines model for ItemsResponse.
 type ItemsResponse struct {
-	Body         *string             `json:"body,omitempty"`
-	Date         openapi_types.Date  `json:"date"`
-	NextDate     *openapi_types.Date `json:"nextDate,omitempty"`
+	Body     *string             `json:"body,omitempty"`
+	Date     openapi_types.Date  `json:"date"`
+	NextDate *openapi_types.Date `json:"nextDate,omitempty"`
+
+	// PendingTags AI-suggested tags awaiting user acceptance (disjoint from tags)
+	PendingTags  *[]string           `json:"pendingTags,omitempty"`
 	PreviousDate *openapi_types.Date `json:"previousDate,omitempty"`
 	Tags         *[]string           `json:"tags,omitempty"`
 	Title        string              `json:"title"`
+}
+
+// SuggestTagsRequest defines model for SuggestTagsRequest.
+type SuggestTagsRequest struct {
+	Body  *string            `json:"body,omitempty"`
+	Date  openapi_types.Date `json:"date"`
+	Title string             `json:"title"`
+}
+
+// SuggestTagsResponse defines model for SuggestTagsResponse.
+type SuggestTagsResponse struct {
+	Tags []TagSuggestion `json:"tags"`
 }
 
 // SyncChangeResponse defines model for SyncChangeResponse.
@@ -191,6 +213,12 @@ type SyncResponse struct {
 
 	// NextId ID to use for the next sync request (if hasMore is true)
 	NextId *int32 `json:"nextId,omitempty"`
+}
+
+// TagSuggestion defines model for TagSuggestion.
+type TagSuggestion struct {
+	Confidence float64 `json:"confidence"`
+	Name       string  `json:"name"`
 }
 
 // TagsResponse defines model for TagsResponse.
@@ -245,6 +273,9 @@ type UploadAssetsBatchMultipartRequestBody UploadAssetsBatchMultipartBody
 // AuthorizeJSONRequestBody defines body for Authorize for application/json ContentType.
 type AuthorizeJSONRequestBody = AuthData
 
+// UpdateFamilySettingsJSONRequestBody defines body for UpdateFamilySettings for application/json ContentType.
+type UpdateFamilySettingsJSONRequestBody = FamilySettingsRequest
+
 // FixHealthIssuesJSONRequestBody defines body for FixHealthIssues for application/json ContentType.
 type FixHealthIssuesJSONRequestBody = HealthFixRequest
 
@@ -253,6 +284,9 @@ type AttachOrphanJSONRequestBody = AttachOrphanRequest
 
 // PutItemsJSONRequestBody defines body for PutItems for application/json ContentType.
 type PutItemsJSONRequestBody = ItemsRequest
+
+// SuggestItemTagsJSONRequestBody defines body for SuggestItemTags for application/json ContentType.
+type SuggestItemTagsJSONRequestBody = SuggestTagsRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -341,6 +375,11 @@ type ClientInterface interface {
 	// GetFamily request
 	GetFamily(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// UpdateFamilySettingsWithBody request with any body
+	UpdateFamilySettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateFamilySettings(ctx context.Context, body UpdateFamilySettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// FixHealthIssuesWithBody request with any body
 	FixHealthIssuesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -370,6 +409,11 @@ type ClientInterface interface {
 	PutItemsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PutItems(ctx context.Context, body PutItemsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SuggestItemTagsWithBody request with any body
+	SuggestItemTagsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SuggestItemTags(ctx context.Context, body SuggestItemTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetChanges request
 	GetChanges(ctx context.Context, params *GetChangesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -431,6 +475,30 @@ func (c *Client) Authorize(ctx context.Context, body AuthorizeJSONRequestBody, r
 
 func (c *Client) GetFamily(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetFamilyRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateFamilySettingsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateFamilySettingsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateFamilySettings(ctx context.Context, body UpdateFamilySettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateFamilySettingsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -563,6 +631,30 @@ func (c *Client) PutItemsWithBody(ctx context.Context, contentType string, body 
 
 func (c *Client) PutItems(ctx context.Context, body PutItemsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutItemsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SuggestItemTagsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSuggestItemTagsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SuggestItemTags(ctx context.Context, body SuggestItemTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSuggestItemTagsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -746,6 +838,46 @@ func NewGetFamilyRequest(server string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewUpdateFamilySettingsRequest calls the generic UpdateFamilySettings builder with application/json body
+func NewUpdateFamilySettingsRequest(server string, body UpdateFamilySettingsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateFamilySettingsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewUpdateFamilySettingsRequestWithBody generates requests for UpdateFamilySettings with any type of body
+func NewUpdateFamilySettingsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/family")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -1081,6 +1213,46 @@ func NewPutItemsRequestWithBody(server string, contentType string, body io.Reade
 	return req, nil
 }
 
+// NewSuggestItemTagsRequest calls the generic SuggestItemTags builder with application/json body
+func NewSuggestItemTagsRequest(server string, body SuggestItemTagsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSuggestItemTagsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSuggestItemTagsRequestWithBody generates requests for SuggestItemTags with any type of body
+func NewSuggestItemTagsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/items/suggest-tags")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetChangesRequest generates requests for GetChanges
 func NewGetChangesRequest(server string, params *GetChangesParams) (*http.Request, error) {
 	var err error
@@ -1253,6 +1425,11 @@ type ClientWithResponsesInterface interface {
 	// GetFamilyWithResponse request
 	GetFamilyWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetFamilyResponse, error)
 
+	// UpdateFamilySettingsWithBodyWithResponse request with any body
+	UpdateFamilySettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateFamilySettingsResponse, error)
+
+	UpdateFamilySettingsWithResponse(ctx context.Context, body UpdateFamilySettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFamilySettingsResponse, error)
+
 	// FixHealthIssuesWithBodyWithResponse request with any body
 	FixHealthIssuesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FixHealthIssuesResponse, error)
 
@@ -1282,6 +1459,11 @@ type ClientWithResponsesInterface interface {
 	PutItemsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutItemsResponse, error)
 
 	PutItemsWithResponse(ctx context.Context, body PutItemsJSONRequestBody, reqEditors ...RequestEditorFn) (*PutItemsResponse, error)
+
+	// SuggestItemTagsWithBodyWithResponse request with any body
+	SuggestItemTagsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SuggestItemTagsResponse, error)
+
+	SuggestItemTagsWithResponse(ctx context.Context, body SuggestItemTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*SuggestItemTagsResponse, error)
 
 	// GetChangesWithResponse request
 	GetChangesWithResponse(ctx context.Context, params *GetChangesParams, reqEditors ...RequestEditorFn) (*GetChangesResponse, error)
@@ -1376,6 +1558,28 @@ func (r GetFamilyResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetFamilyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateFamilySettingsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *FamilyResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateFamilySettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateFamilySettingsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1558,6 +1762,28 @@ func (r PutItemsResponse) StatusCode() int {
 	return 0
 }
 
+type SuggestItemTagsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *SuggestTagsResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r SuggestItemTagsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SuggestItemTagsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetChangesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1668,6 +1894,23 @@ func (c *ClientWithResponses) GetFamilyWithResponse(ctx context.Context, reqEdit
 	return ParseGetFamilyResponse(rsp)
 }
 
+// UpdateFamilySettingsWithBodyWithResponse request with arbitrary body returning *UpdateFamilySettingsResponse
+func (c *ClientWithResponses) UpdateFamilySettingsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateFamilySettingsResponse, error) {
+	rsp, err := c.UpdateFamilySettingsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateFamilySettingsResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateFamilySettingsWithResponse(ctx context.Context, body UpdateFamilySettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateFamilySettingsResponse, error) {
+	rsp, err := c.UpdateFamilySettings(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateFamilySettingsResponse(rsp)
+}
+
 // FixHealthIssuesWithBodyWithResponse request with arbitrary body returning *FixHealthIssuesResponse
 func (c *ClientWithResponses) FixHealthIssuesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*FixHealthIssuesResponse, error) {
 	rsp, err := c.FixHealthIssuesWithBody(ctx, contentType, body, reqEditors...)
@@ -1762,6 +2005,23 @@ func (c *ClientWithResponses) PutItemsWithResponse(ctx context.Context, body Put
 		return nil, err
 	}
 	return ParsePutItemsResponse(rsp)
+}
+
+// SuggestItemTagsWithBodyWithResponse request with arbitrary body returning *SuggestItemTagsResponse
+func (c *ClientWithResponses) SuggestItemTagsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SuggestItemTagsResponse, error) {
+	rsp, err := c.SuggestItemTagsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSuggestItemTagsResponse(rsp)
+}
+
+func (c *ClientWithResponses) SuggestItemTagsWithResponse(ctx context.Context, body SuggestItemTagsJSONRequestBody, reqEditors ...RequestEditorFn) (*SuggestItemTagsResponse, error) {
+	rsp, err := c.SuggestItemTags(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSuggestItemTagsResponse(rsp)
 }
 
 // GetChangesWithResponse request returning *GetChangesResponse
@@ -1868,6 +2128,31 @@ func ParseGetFamilyResponse(rsp *http.Response) (*GetFamilyResponse, error) {
 	}
 
 	response := &GetFamilyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest FamilyResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+	}
+
+	return response, nil
+}
+
+// ParseUpdateFamilySettingsResponse parses an HTTP response from a UpdateFamilySettingsWithResponse call
+func ParseUpdateFamilySettingsResponse(rsp *http.Response) (*UpdateFamilySettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateFamilySettingsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -2075,6 +2360,31 @@ func ParsePutItemsResponse(rsp *http.Response) (*PutItemsResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ItemsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+	}
+
+	return response, nil
+}
+
+// ParseSuggestItemTagsResponse parses an HTTP response from a SuggestItemTagsWithResponse call
+func ParseSuggestItemTagsResponse(rsp *http.Response) (*SuggestItemTagsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SuggestItemTagsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SuggestTagsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

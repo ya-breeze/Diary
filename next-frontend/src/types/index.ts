@@ -23,15 +23,32 @@ export interface Family {
   id: string;
   name: string;
   members: FamilyMember[];
+  aiTaggingEnabled?: boolean;
 }
 
 export interface DiaryEntry {
   date: string;
   title: string;
   tags: string[];
+  pendingTags?: string[];
   body: string;
   previousDate?: string | null;
   nextDate?: string | null;
+}
+
+export interface TagSuggestion {
+  name: string;
+  confidence: number;
+}
+
+export interface SuggestTagsRequest {
+  date: string;
+  title: string;
+  body?: string;
+}
+
+export interface SuggestTagsResponse {
+  tags: TagSuggestion[];
 }
 
 export interface DiaryEntryRequest {

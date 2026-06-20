@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, BookOpen, Flame, Tag, Users } from 'lucide-react';
+import { LogOut, BookOpen, Flame, Tag, Users, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui';
 import { useAuthStore } from '@/store';
 import { useDiaryEntries } from '@/hooks';
@@ -56,10 +56,26 @@ export default function ProfilePage() {
   const { user, logout } = useAuthStore();
   const { data, isLoading } = useDiaryEntries();
   const [family, setFamily] = useState<Family | null>(null);
+  const [savingAi, setSavingAi] = useState(false);
 
   useEffect(() => {
     authApi.getFamily().then(setFamily).catch(() => {});
   }, []);
+
+  const toggleAiTagging = async () => {
+    if (!family) return;
+    setSavingAi(true);
+    try {
+      const updated = await authApi.updateFamilySettings({
+        aiTaggingEnabled: !family.aiTaggingEnabled,
+      });
+      setFamily(updated);
+    } catch (error) {
+      console.error('Failed to update AI tagging setting:', error);
+    } finally {
+      setSavingAi(false);
+    }
+  };
 
   const entries = data?.items ?? [];
   const totalCount = data?.totalCount ?? 0;
@@ -128,6 +144,30 @@ export default function ProfilePage() {
                 </p>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* AI settings */}
+        {family && (
+          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="mb-3 flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-zinc-400" />
+              <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">AI tagging</p>
+            </div>
+            <label className="flex items-center justify-between gap-4">
+              <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                Suggest tags for entries from their text
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={!!family.aiTaggingEnabled}
+                disabled={savingAi}
+                onChange={toggleAiTagging}
+                className="h-5 w-5 cursor-pointer accent-blue-600 disabled:opacity-50"
+                data-testid="ai-tagging-toggle"
+              />
+            </label>
           </div>
         )}
 

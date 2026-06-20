@@ -1,5 +1,13 @@
 import { apiClient } from './client';
-import type { DiaryEntry, DiaryEntryRequest, DiaryListResponse, SearchParams, TagsResponse } from '@/types';
+import type {
+  DiaryEntry,
+  DiaryEntryRequest,
+  DiaryListResponse,
+  SearchParams,
+  SuggestTagsRequest,
+  SuggestTagsResponse,
+  TagsResponse,
+} from '@/types';
 
 export const diaryApi = {
   getItems: (params?: SearchParams) =>
@@ -21,6 +29,12 @@ export const diaryApi = {
   search: (searchText: string, tags?: string) =>
     apiClient<DiaryListResponse>('/v1/items', {
       params: { search: searchText, tags },
+    }),
+
+  suggestTags: (req: SuggestTagsRequest) =>
+    apiClient<SuggestTagsResponse>('/v1/items/suggest-tags', {
+      method: 'POST',
+      body: req,
     }),
 
   getTags: () => apiClient<TagsResponse>('/v1/tags'),

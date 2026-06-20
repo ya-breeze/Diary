@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
+	"github.com/ya-breeze/diary.be/pkg/ai"
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/database"
 	"github.com/ya-breeze/diary.be/pkg/database/models"
@@ -90,7 +91,7 @@ var _ = Describe("ItemsAPIService", func() {
 		storage = database.NewStorage(logger, cfg)
 		Expect(storage.Open()).To(Succeed())
 
-		service = api.NewItemsAPIService(logger, storage)
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester())
 	})
 
 	AfterEach(func() {
@@ -538,6 +539,94 @@ var _ = Describe("ItemsAPIService", func() {
 	})
 })
 
+// fakeSuggester is an enabled suggester returning canned suggestions, for
+// exercising the SuggestItemTags wiring without calling Gemini.
+type fakeSuggester struct {
+	suggestions []ai.TagSuggestion
+}
+
+func (f fakeSuggester) Enabled() bool { return true }
+
+func (f fakeSuggester) SuggestTags(
+	_ context.Context, _, _ string, _ []string,
+) ([]ai.TagSuggestion, error) {
+	return f.suggestions, nil
+}
+
+func ptr(s string) *string { return &s }
+
+var _ = Describe("ItemsAPIService SuggestItemTags", func() {
+	var (
+		logger   *slog.Logger
+		storage  database.Storage
+		tempDir  string
+		familyID uuid.UUID
+		ctx      context.Context
+	)
+
+	BeforeEach(func() {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+		var err error
+		tempDir, err = os.MkdirTemp("", "suggest_test")
+		Expect(err).NotTo(HaveOccurred())
+		storage = database.NewStorage(logger, &config.Config{DataPath: tempDir})
+		Expect(storage.Open()).To(Succeed())
+
+		fam, err := storage.CreateFamily("suggest-fam")
+		Expect(err).NotTo(HaveOccurred())
+		familyID = fam.ID
+		ctx = createContextWithFamilyIDForItems(familyID)
+	})
+
+	AfterEach(func() {
+		storage.Close()
+		os.RemoveAll(tempDir)
+	})
+
+	req := goserver.SuggestTagsRequest{
+		Date:  parseTestDate("2024-01-15"),
+		Title: "Beach day",
+		Body:  ptr("We swam all afternoon"),
+	}
+
+	It("returns 503 when the suggester is disabled", func() {
+		svc := api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester())
+		resp, err := svc.SuggestItemTags(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(503))
+	})
+
+	It("returns 503 when the family has not enabled AI tagging", func() {
+		svc := api.NewItemsAPIService(logger, storage,
+			fakeSuggester{suggestions: []ai.TagSuggestion{{Name: "beach", Confidence: 0.9}}})
+		resp, err := svc.SuggestItemTags(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(503))
+	})
+
+	It("returns suggestions when enabled and opted in", func() {
+		Expect(storage.SetFamilyAITaggingEnabled(familyID, true)).To(Succeed())
+		svc := api.NewItemsAPIService(logger, storage, fakeSuggester{suggestions: []ai.TagSuggestion{
+			{Name: "beach", Confidence: 0.9},
+			{Name: "summer", Confidence: 0.5},
+		}})
+		resp, err := svc.SuggestItemTags(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(200))
+		body, ok := resp.Body.(goserver.SuggestTagsResponse)
+		Expect(ok).To(BeTrue())
+		Expect(body.Tags).To(HaveLen(2))
+		Expect(body.Tags[0].Name).To(Equal("beach"))
+	})
+
+	It("returns 401 without a family in context", func() {
+		svc := api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester())
+		resp, err := svc.SuggestItemTags(context.Background(), req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(401))
+	})
+})
+
 var _ = Describe("ItemsAPIService GetTags", func() {
 	var (
 		logger   *slog.Logger
@@ -559,7 +648,7 @@ var _ = Describe("ItemsAPIService GetTags", func() {
 		Expect(err).NotTo(HaveOccurred())
 		familyID = fam.ID
 		ctx = createContextWithFamilyIDForItems(familyID)
-		service = api.NewItemsAPIService(logger, storage)
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester())
 	})
 
 	AfterEach(func() {

@@ -45,6 +45,16 @@ export default defineConfig({
                 storageState: path.resolve(__dirname, 'auth-state.json'),
             },
         },
+        // AI tagging tests reuse the saved session
+        {
+            name: 'ai-tagging',
+            testMatch: '**/ai-tagging.spec.ts',
+            dependencies: ['global-setup'],
+            use: {
+                ...devices['Desktop Chrome'],
+                storageState: path.resolve(__dirname, 'auth-state.json'),
+            },
+        },
         // Tag autocomplete tests reuse the saved session
         {
             name: 'tag-autocomplete',

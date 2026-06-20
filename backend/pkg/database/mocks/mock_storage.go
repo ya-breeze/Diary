@@ -182,6 +182,20 @@ func (mr *MockStorageMockRecorder) GetFamily(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFamily", reflect.TypeOf((*MockStorage)(nil).GetFamily), arg0)
 }
 
+// SetFamilyAITaggingEnabled mocks base method.
+func (m *MockStorage) SetFamilyAITaggingEnabled(arg0 uuid.UUID, arg1 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetFamilyAITaggingEnabled", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetFamilyAITaggingEnabled indicates an expected call of SetFamilyAITaggingEnabled.
+func (mr *MockStorageMockRecorder) SetFamilyAITaggingEnabled(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFamilyAITaggingEnabled", reflect.TypeOf((*MockStorage)(nil).SetFamilyAITaggingEnabled), arg0, arg1)
+}
+
 // GetDistinctTags mocks base method.
 func (m *MockStorage) GetDistinctTags(arg0 uuid.UUID) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -387,4 +401,18 @@ func (m *MockStorage) RemoveIgnoredOrphan(arg0 uuid.UUID, arg1 string) error {
 func (mr *MockStorageMockRecorder) RemoveIgnoredOrphan(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveIgnoredOrphan", reflect.TypeOf((*MockStorage)(nil).RemoveIgnoredOrphan), arg0, arg1)
+}
+
+// SetPendingTags mocks base method.
+func (m *MockStorage) SetPendingTags(arg0 uuid.UUID, arg1 string, arg2 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetPendingTags", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetPendingTags indicates an expected call of SetPendingTags.
+func (mr *MockStorageMockRecorder) SetPendingTags(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPendingTags", reflect.TypeOf((*MockStorage)(nil).SetPendingTags), arg0, arg1, arg2)
 }

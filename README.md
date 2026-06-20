@@ -107,3 +107,12 @@ The application consists of two main components:
 | `GB_MAXPERFILESIZEMB`    | Maximum size per uploaded file (MB)          | `25`                    |
 | `GB_MAXBATCHFILES`       | Maximum number of files per batch upload     | `10`                    |
 | `GB_MAXBATCHTOTALSIZEMB` | Maximum total size per batch upload (MB)     | `100`                   |
+| `GEMINI_API_KEY`         | Google Gemini API key enabling AI tag suggestion. When unset, AI tagging is fully disabled and the app behaves as before. | Unset (feature off) |
+
+#### AI Tag Suggestion
+
+When `GEMINI_API_KEY` is set, families can opt in to AI-assisted tag suggestion
+(Profile → AI tagging). With it enabled, the entry editor offers a "Suggest tags"
+button and debounced auto-suggestions drawn from the family's existing tag
+vocabulary. Suggestions are never applied automatically — they appear as chips the
+user accepts. The feature requires both the server key and the per-family toggle.

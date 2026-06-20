@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/ya-breeze/diary.be/pkg/ai"
 	"github.com/ya-breeze/diary.be/pkg/auth"
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/database"
@@ -49,14 +50,17 @@ func Server(logger *slog.Logger, cfg *config.Config) error {
 	return nil
 }
 
-func createControllers(logger *slog.Logger, cfg *config.Config, db database.Storage, checkerTask *tasks.CheckerTask) goserver.CustomControllers {
+func createControllers(
+	logger *slog.Logger, cfg *config.Config, db database.Storage,
+	checkerTask *tasks.CheckerTask, suggester ai.Suggester,
+) goserver.CustomControllers {
 	return goserver.CustomControllers{
 		AuthAPIService:   api.NewAuthAPIService(logger, db, cfg),
 		FamilyAPIService: api.NewFamilyAPIService(logger, db),
 		UserAPIService:   api.NewUserAPIService(logger, db),
 		AssetsAPIService: api.NewAssetsAPIService(logger, cfg),
 		HealthAPIService: api.NewHealthAPIServiceImpl(checkerTask),
-		ItemsAPIService:  api.NewItemsAPIService(logger, db),
+		ItemsAPIService:  api.NewItemsAPIService(logger, db, suggester),
 		SyncAPIService:   api.NewSyncAPIService(logger, db),
 	}
 }
@@ -125,8 +129,14 @@ func Serve(
 	backupTask := tasks.NewBackupTask(logger, cfg)
 	backupTask.Start(ctx)
 
+	// Construct the AI tag suggester (disabled gracefully if GEMINI_API_KEY unset)
+	suggester, err := ai.NewSuggester(ctx, logger)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create AI suggester: %w", err)
+	}
+
 	// Create controllers
-	controllers := createControllers(logger, cfg, storage, checkerTask)
+	controllers := createControllers(logger, cfg, storage, checkerTask, suggester)
 
 	// Add extra routers
 	extraRouters := []goserver.Router{webapp.NewWebAppRouter(controllers, commit, logger, cfg, storage, gormDB)}
