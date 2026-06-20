@@ -53,6 +53,27 @@ func isBlank(title, body string) bool {
 	return strings.TrimSpace(title) == "" && strings.TrimSpace(body) == ""
 }
 
+// Partition splits suggestions into all suggested names (excluding any already
+// in confirmed, case-insensitive) and the subset whose confidence meets the
+// threshold. Shared by the on-save retag and the backfill check.
+func Partition(suggestions []TagSuggestion, confirmed []string, threshold float64) ([]string, []string) {
+	confirmedSet := make(map[string]struct{}, len(confirmed))
+	for _, t := range confirmed {
+		confirmedSet[strings.ToLower(t)] = struct{}{}
+	}
+	var names, confident []string
+	for _, s := range suggestions {
+		if _, ok := confirmedSet[strings.ToLower(s.Name)]; ok {
+			continue
+		}
+		names = append(names, s.Name)
+		if s.Confidence >= threshold {
+			confident = append(confident, s.Name)
+		}
+	}
+	return names, confident
+}
+
 // buildPrompt assembles the hybrid-vocabulary tagging prompt.
 func buildPrompt(title, body string, knownTags []string) string {
 	var b strings.Builder

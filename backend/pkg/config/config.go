@@ -30,6 +30,10 @@ type Config struct {
 	// Backup
 	BackupInterval string `mapstructure:"backup_interval" default:"24h"`
 	BackupMaxCount int    `mapstructure:"backup_max_count" default:"10"`
+
+	// AI tagging — confidence threshold τ above which suggestions may be
+	// auto-applied to untagged days when a family enables auto mode.
+	AITaggingThreshold float64 `mapstructure:"ai_tagging_threshold" default:"0.8"`
 }
 
 func InitiateConfig(cfgFile string) (*Config, error) {

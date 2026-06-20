@@ -196,6 +196,20 @@ func (mr *MockStorageMockRecorder) SetFamilyAITaggingEnabled(arg0, arg1 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFamilyAITaggingEnabled", reflect.TypeOf((*MockStorage)(nil).SetFamilyAITaggingEnabled), arg0, arg1)
 }
 
+// SetFamilyAISettings mocks base method.
+func (m *MockStorage) SetFamilyAISettings(arg0 uuid.UUID, arg1, arg2, arg3 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetFamilyAISettings", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetFamilyAISettings indicates an expected call of SetFamilyAISettings.
+func (mr *MockStorageMockRecorder) SetFamilyAISettings(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFamilyAISettings", reflect.TypeOf((*MockStorage)(nil).SetFamilyAISettings), arg0, arg1, arg2, arg3)
+}
+
 // GetDistinctTags mocks base method.
 func (m *MockStorage) GetDistinctTags(arg0 uuid.UUID) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -415,4 +429,18 @@ func (m *MockStorage) SetPendingTags(arg0 uuid.UUID, arg1 string, arg2 []string)
 func (mr *MockStorageMockRecorder) SetPendingTags(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPendingTags", reflect.TypeOf((*MockStorage)(nil).SetPendingTags), arg0, arg1, arg2)
+}
+
+// AddConfirmedTags mocks base method.
+func (m *MockStorage) AddConfirmedTags(arg0 uuid.UUID, arg1 string, arg2 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddConfirmedTags", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddConfirmedTags indicates an expected call of AddConfirmedTags.
+func (mr *MockStorageMockRecorder) AddConfirmedTags(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddConfirmedTags", reflect.TypeOf((*MockStorage)(nil).AddConfirmedTags), arg0, arg1, arg2)
 }

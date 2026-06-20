@@ -91,7 +91,7 @@ var _ = Describe("ItemsAPIService", func() {
 		storage = database.NewStorage(logger, cfg)
 		Expect(storage.Open()).To(Succeed())
 
-		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester())
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8)
 	})
 
 	AfterEach(func() {
@@ -590,7 +590,7 @@ var _ = Describe("ItemsAPIService SuggestItemTags", func() {
 	}
 
 	It("returns 503 when the suggester is disabled", func() {
-		svc := api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester())
+		svc := api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8)
 		resp, err := svc.SuggestItemTags(ctx, req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.Code).To(Equal(503))
@@ -598,7 +598,7 @@ var _ = Describe("ItemsAPIService SuggestItemTags", func() {
 
 	It("returns 503 when the family has not enabled AI tagging", func() {
 		svc := api.NewItemsAPIService(logger, storage,
-			fakeSuggester{suggestions: []ai.TagSuggestion{{Name: "beach", Confidence: 0.9}}})
+			fakeSuggester{suggestions: []ai.TagSuggestion{{Name: "beach", Confidence: 0.9}}}, 0.8)
 		resp, err := svc.SuggestItemTags(ctx, req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.Code).To(Equal(503))
@@ -609,7 +609,7 @@ var _ = Describe("ItemsAPIService SuggestItemTags", func() {
 		svc := api.NewItemsAPIService(logger, storage, fakeSuggester{suggestions: []ai.TagSuggestion{
 			{Name: "beach", Confidence: 0.9},
 			{Name: "summer", Confidence: 0.5},
-		}})
+		}}, 0.8)
 		resp, err := svc.SuggestItemTags(ctx, req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.Code).To(Equal(200))
@@ -620,7 +620,7 @@ var _ = Describe("ItemsAPIService SuggestItemTags", func() {
 	})
 
 	It("returns 401 without a family in context", func() {
-		svc := api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester())
+		svc := api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8)
 		resp, err := svc.SuggestItemTags(context.Background(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.Code).To(Equal(401))
@@ -648,7 +648,7 @@ var _ = Describe("ItemsAPIService GetTags", func() {
 		Expect(err).NotTo(HaveOccurred())
 		familyID = fam.ID
 		ctx = createContextWithFamilyIDForItems(familyID)
-		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester())
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8)
 	})
 
 	AfterEach(func() {
@@ -683,5 +683,134 @@ var _ = Describe("ItemsAPIService GetTags", func() {
 		Expect(resp.Code).To(Equal(200))
 		body := resp.Body.(goserver.TagsResponse)
 		Expect(body.Tags).To(Equal([]string{"family", "travel", "work"}))
+	})
+})
+
+var _ = Describe("ItemsAPIService DismissItemTag", func() {
+	var (
+		logger   *slog.Logger
+		storage  database.Storage
+		service  goserver.ItemsAPIService
+		tempDir  string
+		familyID uuid.UUID
+		ctx      context.Context
+	)
+
+	BeforeEach(func() {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+		var err error
+		tempDir, err = os.MkdirTemp("", "dismiss_test")
+		Expect(err).NotTo(HaveOccurred())
+		storage = database.NewStorage(logger, &config.Config{DataPath: tempDir})
+		Expect(storage.Open()).To(Succeed())
+		fam, err := storage.CreateFamily("dismiss-fam")
+		Expect(err).NotTo(HaveOccurred())
+		familyID = fam.ID
+		ctx = createContextWithFamilyIDForItems(familyID)
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8)
+	})
+
+	AfterEach(func() {
+		storage.Close()
+		os.RemoveAll(tempDir)
+	})
+
+	It("removes one pending tag and keeps the rest", func() {
+		Expect(storage.PutItem(familyID, &models.Item{Date: "2024-01-01", Title: "trip"})).To(Succeed())
+		Expect(storage.SetPendingTags(familyID, "2024-01-01", []string{"hiking", "mountains"})).To(Succeed())
+
+		resp, err := service.DismissItemTag(ctx, goserver.DismissTagRequest{
+			Date: parseTestDate("2024-01-01"), Tag: "hiking",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(200))
+		body := resp.Body.(goserver.ItemsResponse)
+		Expect(*body.PendingTags).To(Equal([]string{"mountains"}))
+
+		item, _ := storage.GetItem(familyID, "2024-01-01")
+		Expect([]string(item.PendingTags)).To(Equal([]string{"mountains"}))
+		Expect(item.Tags).To(BeEmpty()) // not confirmed
+	})
+
+	It("returns 404 for a missing entry", func() {
+		resp, err := service.DismissItemTag(ctx, goserver.DismissTagRequest{
+			Date: parseTestDate("2099-01-01"), Tag: "x",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(404))
+	})
+
+	It("returns 401 without a family in context", func() {
+		resp, err := service.DismissItemTag(context.Background(), goserver.DismissTagRequest{
+			Date: parseTestDate("2024-01-01"), Tag: "x",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(401))
+	})
+})
+
+var _ = Describe("ItemsAPIService AcceptItemTag", func() {
+	var (
+		logger   *slog.Logger
+		storage  database.Storage
+		service  goserver.ItemsAPIService
+		tempDir  string
+		familyID uuid.UUID
+		ctx      context.Context
+	)
+
+	BeforeEach(func() {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+		var err error
+		tempDir, err = os.MkdirTemp("", "accept_test")
+		Expect(err).NotTo(HaveOccurred())
+		storage = database.NewStorage(logger, &config.Config{DataPath: tempDir})
+		Expect(storage.Open()).To(Succeed())
+		fam, err := storage.CreateFamily("accept-fam")
+		Expect(err).NotTo(HaveOccurred())
+		familyID = fam.ID
+		ctx = createContextWithFamilyIDForItems(familyID)
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8)
+	})
+
+	AfterEach(func() {
+		storage.Close()
+		os.RemoveAll(tempDir)
+	})
+
+	It("moves a pending tag into confirmed (additive) and removes it from pending", func() {
+		Expect(storage.PutItem(familyID, &models.Item{
+			Date: "2024-01-01", Title: "trip", Tags: models.StringList{"existing"},
+		})).To(Succeed())
+		Expect(storage.SetPendingTags(familyID, "2024-01-01", []string{"hiking", "mountains"})).To(Succeed())
+
+		resp, err := service.AcceptItemTag(ctx, goserver.DismissTagRequest{
+			Date: parseTestDate("2024-01-01"), Tag: "hiking",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(200))
+		body := resp.Body.(goserver.ItemsResponse)
+		Expect(*body.Tags).To(ConsistOf("existing", "hiking")) // additive, existing kept
+		Expect(*body.PendingTags).To(Equal([]string{"mountains"}))
+
+		item, _ := storage.GetItem(familyID, "2024-01-01")
+		Expect([]string(item.Tags)).To(ConsistOf("existing", "hiking"))
+		Expect([]string(item.PendingTags)).To(Equal([]string{"mountains"}))
+	})
+
+	It("returns 404 for a missing entry", func() {
+		resp, err := service.AcceptItemTag(ctx, goserver.DismissTagRequest{
+			Date: parseTestDate("2099-01-01"), Tag: "x",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(404))
+	})
+
+	It("returns 401 without a family in context", func() {
+		resp, err := service.AcceptItemTag(context.Background(), goserver.DismissTagRequest{
+			Date: parseTestDate("2024-01-01"), Tag: "x",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(401))
 	})
 })

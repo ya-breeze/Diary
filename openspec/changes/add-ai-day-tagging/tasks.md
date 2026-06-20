@@ -52,14 +52,31 @@ Organized by the four phases from the proposal. Each phase is independently ship
 
 ## 7. Phase 4 — Backfill health check & auto mode
 
-- [ ] 7.1 Add per-family `ai_tagging_backfill` and `ai_tagging_auto` config (default off); add confidence threshold τ
-- [ ] 7.2 Implement `UntaggedCheck` satisfying `checker.Check`: emit an Issue per untagged/stale day, skipped unless `ai_tagging_backfill` enabled
-- [ ] 7.3 Register `untagged` in the health Runner; confirm family scoping via `RunForFamily`
-- [ ] 7.4 Auto mode: confident (≥τ) days get a populated `fix func()` writing tags and `Fixable:true`; uncertain days store `pending_tags`, `Fixable:false`, "solve manually" message
-- [ ] 7.5 Non-auto mode: store `pending_tags`, report non-fixable issue (user accepts chips on the day)
-- [ ] 7.6 Apply on-save unattended path through the same auto/non-auto routing
-- [ ] 7.7 Settings UI toggles for backfill + auto mode
-- [ ] 7.8 Tests: check skipped when disabled; fixable vs solve-manually routing by confidence; fix-all writes confident tags
+- [x] 7.1 Per-family `AITaggingBackfill`/`AITaggingAuto` columns + `SetFamilyAISettings`; flags on `FamilyResponse`/`FamilySettingsRequest`; server config `AITaggingThreshold` (τ, default 0.8)
+- [x] 7.2 `UntaggedCheck` (`pkg/checker/check_untagged.go`) satisfies `checker.Check`; no-op unless suggester enabled AND family `AITaggingBackfill`; bounded by `maxBackfillPerRun`; treats untagged OR stale (hash mismatch) days as candidates
+- [x] 7.3 Registered `untagged` in the checker task (instance `checks`, injected suggester); `selectChecks` knows it; runs in the 24h sweep and via `RunForFamily` (fix path)
+- [x] 7.4 Auto mode: confident (≥τ) untagged days → `Fixable:true` with a `fix()` that additively writes tags; uncertain → `pending_tags` + non-fixable "solve manually"
+- [x] 7.5 Non-auto mode: stages `pending_tags`, non-fixable issue "review on the entry"
+- [x] 7.6 On-save retag now routes through auto/non-auto (confident+untagged → apply; else stage), using the `AITaggingThreshold`
+- [x] 7.7 Settings UI: backfill + auto toggles on the profile page (shown when AI tagging is enabled)
+- [x] 7.8 Tests (`check_untagged_test.go`): disabled suggester, backfill off, non-auto stages pending, auto-confident fix applies, auto-uncertain stages, tagged days skipped
+
+## 7b. Phase 4 — backfill UX refinements
+
+- [x] 7b.1 Auto mode applies confident tags **during the sweep** (no manual "Fix" click); resolved days emit no issue
+- [x] 7b.2 Staging `pending_tags` stamps `tags_source_hash`, so already-suggested days aren't re-queried every sweep (only on content change) — added `TestUntaggedDoesNotRequeryStagedDays`
+- [x] 7b.3 `untagged` issues are non-fixable review items; health panel renders them as **links to the entry** (`/diary/{date}?edit=true`), no generic Fix button
+- [x] 7b.4 Spec deltas updated (health): apply-on-sweep, no-re-query, review-link requirement
+- [x] 7b.5 Staged chips show regardless of the AI toggle (already-generated suggestions stay reviewable); refresh on editor date change
+- [x] 7b.6 Dismiss a suggestion: `POST /v1/items/dismiss-tag` removes one name from `pending_tags`; ✕ on each chip in the editor. Backfill skips already-processed days (hash current + no pending), so dismissing the last suggestion clears it from review. Spec delta added (ai-tagging: "Dismiss a pending suggestion")
+
+## 7c. Phase 4 — review-feedback hardening (from code review)
+
+- [x] 7c.1 `Storage.AddConfirmedTags` — transactional, **additive** merge into confirmed tags + prune pending + change-record, so auto-apply/accept can't lose existing tags or clobber a concurrent edit (replaces the prior whole-row `PutItem` in both apply paths)
+- [x] 7c.2 Accept persists immediately via `POST /v1/items/accept-tag` (consistent with dismiss); chip accept calls it best-effort (new entries still persist on save)
+- [x] 7c.3 Coalesce background retags: at most one in-flight per `(family,date)` (bounds concurrent model calls on rapid saves)
+- [x] 7c.4 Shared `ai.Partition` replaces the duplicated `partitionSuggestions`/`splitByConfidence`; cap entry body at 8000 chars before the model; health review links use client-side navigation
+- [x] 7c.5 Tests: accept handler (additive/404/401); existing suites updated
 
 ## 8. Cross-cutting & verification
 

@@ -463,6 +463,66 @@ func (s *StrictServerImpl) SuggestItemTags(
 	}
 }
 
+// --- DismissItemTag ---
+
+func (s *StrictServerImpl) DismissItemTag(
+	ctx context.Context, req DismissItemTagRequestObject,
+) (DismissItemTagResponseObject, error) {
+	if req.Body == nil {
+		return DismissItemTag400Response{}, nil
+	}
+	resp, err := s.items.DismissItemTag(ctx, *req.Body)
+	if err != nil {
+		return nil, err
+	}
+	switch resp.Code {
+	case http.StatusOK:
+		body, ok := resp.Body.(ItemsResponse)
+		if !ok {
+			return nil, fmt.Errorf("DismissItemTag: unexpected body type %T", resp.Body)
+		}
+		return DismissItemTag200JSONResponse(body), nil
+	case http.StatusBadRequest:
+		return DismissItemTag400Response{}, nil
+	case http.StatusUnauthorized:
+		return DismissItemTag401Response{}, nil
+	case http.StatusNotFound:
+		return DismissItemTag404Response{}, nil
+	default:
+		return nil, fmt.Errorf("DismissItemTag: unexpected status %d", resp.Code)
+	}
+}
+
+// --- AcceptItemTag ---
+
+func (s *StrictServerImpl) AcceptItemTag(
+	ctx context.Context, req AcceptItemTagRequestObject,
+) (AcceptItemTagResponseObject, error) {
+	if req.Body == nil {
+		return AcceptItemTag400Response{}, nil
+	}
+	resp, err := s.items.AcceptItemTag(ctx, *req.Body)
+	if err != nil {
+		return nil, err
+	}
+	switch resp.Code {
+	case http.StatusOK:
+		body, ok := resp.Body.(ItemsResponse)
+		if !ok {
+			return nil, fmt.Errorf("AcceptItemTag: unexpected body type %T", resp.Body)
+		}
+		return AcceptItemTag200JSONResponse(body), nil
+	case http.StatusBadRequest:
+		return AcceptItemTag400Response{}, nil
+	case http.StatusUnauthorized:
+		return AcceptItemTag401Response{}, nil
+	case http.StatusNotFound:
+		return AcceptItemTag404Response{}, nil
+	default:
+		return nil, fmt.Errorf("AcceptItemTag: unexpected status %d", resp.Code)
+	}
+}
+
 // UploadAssetsBatch501Response is a placeholder for the not-implemented batch upload via strict server.
 type UploadAssetsBatch501Response struct{}
 

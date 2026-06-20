@@ -77,6 +77,12 @@ type AuthData struct {
 	Password string `json:"password"`
 }
 
+// DismissTagRequest defines model for DismissTagRequest.
+type DismissTagRequest struct {
+	Date openapi_types.Date `json:"date"`
+	Tag  string             `json:"tag"`
+}
+
 // Entity defines model for Entity.
 type Entity struct {
 	Id openapi_types.UUID `json:"id"`
@@ -89,6 +95,12 @@ type FamilyMember struct {
 
 // FamilyResponse defines model for FamilyResponse.
 type FamilyResponse struct {
+	// AiTaggingAuto Auto-apply confident suggestions to untagged days on unattended triggers
+	AiTaggingAuto *bool `json:"aiTaggingAuto,omitempty"`
+
+	// AiTaggingBackfill Enable the background untagged-days backfill check
+	AiTaggingBackfill *bool `json:"aiTaggingBackfill,omitempty"`
+
 	// AiTaggingEnabled Per-family master switch for AI tag suggestion
 	AiTaggingEnabled *bool              `json:"aiTaggingEnabled,omitempty"`
 	Id               openapi_types.UUID `json:"id"`
@@ -98,7 +110,9 @@ type FamilyResponse struct {
 
 // FamilySettingsRequest defines model for FamilySettingsRequest.
 type FamilySettingsRequest struct {
-	AiTaggingEnabled bool `json:"aiTaggingEnabled"`
+	AiTaggingAuto     *bool `json:"aiTaggingAuto,omitempty"`
+	AiTaggingBackfill *bool `json:"aiTaggingBackfill,omitempty"`
+	AiTaggingEnabled  bool  `json:"aiTaggingEnabled"`
 }
 
 // HealthFixRequest defines model for HealthFixRequest.
@@ -285,6 +299,12 @@ type AttachOrphanJSONRequestBody = AttachOrphanRequest
 // PutItemsJSONRequestBody defines body for PutItems for application/json ContentType.
 type PutItemsJSONRequestBody = ItemsRequest
 
+// AcceptItemTagJSONRequestBody defines body for AcceptItemTag for application/json ContentType.
+type AcceptItemTagJSONRequestBody = DismissTagRequest
+
+// DismissItemTagJSONRequestBody defines body for DismissItemTag for application/json ContentType.
+type DismissItemTagJSONRequestBody = DismissTagRequest
+
 // SuggestItemTagsJSONRequestBody defines body for SuggestItemTags for application/json ContentType.
 type SuggestItemTagsJSONRequestBody = SuggestTagsRequest
 
@@ -329,6 +349,12 @@ type ServerInterface interface {
 	// upsert diary item
 	// (PUT /v1/items)
 	PutItems(w http.ResponseWriter, r *http.Request)
+	// accept a suggested tag for a day (adds to confirmed, removes from pending)
+	// (POST /v1/items/accept-tag)
+	AcceptItemTag(w http.ResponseWriter, r *http.Request)
+	// dismiss a pending suggested tag for a day (removes it from pending)
+	// (POST /v1/items/dismiss-tag)
+	DismissItemTag(w http.ResponseWriter, r *http.Request)
 	// suggest tags for draft entry content (does not save)
 	// (POST /v1/items/suggest-tags)
 	SuggestItemTags(w http.ResponseWriter, r *http.Request)
@@ -685,6 +711,44 @@ func (siw *ServerInterfaceWrapper) PutItems(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// AcceptItemTag operation middleware
+func (siw *ServerInterfaceWrapper) AcceptItemTag(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AcceptItemTag(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DismissItemTag operation middleware
+func (siw *ServerInterfaceWrapper) DismissItemTag(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DismissItemTag(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SuggestItemTags operation middleware
 func (siw *ServerInterfaceWrapper) SuggestItemTags(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -920,6 +984,10 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 	r.HandleFunc(options.BaseURL+"/v1/items", wrapper.GetItems).Methods("GET")
 
 	r.HandleFunc(options.BaseURL+"/v1/items", wrapper.PutItems).Methods("PUT")
+
+	r.HandleFunc(options.BaseURL+"/v1/items/accept-tag", wrapper.AcceptItemTag).Methods("POST")
+
+	r.HandleFunc(options.BaseURL+"/v1/items/dismiss-tag", wrapper.DismissItemTag).Methods("POST")
 
 	r.HandleFunc(options.BaseURL+"/v1/items/suggest-tags", wrapper.SuggestItemTags).Methods("POST")
 
@@ -1380,6 +1448,82 @@ func (response PutItems401Response) VisitPutItemsResponse(w http.ResponseWriter)
 	return nil
 }
 
+type AcceptItemTagRequestObject struct {
+	Body *AcceptItemTagJSONRequestBody
+}
+
+type AcceptItemTagResponseObject interface {
+	VisitAcceptItemTagResponse(w http.ResponseWriter) error
+}
+
+type AcceptItemTag200JSONResponse ItemsResponse
+
+func (response AcceptItemTag200JSONResponse) VisitAcceptItemTagResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type AcceptItemTag400Response struct{}
+
+func (response AcceptItemTag400Response) VisitAcceptItemTagResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type AcceptItemTag401Response struct{}
+
+func (response AcceptItemTag401Response) VisitAcceptItemTagResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type AcceptItemTag404Response struct{}
+
+func (response AcceptItemTag404Response) VisitAcceptItemTagResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
+	return nil
+}
+
+type DismissItemTagRequestObject struct {
+	Body *DismissItemTagJSONRequestBody
+}
+
+type DismissItemTagResponseObject interface {
+	VisitDismissItemTagResponse(w http.ResponseWriter) error
+}
+
+type DismissItemTag200JSONResponse ItemsResponse
+
+func (response DismissItemTag200JSONResponse) VisitDismissItemTagResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DismissItemTag400Response struct{}
+
+func (response DismissItemTag400Response) VisitDismissItemTagResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type DismissItemTag401Response struct{}
+
+func (response DismissItemTag401Response) VisitDismissItemTagResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type DismissItemTag404Response struct{}
+
+func (response DismissItemTag404Response) VisitDismissItemTagResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
+	return nil
+}
+
 type SuggestItemTagsRequestObject struct {
 	Body *SuggestItemTagsJSONRequestBody
 }
@@ -1527,6 +1671,12 @@ type StrictServerInterface interface {
 	// upsert diary item
 	// (PUT /v1/items)
 	PutItems(ctx context.Context, request PutItemsRequestObject) (PutItemsResponseObject, error)
+	// accept a suggested tag for a day (adds to confirmed, removes from pending)
+	// (POST /v1/items/accept-tag)
+	AcceptItemTag(ctx context.Context, request AcceptItemTagRequestObject) (AcceptItemTagResponseObject, error)
+	// dismiss a pending suggested tag for a day (removes it from pending)
+	// (POST /v1/items/dismiss-tag)
+	DismissItemTag(ctx context.Context, request DismissItemTagRequestObject) (DismissItemTagResponseObject, error)
 	// suggest tags for draft entry content (does not save)
 	// (POST /v1/items/suggest-tags)
 	SuggestItemTags(ctx context.Context, request SuggestItemTagsRequestObject) (SuggestItemTagsResponseObject, error)
@@ -1931,6 +2081,68 @@ func (sh *strictHandler) PutItems(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutItemsResponseObject); ok {
 		if err := validResponse.VisitPutItemsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AcceptItemTag operation middleware
+func (sh *strictHandler) AcceptItemTag(w http.ResponseWriter, r *http.Request) {
+	var request AcceptItemTagRequestObject
+
+	var body AcceptItemTagJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AcceptItemTag(ctx, request.(AcceptItemTagRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AcceptItemTag")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AcceptItemTagResponseObject); ok {
+		if err := validResponse.VisitAcceptItemTagResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DismissItemTag operation middleware
+func (sh *strictHandler) DismissItemTag(w http.ResponseWriter, r *http.Request) {
+	var request DismissItemTagRequestObject
+
+	var body DismissItemTagJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DismissItemTag(ctx, request.(DismissItemTagRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DismissItemTag")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DismissItemTagResponseObject); ok {
+		if err := validResponse.VisitDismissItemTagResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

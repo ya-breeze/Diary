@@ -62,19 +62,43 @@ export default function ProfilePage() {
     authApi.getFamily().then(setFamily).catch(() => {});
   }, []);
 
-  const toggleAiTagging = async () => {
-    if (!family) return;
+  const saveAiSettings = async (next: {
+    aiTaggingEnabled: boolean;
+    aiTaggingBackfill?: boolean;
+    aiTaggingAuto?: boolean;
+  }) => {
     setSavingAi(true);
     try {
-      const updated = await authApi.updateFamilySettings({
-        aiTaggingEnabled: !family.aiTaggingEnabled,
-      });
+      const updated = await authApi.updateFamilySettings(next);
       setFamily(updated);
     } catch (error) {
       console.error('Failed to update AI tagging setting:', error);
     } finally {
       setSavingAi(false);
     }
+  };
+
+  const toggleAiTagging = () => {
+    if (!family) return;
+    void saveAiSettings({ aiTaggingEnabled: !family.aiTaggingEnabled });
+  };
+
+  const toggleBackfill = () => {
+    if (!family) return;
+    void saveAiSettings({
+      aiTaggingEnabled: true,
+      aiTaggingBackfill: !family.aiTaggingBackfill,
+      aiTaggingAuto: family.aiTaggingAuto,
+    });
+  };
+
+  const toggleAuto = () => {
+    if (!family) return;
+    void saveAiSettings({
+      aiTaggingEnabled: true,
+      aiTaggingBackfill: family.aiTaggingBackfill,
+      aiTaggingAuto: !family.aiTaggingAuto,
+    });
   };
 
   const entries = data?.items ?? [];
@@ -168,6 +192,39 @@ export default function ProfilePage() {
                 data-testid="ai-tagging-toggle"
               />
             </label>
+
+            {family.aiTaggingEnabled && (
+              <div className="mt-3 space-y-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+                <label className="flex items-center justify-between gap-4">
+                  <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                    Backfill: scan untagged days in the background
+                  </span>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    checked={!!family.aiTaggingBackfill}
+                    disabled={savingAi}
+                    onChange={toggleBackfill}
+                    className="h-5 w-5 cursor-pointer accent-blue-600 disabled:opacity-50"
+                    data-testid="ai-backfill-toggle"
+                  />
+                </label>
+                <label className="flex items-center justify-between gap-4">
+                  <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                    Auto-apply confident tags to untagged days
+                  </span>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    checked={!!family.aiTaggingAuto}
+                    disabled={savingAi}
+                    onChange={toggleAuto}
+                    className="h-5 w-5 cursor-pointer accent-blue-600 disabled:opacity-50"
+                    data-testid="ai-auto-toggle"
+                  />
+                </label>
+              </div>
+            )}
           </div>
         )}
 
