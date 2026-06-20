@@ -240,8 +240,8 @@ func (s *ItemsAPIServiceImpl) PutItems(
 // newItemResponse maps a stored item to the API response shape. Tag lists are
 // normalized to non-nil slices so they serialize as [] rather than null.
 func newItemResponse(item *models.Item) goserver.ItemsResponse {
-	tags := nonNil([]string(item.Tags))
-	pendingTags := nonNil([]string(item.PendingTags))
+	tags := nonNil(filterTags((*[]string)(&item.Tags)))
+	pendingTags := nonNil(filterTags((*[]string)(&item.PendingTags)))
 	body := item.Body
 	return goserver.ItemsResponse{
 		Date:        parseDate(item.Date),

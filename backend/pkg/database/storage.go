@@ -138,6 +138,11 @@ func (s *storage) Open() error {
 		panic("failed to migrate database")
 	}
 
+	if err := scrubBlankTags(s.log, s.db); err != nil {
+		s.log.Error("failed to scrub blank tags", "error", err)
+		// non-fatal: proceed with startup
+	}
+
 	return nil
 }
 
