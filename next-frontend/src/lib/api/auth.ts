@@ -21,6 +21,7 @@ export const authApi = {
     aiTaggingBackfill?: boolean;
     aiTaggingAuto?: boolean;
     aiTaggingUseImages?: boolean;
+    aiTaggingUseVideo?: boolean;
   }) =>
     apiClient<Family>('/v1/family', {
       method: 'PATCH',

@@ -588,6 +588,10 @@ components:
               type: boolean
               description: "Include referenced image assets in tag suggestion requests (images are sent to Gemini)"
               example: false
+            aiTaggingUseVideo:
+              type: boolean
+              description: "Include keyframes extracted from referenced video assets in tag suggestion requests (frames are sent to Gemini; requires ffmpeg)"
+              example: false
           required:
             - name
             - members
@@ -605,6 +609,9 @@ components:
           type: boolean
           example: false
         aiTaggingUseImages:
+          type: boolean
+          example: false
+        aiTaggingUseVideo:
           type: boolean
           example: false
 

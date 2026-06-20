@@ -404,17 +404,17 @@ func (mr *MockStorageMockRecorder) RemoveIgnoredOrphan(arg0, arg1 interface{}) *
 }
 
 // SetFamilyAISettings mocks base method.
-func (m *MockStorage) SetFamilyAISettings(arg0 uuid.UUID, arg1, arg2, arg3, arg4 bool) error {
+func (m *MockStorage) SetFamilyAISettings(arg0 uuid.UUID, arg1, arg2, arg3, arg4, arg5 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetFamilyAISettings", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "SetFamilyAISettings", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetFamilyAISettings indicates an expected call of SetFamilyAISettings.
-func (mr *MockStorageMockRecorder) SetFamilyAISettings(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockStorageMockRecorder) SetFamilyAISettings(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFamilyAISettings", reflect.TypeOf((*MockStorage)(nil).SetFamilyAISettings), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFamilyAISettings", reflect.TypeOf((*MockStorage)(nil).SetFamilyAISettings), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // SetFamilyAITaggingEnabled mocks base method.

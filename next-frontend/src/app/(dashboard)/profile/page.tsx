@@ -67,6 +67,7 @@ export default function ProfilePage() {
     aiTaggingBackfill?: boolean;
     aiTaggingAuto?: boolean;
     aiTaggingUseImages?: boolean;
+    aiTaggingUseVideo?: boolean;
   }) => {
     setSavingAi(true);
     try {
@@ -110,6 +111,18 @@ export default function ProfilePage() {
       aiTaggingBackfill: family.aiTaggingBackfill,
       aiTaggingAuto: family.aiTaggingAuto,
       aiTaggingUseImages: !family.aiTaggingUseImages,
+      aiTaggingUseVideo: family.aiTaggingUseVideo,
+    });
+  };
+
+  const toggleUseVideo = () => {
+    if (!family) return;
+    void saveAiSettings({
+      aiTaggingEnabled: true,
+      aiTaggingBackfill: family.aiTaggingBackfill,
+      aiTaggingAuto: family.aiTaggingAuto,
+      aiTaggingUseImages: family.aiTaggingUseImages,
+      aiTaggingUseVideo: !family.aiTaggingUseVideo,
     });
   };
 
@@ -253,6 +266,27 @@ export default function ProfilePage() {
                   {family.aiTaggingUseImages && (
                     <p className="text-xs text-amber-600 dark:text-amber-400">
                       Images from your entries will be sent to Google Gemini for analysis.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <label className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                      Include video keyframes in suggestions
+                    </span>
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      checked={!!family.aiTaggingUseVideo}
+                      disabled={savingAi}
+                      onChange={toggleUseVideo}
+                      className="h-5 w-5 cursor-pointer accent-blue-600 disabled:opacity-50"
+                      data-testid="ai-use-video-toggle"
+                    />
+                  </label>
+                  {family.aiTaggingUseVideo && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      Extracted frames from your videos will be sent to Google Gemini for analysis.
                     </p>
                   )}
                 </div>

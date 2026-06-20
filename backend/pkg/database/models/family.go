@@ -20,6 +20,9 @@ type Family struct {
 	// AITaggingUseImages sends the entry's referenced image assets to Gemini
 	// alongside the text. Off by default; privacy-sensitive opt-in.
 	AITaggingUseImages bool `gorm:"default:false"`
+	// AITaggingUseVideo sends keyframes extracted from referenced video assets
+	// to Gemini alongside the text. Off by default; requires ffmpeg at runtime.
+	AITaggingUseVideo bool `gorm:"default:false"`
 }
 
 func (f Family) FromDB() goserver.FamilyResponse {
@@ -31,6 +34,7 @@ func (f Family) FromDB() goserver.FamilyResponse {
 	aiTaggingBackfill := f.AITaggingBackfill
 	aiTaggingAuto := f.AITaggingAuto
 	aiTaggingUseImages := f.AITaggingUseImages
+	aiTaggingUseVideo := f.AITaggingUseVideo
 	return goserver.FamilyResponse{
 		Id:                 f.ID,
 		Name:               f.Name,
@@ -39,5 +43,6 @@ func (f Family) FromDB() goserver.FamilyResponse {
 		AiTaggingBackfill:  &aiTaggingBackfill,
 		AiTaggingAuto:      &aiTaggingAuto,
 		AiTaggingUseImages: &aiTaggingUseImages,
+		AiTaggingUseVideo:  &aiTaggingUseVideo,
 	}
 }

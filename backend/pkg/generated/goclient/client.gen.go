@@ -105,10 +105,13 @@ type FamilyResponse struct {
 	AiTaggingEnabled *bool `json:"aiTaggingEnabled,omitempty"`
 
 	// AiTaggingUseImages Include referenced image assets in tag suggestion requests (images are sent to Gemini)
-	AiTaggingUseImages *bool              `json:"aiTaggingUseImages,omitempty"`
-	Id                 openapi_types.UUID `json:"id"`
-	Members            []FamilyMember     `json:"members"`
-	Name               string             `json:"name"`
+	AiTaggingUseImages *bool `json:"aiTaggingUseImages,omitempty"`
+
+	// AiTaggingUseVideo Include keyframes extracted from referenced video assets in tag suggestion requests (frames are sent to Gemini; requires ffmpeg)
+	AiTaggingUseVideo *bool              `json:"aiTaggingUseVideo,omitempty"`
+	Id                openapi_types.UUID `json:"id"`
+	Members           []FamilyMember     `json:"members"`
+	Name              string             `json:"name"`
 }
 
 // FamilySettingsRequest defines model for FamilySettingsRequest.
@@ -117,6 +120,7 @@ type FamilySettingsRequest struct {
 	AiTaggingBackfill  *bool `json:"aiTaggingBackfill,omitempty"`
 	AiTaggingEnabled   *bool `json:"aiTaggingEnabled,omitempty"`
 	AiTaggingUseImages *bool `json:"aiTaggingUseImages,omitempty"`
+	AiTaggingUseVideo  *bool `json:"aiTaggingUseVideo,omitempty"`
 }
 
 // HealthFixRequest defines model for HealthFixRequest.

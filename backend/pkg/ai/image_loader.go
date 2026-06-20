@@ -17,10 +17,10 @@ var supportedImageMIMEs = map[string]bool{
 	"image/gif":  true,
 }
 
-// maxImages caps the number of images sent to Gemini per request.
-// Gemini imposes an inline-blob size limit; this prevents OOM on entries
-// with many large images and keeps requests well under that limit.
-const maxImages = 10
+// MaxImages caps the total number of image/frame assets sent to Gemini per
+// request (images + video keyframes combined). Gemini imposes an inline-blob
+// size limit; keeping this value modest prevents OOM and keeps costs predictable.
+const MaxImages = 10
 
 func LoadImageAssets(body, dataPath, familyID string) []ImageAsset {
 	names := utils.GetAssetsFromMarkdown(body)
@@ -32,7 +32,7 @@ func LoadImageAssets(body, dataPath, familyID string) []ImageAsset {
 	seen := make(map[string]struct{}, len(names))
 	var assets []ImageAsset
 	for _, name := range names {
-		if len(assets) >= maxImages {
+		if len(assets) >= MaxImages {
 			break
 		}
 		clean := filepath.Clean(name)

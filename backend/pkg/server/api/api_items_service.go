@@ -304,6 +304,9 @@ func (s *ItemsAPIServiceImpl) SuggestItemTags(
 	if family.AITaggingUseImages {
 		images = ai.LoadImageAssets(body, s.dataPath, familyID.String())
 	}
+	if family.AITaggingUseVideo {
+		images = append(images, ai.LoadVideoKeyframes(body, s.dataPath, familyID.String(), s.logger, ai.MaxImages-len(images))...)
+	}
 
 	suggestions, err := s.suggester.SuggestTags(ctx, req.Title, body, images, knownTags)
 	if err != nil {
@@ -348,6 +351,7 @@ func (s *ItemsAPIServiceImpl) maybeRetag(
 	}
 	autoMode := family.AITaggingAuto
 	useImages := family.AITaggingUseImages
+	useVideo := family.AITaggingUseVideo
 
 	// Coalesce: skip if a retag for this exact day is already running.
 	key := familyID.String() + "|" + date
@@ -368,14 +372,14 @@ func (s *ItemsAPIServiceImpl) maybeRetag(
 			delete(s.retagInflight, key)
 			s.retagMu.Unlock()
 		}()
-		s.runRetag(ctx, familyID, date, title, body, confirmed, autoMode, useImages)
+		s.runRetag(ctx, familyID, date, title, body, confirmed, autoMode, useImages, useVideo)
 	}()
 }
 
 // runRetag performs the background suggestion + routing for maybeRetag.
 func (s *ItemsAPIServiceImpl) runRetag(
 	ctx context.Context, familyID uuid.UUID, date, title, body string,
-	confirmed models.StringList, autoMode bool, useImages bool,
+	confirmed models.StringList, autoMode, useImages, useVideo bool,
 ) {
 	knownTags, err := s.db.GetDistinctTags(familyID)
 	if err != nil {
@@ -385,6 +389,9 @@ func (s *ItemsAPIServiceImpl) runRetag(
 	var images []ai.ImageAsset
 	if useImages {
 		images = ai.LoadImageAssets(body, s.dataPath, familyID.String())
+	}
+	if useVideo {
+		images = append(images, ai.LoadVideoKeyframes(body, s.dataPath, familyID.String(), s.logger, ai.MaxImages-len(images))...)
 	}
 	suggestions, err := s.suggester.SuggestTags(ctx, title, body, images, knownTags)
 	if err != nil {

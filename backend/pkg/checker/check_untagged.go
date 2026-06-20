@@ -121,6 +121,9 @@ func (c UntaggedCheck) processItem(
 	if family.AITaggingUseImages {
 		images = ai.LoadImageAssets(item.Body, cfg.DataPath, familyID.String())
 	}
+	if family.AITaggingUseVideo {
+		images = append(images, ai.LoadVideoKeyframes(item.Body, cfg.DataPath, familyID.String(), logger, ai.MaxImages-len(images))...)
+	}
 	suggestions, err := c.Suggester.SuggestTags(context.Background(), item.Title, item.Body, images, knownTags)
 	if err != nil {
 		logger.Error("Untagged check: suggestion failed", "familyID", familyID, "date", item.Date, "error", err)

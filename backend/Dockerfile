@@ -24,7 +24,8 @@ RUN CGO_ENABLED=1 GOOS=linux go build -a -ldflags '-linkmode external -extldflag
 FROM alpine:latest
 
 # Install runtime dependencies (including sqlite libs for runtime)
-RUN apk --no-cache add ca-certificates wget tzdata sqlite-libs
+# ffmpeg is required for AI video keyframe extraction (ai_tagging_use_video)
+RUN apk --no-cache add ca-certificates wget tzdata sqlite-libs ffmpeg
 
 # Set working directory
 WORKDIR /app
