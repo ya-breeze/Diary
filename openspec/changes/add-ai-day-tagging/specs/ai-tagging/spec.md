@@ -63,10 +63,11 @@ Every suggestion call SHALL return its suggestions in the API response. Suggesti
 - **AND** they are shown regardless of whether AI tagging is currently enabled (they were already generated)
 
 #### Scenario: Accepting a suggestion moves it to confirmed tags
-- **GIVEN** an entry with `pending_tags` containing `"beach"`
+- **GIVEN** an existing entry with confirmed `tags` `["work"]` and `pending_tags` containing `"beach"`
 - **WHEN** the user accepts the `"beach"` suggestion
-- **THEN** `"beach"` is added to the confirmed `tags`
+- **THEN** `"beach"` is added to the confirmed `tags` additively (`"work"` is preserved)
 - **AND** `"beach"` is removed from `pending_tags`
+- **AND** the change is persisted immediately (it sticks even if the entry is not separately saved)
 
 #### Scenario: Already-confirmed tags are not re-suggested
 - **GIVEN** an entry whose confirmed `tags` already include `"work"`

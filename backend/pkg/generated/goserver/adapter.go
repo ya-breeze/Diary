@@ -493,6 +493,36 @@ func (s *StrictServerImpl) DismissItemTag(
 	}
 }
 
+// --- AcceptItemTag ---
+
+func (s *StrictServerImpl) AcceptItemTag(
+	ctx context.Context, req AcceptItemTagRequestObject,
+) (AcceptItemTagResponseObject, error) {
+	if req.Body == nil {
+		return AcceptItemTag400Response{}, nil
+	}
+	resp, err := s.items.AcceptItemTag(ctx, *req.Body)
+	if err != nil {
+		return nil, err
+	}
+	switch resp.Code {
+	case http.StatusOK:
+		body, ok := resp.Body.(ItemsResponse)
+		if !ok {
+			return nil, fmt.Errorf("AcceptItemTag: unexpected body type %T", resp.Body)
+		}
+		return AcceptItemTag200JSONResponse(body), nil
+	case http.StatusBadRequest:
+		return AcceptItemTag400Response{}, nil
+	case http.StatusUnauthorized:
+		return AcceptItemTag401Response{}, nil
+	case http.StatusNotFound:
+		return AcceptItemTag404Response{}, nil
+	default:
+		return nil, fmt.Errorf("AcceptItemTag: unexpected status %d", resp.Code)
+	}
+}
+
 // UploadAssetsBatch501Response is a placeholder for the not-implemented batch upload via strict server.
 type UploadAssetsBatch501Response struct{}
 

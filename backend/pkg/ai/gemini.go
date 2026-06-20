@@ -39,6 +39,10 @@ func NewSuggester(ctx context.Context, logger *slog.Logger) (Suggester, error) {
 
 func (g *geminiSuggester) Enabled() bool { return true }
 
+// maxBodyChars caps how much entry text is sent to the model — tags come from
+// the gist, so the whole of a very long entry isn't needed (bounds token cost).
+const maxBodyChars = 8000
+
 func (g *geminiSuggester) SuggestTags(
 	ctx context.Context, title, body string, knownTags []string,
 ) ([]TagSuggestion, error) {
@@ -46,6 +50,9 @@ func (g *geminiSuggester) SuggestTags(
 		return nil, nil
 	}
 
+	if len(body) > maxBodyChars {
+		body = body[:maxBodyChars]
+	}
 	prompt := buildPrompt(title, body, knownTags)
 	resp, err := g.client.Models.GenerateContent(
 		ctx,

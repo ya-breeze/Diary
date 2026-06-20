@@ -64,6 +64,10 @@ type Storage interface {
 	// already present in the entry's confirmed Tags are pruned to keep the two
 	// lists disjoint.
 	SetPendingTags(familyID uuid.UUID, date string, pending []string) error
+	// AddConfirmedTags additively merges names into a day's confirmed tags and
+	// removes them from pending, atomically (never loses existing tags or
+	// clobbers concurrent edits).
+	AddConfirmedTags(familyID uuid.UUID, date string, names []string) error
 	DeleteItem(familyID uuid.UUID, date string) error
 
 	GetPreviousDate(familyID uuid.UUID, date string) (string, error)
@@ -457,6 +461,69 @@ func (s *storage) SetPendingTags(familyID uuid.UUID, date string, pending []stri
 		"pending_tags":     item.PendingTags,
 		"tags_source_hash": item.TagsSourceHash,
 	}).Error; err != nil {
+		return fmt.Errorf(StorageError, err)
+	}
+	return nil
+}
+
+// mergeTags appends trimmed, non-empty, case-insensitively-new names to tags.
+func mergeTags(tags models.StringList, names []string) models.StringList {
+	existing := make(map[string]struct{}, len(tags))
+	for _, t := range tags {
+		existing[strings.ToLower(t)] = struct{}{}
+	}
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		key := strings.ToLower(name)
+		if _, ok := existing[key]; !ok {
+			tags = append(tags, name)
+			existing[key] = struct{}{}
+		}
+	}
+	return tags
+}
+
+// AddConfirmedTags adds names to a day's confirmed tags additively (never
+// removing existing ones), removes those names from pending, and records the
+// change for sync — all in one transaction so a concurrent edit cannot be
+// clobbered and existing tags cannot be lost. The item's title/body are read
+// inside the transaction and re-saved unchanged.
+func (s *storage) AddConfirmedTags(familyID uuid.UUID, date string, names []string) error {
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		return fmt.Errorf(StorageError, tx.Error)
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var item models.Item
+	if err := tx.Where("family_id = ? AND date = ?", familyID, date).First(&item).Error; err != nil {
+		tx.Rollback()
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrNotFound
+		}
+		return fmt.Errorf(StorageError, err)
+	}
+
+	item.Tags = mergeTags(item.Tags, names)
+	item.PendingTags = prunePendingTags(item.PendingTags, item.Tags)
+	item.TagsSourceHash = utils.ComputeTagsSourceHash(item.Title, item.Body)
+
+	if err := tx.Save(&item).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf(StorageError, err)
+	}
+	if err := s.createChangeRecordInTx(tx, familyID, date, models.OperationTypeUpdated, &item, nil); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to create change record: %w", err)
+	}
+	if err := tx.Commit().Error; err != nil {
 		return fmt.Errorf(StorageError, err)
 	}
 	return nil

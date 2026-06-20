@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   CheckCircle,
@@ -40,6 +41,7 @@ interface OrphanState {
 const IMAGE_EXTENSIONS = /\.(jpe?g|png|gif|webp|avif|svg)$/i;
 
 export function HealthPanel({ isOpen, onClose }: HealthPanelProps) {
+  const router = useRouter();
   const { data, isLoading } = useHealthIssues();
   const fixMutation = useFixHealthIssues();
   const deleteOrphan = useDeleteOrphan();
@@ -194,16 +196,19 @@ export function HealthPanel({ isOpen, onClose }: HealthPanelProps) {
               <ul className="space-y-1">
                 {untaggedIssues.map((issue) => (
                   <li key={issue.path}>
-                    <a
-                      href={`/diary/${issue.path}?edit=true`}
-                      onClick={onClose}
-                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline dark:text-blue-400"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        router.push(`/diary/${issue.path}?edit=true`);
+                      }}
+                      className="flex w-full items-center gap-1 text-left text-xs text-blue-600 hover:underline dark:text-blue-400"
                       data-testid="untagged-review-link"
                     >
                       <Link className="h-3 w-3" />
                       <span className="font-mono">{issue.path}</span>
                       <span className="text-zinc-500 dark:text-zinc-400">— {issue.message}</span>
-                    </a>
+                    </button>
                   </li>
                 ))}
               </ul>

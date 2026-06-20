@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,16 +23,22 @@ type ItemsAPIServiceImpl struct {
 	db        database.Storage
 	suggester ai.Suggester
 	threshold float64
+
+	// inflight coalesces background retags: at most one per (family,date) runs
+	// at a time, so rapid saves don't spawn piles of concurrent model calls.
+	retagMu       sync.Mutex
+	retagInflight map[string]struct{}
 }
 
 func NewItemsAPIService(
 	logger *slog.Logger, db database.Storage, suggester ai.Suggester, threshold float64,
 ) goserver.ItemsAPIService {
 	return &ItemsAPIServiceImpl{
-		logger:    logger,
-		db:        db,
-		suggester: suggester,
-		threshold: threshold,
+		logger:        logger,
+		db:            db,
+		suggester:     suggester,
+		threshold:     threshold,
+		retagInflight: make(map[string]struct{}),
 	}
 }
 
@@ -142,6 +149,35 @@ func (s *ItemsAPIServiceImpl) DismissItemTag(
 	}
 
 	item.PendingTags = models.StringList(remaining)
+	resp := newItemResponse(item)
+	s.addNavigationDates(&resp, familyID, item.Date)
+	return goserver.Response(200, resp), nil
+}
+
+// AcceptItemTag confirms a suggested tag for a day: adds it to confirmed tags
+// (additively) and removes it from pending.
+func (s *ItemsAPIServiceImpl) AcceptItemTag(
+	ctx context.Context, req goserver.DismissTagRequest,
+) (goserver.ImplResponse, error) {
+	familyID, ok := common.GetFamilyID(ctx)
+	if !ok {
+		s.logger.Error("Family ID not found in context")
+		return goserver.Response(401, nil), nil
+	}
+
+	dateStr := req.Date.Time.Format("2006-01-02")
+	if err := s.db.AddConfirmedTags(familyID, dateStr, []string{req.Tag}); err != nil {
+		if errors.Is(err, database.ErrNotFound) {
+			return goserver.Response(404, nil), nil
+		}
+		s.logger.Error("Accept: failed to add tag", "error", err, "familyID", familyID, "date", dateStr)
+		return goserver.Response(500, nil), nil
+	}
+
+	item, err := s.db.GetItem(familyID, dateStr)
+	if err != nil {
+		return goserver.Response(500, nil), nil
+	}
 	resp := newItemResponse(item)
 	s.addNavigationDates(&resp, familyID, item.Date)
 	return goserver.Response(200, resp), nil
@@ -303,10 +339,28 @@ func (s *ItemsAPIServiceImpl) maybeRetag(
 		return
 	}
 	autoMode := family.AITaggingAuto
+
+	// Coalesce: skip if a retag for this exact day is already running.
+	key := familyID.String() + "|" + date
+	s.retagMu.Lock()
+	if _, running := s.retagInflight[key]; running {
+		s.retagMu.Unlock()
+		return
+	}
+	s.retagInflight[key] = struct{}{}
+	s.retagMu.Unlock()
+
 	// Detach from the request lifecycle (preserving any context values) so the
 	// retag is not cancelled when the HTTP response returns.
 	ctx = context.WithoutCancel(ctx)
-	go s.runRetag(ctx, familyID, date, title, body, confirmed, autoMode)
+	go func() {
+		defer func() {
+			s.retagMu.Lock()
+			delete(s.retagInflight, key)
+			s.retagMu.Unlock()
+		}()
+		s.runRetag(ctx, familyID, date, title, body, confirmed, autoMode)
+	}()
 }
 
 // runRetag performs the background suggestion + routing for maybeRetag.
@@ -324,51 +378,19 @@ func (s *ItemsAPIServiceImpl) runRetag(
 		s.logger.Error("Retag: suggestion failed", "error", err, "familyID", familyID, "date", date)
 		return
 	}
-	pending, confident := partitionSuggestions(suggestions, confirmed, s.threshold)
+	pending, confident := ai.Partition(suggestions, confirmed, s.threshold)
 
 	// Auto mode: apply confident tags directly to an untagged day. Curated days
-	// (already have tags) are never auto-written — only staged.
+	// (already have tags) are never auto-written — only staged. AddConfirmedTags
+	// is additive and atomic, so a concurrent edit can't lose tags.
 	if autoMode && len(confirmed) == 0 && len(confident) > 0 {
-		s.autoApply(familyID, date, confident)
+		if err := s.db.AddConfirmedTags(familyID, date, confident); err != nil {
+			s.logger.Error("Retag: failed to auto-apply tags", "error", err, "familyID", familyID, "date", date)
+		}
 		return
 	}
 	if err := s.db.SetPendingTags(familyID, date, pending); err != nil {
 		s.logger.Error("Retag: failed to store pending tags", "error", err, "familyID", familyID, "date", date)
-	}
-}
-
-// partitionSuggestions returns suggested names (excluding already-confirmed
-// tags) and the subset meeting the confidence threshold.
-func partitionSuggestions(
-	suggestions []ai.TagSuggestion, confirmed models.StringList, threshold float64,
-) ([]string, []string) {
-	confirmedSet := make(map[string]struct{}, len(confirmed))
-	for _, t := range confirmed {
-		confirmedSet[strings.ToLower(t)] = struct{}{}
-	}
-	var pending, confident []string
-	for _, sug := range suggestions {
-		if _, ok := confirmedSet[strings.ToLower(sug.Name)]; ok {
-			continue
-		}
-		pending = append(pending, sug.Name)
-		if sug.Confidence >= threshold {
-			confident = append(confident, sug.Name)
-		}
-	}
-	return pending, confident
-}
-
-// autoApply writes confident tags to an untagged day's confirmed tags.
-func (s *ItemsAPIServiceImpl) autoApply(familyID uuid.UUID, date string, confident []string) {
-	item, err := s.db.GetItem(familyID, date)
-	if err != nil {
-		s.logger.Error("Retag: failed to load item for auto-apply", "error", err, "familyID", familyID, "date", date)
-		return
-	}
-	item.Tags = models.StringList(confident)
-	if err := s.db.PutItem(familyID, item); err != nil {
-		s.logger.Error("Retag: failed to auto-apply tags", "error", err, "familyID", familyID, "date", date)
 	}
 }
 

@@ -43,5 +43,11 @@ export const diaryApi = {
       body: { date, tag },
     }),
 
+  acceptTag: (date: string, tag: string) =>
+    apiClient<DiaryEntry>('/v1/items/accept-tag', {
+      method: 'POST',
+      body: { date, tag },
+    }),
+
   getTags: () => apiClient<TagsResponse>('/v1/tags'),
 };

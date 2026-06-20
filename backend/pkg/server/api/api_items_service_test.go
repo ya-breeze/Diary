@@ -748,3 +748,69 @@ var _ = Describe("ItemsAPIService DismissItemTag", func() {
 		Expect(resp.Code).To(Equal(401))
 	})
 })
+
+var _ = Describe("ItemsAPIService AcceptItemTag", func() {
+	var (
+		logger   *slog.Logger
+		storage  database.Storage
+		service  goserver.ItemsAPIService
+		tempDir  string
+		familyID uuid.UUID
+		ctx      context.Context
+	)
+
+	BeforeEach(func() {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+		var err error
+		tempDir, err = os.MkdirTemp("", "accept_test")
+		Expect(err).NotTo(HaveOccurred())
+		storage = database.NewStorage(logger, &config.Config{DataPath: tempDir})
+		Expect(storage.Open()).To(Succeed())
+		fam, err := storage.CreateFamily("accept-fam")
+		Expect(err).NotTo(HaveOccurred())
+		familyID = fam.ID
+		ctx = createContextWithFamilyIDForItems(familyID)
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8)
+	})
+
+	AfterEach(func() {
+		storage.Close()
+		os.RemoveAll(tempDir)
+	})
+
+	It("moves a pending tag into confirmed (additive) and removes it from pending", func() {
+		Expect(storage.PutItem(familyID, &models.Item{
+			Date: "2024-01-01", Title: "trip", Tags: models.StringList{"existing"},
+		})).To(Succeed())
+		Expect(storage.SetPendingTags(familyID, "2024-01-01", []string{"hiking", "mountains"})).To(Succeed())
+
+		resp, err := service.AcceptItemTag(ctx, goserver.DismissTagRequest{
+			Date: parseTestDate("2024-01-01"), Tag: "hiking",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(200))
+		body := resp.Body.(goserver.ItemsResponse)
+		Expect(*body.Tags).To(ConsistOf("existing", "hiking")) // additive, existing kept
+		Expect(*body.PendingTags).To(Equal([]string{"mountains"}))
+
+		item, _ := storage.GetItem(familyID, "2024-01-01")
+		Expect([]string(item.Tags)).To(ConsistOf("existing", "hiking"))
+		Expect([]string(item.PendingTags)).To(Equal([]string{"mountains"}))
+	})
+
+	It("returns 404 for a missing entry", func() {
+		resp, err := service.AcceptItemTag(ctx, goserver.DismissTagRequest{
+			Date: parseTestDate("2099-01-01"), Tag: "x",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(404))
+	})
+
+	It("returns 401 without a family in context", func() {
+		resp, err := service.AcceptItemTag(context.Background(), goserver.DismissTagRequest{
+			Date: parseTestDate("2024-01-01"), Tag: "x",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(401))
+	})
+})

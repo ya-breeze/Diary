@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/ya-breeze/diary.be/pkg/ai"
@@ -123,7 +122,7 @@ func (c UntaggedCheck) processItem(
 		logger.Error("Untagged check: suggestion failed", "familyID", familyID, "date", item.Date, "error", err)
 		return Issue{}, false
 	}
-	names, confident := splitByConfidence(suggestions, item.Tags, cfg.AITaggingThreshold)
+	names, confident := ai.Partition(suggestions, item.Tags, cfg.AITaggingThreshold)
 	if len(names) == 0 {
 		return Issue{}, false
 	}
@@ -131,7 +130,7 @@ func (c UntaggedCheck) processItem(
 	// Auto mode: apply confident tags to an untagged day right away — no manual
 	// "fix" step. The day is resolved, so it produces no issue.
 	if family.AITaggingAuto && untagged && len(confident) > 0 {
-		if err := applyConfidentTags(db, familyID, item.Date, confident); err != nil {
+		if err := db.AddConfirmedTags(familyID, item.Date, confident); err != nil {
 			logger.Error("Untagged check: auto-apply failed", "familyID", familyID, "date", item.Date, "error", err)
 			return Issue{}, false
 		}
@@ -156,50 +155,4 @@ func (UntaggedCheck) reviewIssue(familyID uuid.UUID, date string, n int) Issue {
 		Message:  fmt.Sprintf("%d suggested tag(s) to review", n),
 		Fixable:  false,
 	}
-}
-
-// splitByConfidence returns all suggested names (excluding tags already confirmed
-// on the entry) and the subset whose confidence meets the threshold.
-func splitByConfidence(
-	suggestions []ai.TagSuggestion, confirmed []string, threshold float64,
-) ([]string, []string) {
-	confirmedSet := make(map[string]struct{}, len(confirmed))
-	for _, t := range confirmed {
-		confirmedSet[strings.ToLower(t)] = struct{}{}
-	}
-	var names, confident []string
-	for _, s := range suggestions {
-		if _, ok := confirmedSet[strings.ToLower(s.Name)]; ok {
-			continue
-		}
-		names = append(names, s.Name)
-		if s.Confidence >= threshold {
-			confident = append(confident, s.Name)
-		}
-	}
-	return names, confident
-}
-
-// applyConfidentTags adds the confident tags to a day's confirmed tags
-// (additive — never removes existing tags).
-func applyConfidentTags(db database.Storage, familyID uuid.UUID, date string, confident []string) error {
-	item, err := db.GetItem(familyID, date)
-	if err != nil {
-		return fmt.Errorf("getting item %s/%s: %w", familyID, date, err)
-	}
-	existing := make(map[string]struct{}, len(item.Tags))
-	for _, t := range item.Tags {
-		existing[strings.ToLower(t)] = struct{}{}
-	}
-	merged := append(models.StringList{}, item.Tags...)
-	for _, name := range confident {
-		if _, ok := existing[strings.ToLower(name)]; !ok {
-			merged = append(merged, name)
-		}
-	}
-	item.Tags = merged
-	if err := db.PutItem(familyID, item); err != nil {
-		return fmt.Errorf("saving item %s/%s: %w", familyID, date, err)
-	}
-	return nil
 }

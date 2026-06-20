@@ -430,3 +430,17 @@ func (mr *MockStorageMockRecorder) SetPendingTags(arg0, arg1, arg2 interface{}) 
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPendingTags", reflect.TypeOf((*MockStorage)(nil).SetPendingTags), arg0, arg1, arg2)
 }
+
+// AddConfirmedTags mocks base method.
+func (m *MockStorage) AddConfirmedTags(arg0 uuid.UUID, arg1 string, arg2 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddConfirmedTags", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddConfirmedTags indicates an expected call of AddConfirmedTags.
+func (mr *MockStorageMockRecorder) AddConfirmedTags(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddConfirmedTags", reflect.TypeOf((*MockStorage)(nil).AddConfirmedTags), arg0, arg1, arg2)
+}

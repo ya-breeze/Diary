@@ -39,6 +39,7 @@ type ItemsAPIService interface {
 	PutItems(ctx context.Context, itemsRequest ItemsRequest) (ImplResponse, error)
 	SuggestItemTags(ctx context.Context, req SuggestTagsRequest) (ImplResponse, error)
 	DismissItemTag(ctx context.Context, req DismissTagRequest) (ImplResponse, error)
+	AcceptItemTag(ctx context.Context, req DismissTagRequest) (ImplResponse, error)
 	GetTags(ctx context.Context) (ImplResponse, error)
 }
 

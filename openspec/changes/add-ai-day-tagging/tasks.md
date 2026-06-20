@@ -70,6 +70,14 @@ Organized by the four phases from the proposal. Each phase is independently ship
 - [x] 7b.5 Staged chips show regardless of the AI toggle (already-generated suggestions stay reviewable); refresh on editor date change
 - [x] 7b.6 Dismiss a suggestion: `POST /v1/items/dismiss-tag` removes one name from `pending_tags`; ✕ on each chip in the editor. Backfill skips already-processed days (hash current + no pending), so dismissing the last suggestion clears it from review. Spec delta added (ai-tagging: "Dismiss a pending suggestion")
 
+## 7c. Phase 4 — review-feedback hardening (from code review)
+
+- [x] 7c.1 `Storage.AddConfirmedTags` — transactional, **additive** merge into confirmed tags + prune pending + change-record, so auto-apply/accept can't lose existing tags or clobber a concurrent edit (replaces the prior whole-row `PutItem` in both apply paths)
+- [x] 7c.2 Accept persists immediately via `POST /v1/items/accept-tag` (consistent with dismiss); chip accept calls it best-effort (new entries still persist on save)
+- [x] 7c.3 Coalesce background retags: at most one in-flight per `(family,date)` (bounds concurrent model calls on rapid saves)
+- [x] 7c.4 Shared `ai.Partition` replaces the duplicated `partitionSuggestions`/`splitByConfidence`; cap entry body at 8000 chars before the model; health review links use client-side navigation
+- [x] 7c.5 Tests: accept handler (additive/404/401); existing suites updated
+
 ## 8. Cross-cutting & verification
 
 - [x] 8.1 Document `GEMINI_API_KEY` + the AI tag suggestion feature in `README.md` (ffmpeg/`ai_tagging_*` media+backfill flags arrive with phases 2–4)
