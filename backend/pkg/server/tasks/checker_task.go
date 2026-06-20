@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/ya-breeze/diary.be/pkg/ai"
 	"github.com/ya-breeze/diary.be/pkg/checker"
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/database"
@@ -29,7 +30,8 @@ func (noopWriter) Write(p []byte) (int, error) { return len(p), nil }
 
 var _ io.Writer = noopWriter{}
 
-var allChecks = []checker.Check{
+// baseChecks are the always-available, dependency-free checks.
+var baseChecks = []checker.Check{
 	checker.MimeCheck{},
 	checker.OrphansCheck{},
 	checker.RefsCheck{},
@@ -53,9 +55,12 @@ type CheckerTask struct {
 	mu       sync.RWMutex
 	results  map[uuid.UUID]*UserResult
 	interval time.Duration
+	checks   []checker.Check
 }
 
-func NewCheckerTask(logger *slog.Logger, db database.Storage, cfg *config.Config) *CheckerTask {
+func NewCheckerTask(
+	logger *slog.Logger, db database.Storage, cfg *config.Config, suggester ai.Suggester,
+) *CheckerTask {
 	interval := 24 * time.Hour
 	if cfg.HealthCheckInterval != "" {
 		if d, err := time.ParseDuration(cfg.HealthCheckInterval); err == nil {
@@ -64,12 +69,15 @@ func NewCheckerTask(logger *slog.Logger, db database.Storage, cfg *config.Config
 			logger.Warn("Invalid health_check_interval, using 24h", "value", cfg.HealthCheckInterval, "error", err)
 		}
 	}
+	checks := append([]checker.Check{}, baseChecks...)
+	checks = append(checks, checker.UntaggedCheck{Suggester: suggester})
 	return &CheckerTask{
 		db:       db,
 		cfg:      cfg,
 		logger:   logger,
 		results:  make(map[uuid.UUID]*UserResult),
 		interval: interval,
+		checks:   checks,
 	}
 }
 
@@ -105,7 +113,7 @@ func (t *CheckerTask) GetIssues(familyID uuid.UUID) *UserResult {
 // RunFix re-runs the named checks with fix=true for a specific family, then re-scans to get clean results.
 // If checks is empty, all checks are run.
 func (t *CheckerTask) RunFix(familyID uuid.UUID, checks []string) (*UserResult, error) {
-	selected, err := selectChecks(checks)
+	selected, err := t.selectChecks(checks)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +270,7 @@ func validateDate(date string) error {
 
 func (t *CheckerTask) runAll() {
 	t.logger.Info("Running health checks")
-	runner := checker.NewRunner(t.logger, allChecks)
+	runner := checker.NewRunner(t.logger, t.checks)
 	allIssues, err := runner.Run(t.db, t.cfg, false, noopWriter{}, false)
 	if err != nil {
 		t.logger.Error("Health check failed", "error", err)
@@ -306,19 +314,19 @@ func (t *CheckerTask) runAll() {
 	t.mu.Unlock()
 }
 
-func selectChecks(names []string) ([]checker.Check, error) {
+func (t *CheckerTask) selectChecks(names []string) ([]checker.Check, error) {
 	if len(names) == 0 {
-		return allChecks, nil
+		return t.checks, nil
 	}
-	known := make(map[string]checker.Check, len(allChecks))
-	for _, c := range allChecks {
+	known := make(map[string]checker.Check, len(t.checks))
+	for _, c := range t.checks {
 		known[c.Name()] = c
 	}
 	var selected []checker.Check
 	for _, n := range names {
 		c, ok := known[n]
 		if !ok {
-			return nil, fmt.Errorf("unknown check %q (available: mime, orphans, refs)", n)
+			return nil, fmt.Errorf("unknown check %q (available: mime, orphans, refs, untagged)", n)
 		}
 		selected = append(selected, c)
 	}

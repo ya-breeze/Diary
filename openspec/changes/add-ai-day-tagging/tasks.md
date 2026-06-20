@@ -52,14 +52,14 @@ Organized by the four phases from the proposal. Each phase is independently ship
 
 ## 7. Phase 4 — Backfill health check & auto mode
 
-- [ ] 7.1 Add per-family `ai_tagging_backfill` and `ai_tagging_auto` config (default off); add confidence threshold τ
-- [ ] 7.2 Implement `UntaggedCheck` satisfying `checker.Check`: emit an Issue per untagged/stale day, skipped unless `ai_tagging_backfill` enabled
-- [ ] 7.3 Register `untagged` in the health Runner; confirm family scoping via `RunForFamily`
-- [ ] 7.4 Auto mode: confident (≥τ) days get a populated `fix func()` writing tags and `Fixable:true`; uncertain days store `pending_tags`, `Fixable:false`, "solve manually" message
-- [ ] 7.5 Non-auto mode: store `pending_tags`, report non-fixable issue (user accepts chips on the day)
-- [ ] 7.6 Apply on-save unattended path through the same auto/non-auto routing
-- [ ] 7.7 Settings UI toggles for backfill + auto mode
-- [ ] 7.8 Tests: check skipped when disabled; fixable vs solve-manually routing by confidence; fix-all writes confident tags
+- [x] 7.1 Per-family `AITaggingBackfill`/`AITaggingAuto` columns + `SetFamilyAISettings`; flags on `FamilyResponse`/`FamilySettingsRequest`; server config `AITaggingThreshold` (τ, default 0.8)
+- [x] 7.2 `UntaggedCheck` (`pkg/checker/check_untagged.go`) satisfies `checker.Check`; no-op unless suggester enabled AND family `AITaggingBackfill`; bounded by `maxBackfillPerRun`; treats untagged OR stale (hash mismatch) days as candidates
+- [x] 7.3 Registered `untagged` in the checker task (instance `checks`, injected suggester); `selectChecks` knows it; runs in the 24h sweep and via `RunForFamily` (fix path)
+- [x] 7.4 Auto mode: confident (≥τ) untagged days → `Fixable:true` with a `fix()` that additively writes tags; uncertain → `pending_tags` + non-fixable "solve manually"
+- [x] 7.5 Non-auto mode: stages `pending_tags`, non-fixable issue "review on the entry"
+- [x] 7.6 On-save retag now routes through auto/non-auto (confident+untagged → apply; else stage), using the `AITaggingThreshold`
+- [x] 7.7 Settings UI: backfill + auto toggles on the profile page (shown when AI tagging is enabled)
+- [x] 7.8 Tests (`check_untagged_test.go`): disabled suggester, backfill off, non-auto stages pending, auto-confident fix applies, auto-uncertain stages, tagged days skipped
 
 ## 8. Cross-cutting & verification
 

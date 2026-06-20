@@ -524,6 +524,14 @@ components:
               type: boolean
               description: "Per-family master switch for AI tag suggestion"
               example: false
+            aiTaggingBackfill:
+              type: boolean
+              description: "Enable the background untagged-days backfill check"
+              example: false
+            aiTaggingAuto:
+              type: boolean
+              description: "Auto-apply confident suggestions to untagged days on unattended triggers"
+              example: false
           required:
             - name
             - members
@@ -534,6 +542,12 @@ components:
         aiTaggingEnabled:
           type: boolean
           example: true
+        aiTaggingBackfill:
+          type: boolean
+          example: false
+        aiTaggingAuto:
+          type: boolean
+          example: false
       required:
         - aiTaggingEnabled
 

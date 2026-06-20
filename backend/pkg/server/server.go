@@ -60,7 +60,7 @@ func createControllers(
 		UserAPIService:   api.NewUserAPIService(logger, db),
 		AssetsAPIService: api.NewAssetsAPIService(logger, cfg),
 		HealthAPIService: api.NewHealthAPIServiceImpl(checkerTask),
-		ItemsAPIService:  api.NewItemsAPIService(logger, db, suggester),
+		ItemsAPIService:  api.NewItemsAPIService(logger, db, suggester, cfg.AITaggingThreshold),
 		SyncAPIService:   api.NewSyncAPIService(logger, db),
 	}
 }
@@ -121,19 +121,19 @@ func Serve(
 		}
 	}()
 
-	// Start background health-check task
-	checkerTask := tasks.NewCheckerTask(logger, storage, cfg)
-	checkerTask.Start(ctx)
-
-	// Start background backup task
-	backupTask := tasks.NewBackupTask(logger, cfg)
-	backupTask.Start(ctx)
-
 	// Construct the AI tag suggester (disabled gracefully if GEMINI_API_KEY unset)
 	suggester, err := ai.NewSuggester(ctx, logger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create AI suggester: %w", err)
 	}
+
+	// Start background health-check task (includes the AI backfill check)
+	checkerTask := tasks.NewCheckerTask(logger, storage, cfg, suggester)
+	checkerTask.Start(ctx)
+
+	// Start background backup task
+	backupTask := tasks.NewBackupTask(logger, cfg)
+	backupTask.Start(ctx)
 
 	// Create controllers
 	controllers := createControllers(logger, cfg, storage, checkerTask, suggester)

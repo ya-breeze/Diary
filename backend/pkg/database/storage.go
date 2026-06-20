@@ -49,6 +49,8 @@ type Storage interface {
 	CreateFamily(name string) (*models.Family, error)
 	GetFamily(familyID uuid.UUID) (*models.Family, error)
 	SetFamilyAITaggingEnabled(familyID uuid.UUID, enabled bool) error
+	// SetFamilyAISettings updates all AI tagging flags for a family at once.
+	SetFamilyAISettings(familyID uuid.UUID, enabled, backfill, auto bool) error
 
 	// GetDistinctTags returns the family's existing tag vocabulary (deduplicated,
 	// sorted) — used for tag autocomplete and as AI suggestion context.
@@ -252,6 +254,26 @@ func (s *storage) SetFamilyAITaggingEnabled(familyID uuid.UUID, enabled bool) er
 	}
 	if res.RowsAffected == 0 {
 		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *storage) SetFamilyAISettings(familyID uuid.UUID, enabled, backfill, auto bool) error {
+	// Verify existence explicitly: an all-unchanged map update reports
+	// RowsAffected == 0 on SQLite, which would otherwise look like "not found".
+	var count int64
+	if err := s.db.Model(&models.Family{}).Where("id = ?", familyID).Count(&count).Error; err != nil {
+		return fmt.Errorf(StorageError, err)
+	}
+	if count == 0 {
+		return ErrNotFound
+	}
+	if err := s.db.Model(&models.Family{}).Where("id = ?", familyID).Updates(map[string]any{
+		"ai_tagging_enabled":  enabled,
+		"ai_tagging_backfill": backfill,
+		"ai_tagging_auto":     auto,
+	}).Error; err != nil {
+		return fmt.Errorf(StorageError, err)
 	}
 	return nil
 }

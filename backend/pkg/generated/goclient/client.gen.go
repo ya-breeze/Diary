@@ -89,6 +89,12 @@ type FamilyMember struct {
 
 // FamilyResponse defines model for FamilyResponse.
 type FamilyResponse struct {
+	// AiTaggingAuto Auto-apply confident suggestions to untagged days on unattended triggers
+	AiTaggingAuto *bool `json:"aiTaggingAuto,omitempty"`
+
+	// AiTaggingBackfill Enable the background untagged-days backfill check
+	AiTaggingBackfill *bool `json:"aiTaggingBackfill,omitempty"`
+
 	// AiTaggingEnabled Per-family master switch for AI tag suggestion
 	AiTaggingEnabled *bool              `json:"aiTaggingEnabled,omitempty"`
 	Id               openapi_types.UUID `json:"id"`
@@ -98,7 +104,9 @@ type FamilyResponse struct {
 
 // FamilySettingsRequest defines model for FamilySettingsRequest.
 type FamilySettingsRequest struct {
-	AiTaggingEnabled bool `json:"aiTaggingEnabled"`
+	AiTaggingAuto     *bool `json:"aiTaggingAuto,omitempty"`
+	AiTaggingBackfill *bool `json:"aiTaggingBackfill,omitempty"`
+	AiTaggingEnabled  bool  `json:"aiTaggingEnabled"`
 }
 
 // HealthFixRequest defines model for HealthFixRequest.

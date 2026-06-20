@@ -91,7 +91,7 @@ var _ = Describe("ItemsAPIService", func() {
 		storage = database.NewStorage(logger, cfg)
 		Expect(storage.Open()).To(Succeed())
 
-		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester())
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8)
 	})
 
 	AfterEach(func() {
@@ -590,7 +590,7 @@ var _ = Describe("ItemsAPIService SuggestItemTags", func() {
 	}
 
 	It("returns 503 when the suggester is disabled", func() {
-		svc := api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester())
+		svc := api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8)
 		resp, err := svc.SuggestItemTags(ctx, req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.Code).To(Equal(503))
@@ -598,7 +598,7 @@ var _ = Describe("ItemsAPIService SuggestItemTags", func() {
 
 	It("returns 503 when the family has not enabled AI tagging", func() {
 		svc := api.NewItemsAPIService(logger, storage,
-			fakeSuggester{suggestions: []ai.TagSuggestion{{Name: "beach", Confidence: 0.9}}})
+			fakeSuggester{suggestions: []ai.TagSuggestion{{Name: "beach", Confidence: 0.9}}}, 0.8)
 		resp, err := svc.SuggestItemTags(ctx, req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.Code).To(Equal(503))
@@ -609,7 +609,7 @@ var _ = Describe("ItemsAPIService SuggestItemTags", func() {
 		svc := api.NewItemsAPIService(logger, storage, fakeSuggester{suggestions: []ai.TagSuggestion{
 			{Name: "beach", Confidence: 0.9},
 			{Name: "summer", Confidence: 0.5},
-		}})
+		}}, 0.8)
 		resp, err := svc.SuggestItemTags(ctx, req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.Code).To(Equal(200))
@@ -620,7 +620,7 @@ var _ = Describe("ItemsAPIService SuggestItemTags", func() {
 	})
 
 	It("returns 401 without a family in context", func() {
-		svc := api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester())
+		svc := api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8)
 		resp, err := svc.SuggestItemTags(context.Background(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.Code).To(Equal(401))
@@ -648,7 +648,7 @@ var _ = Describe("ItemsAPIService GetTags", func() {
 		Expect(err).NotTo(HaveOccurred())
 		familyID = fam.ID
 		ctx = createContextWithFamilyIDForItems(familyID)
-		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester())
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8)
 	})
 
 	AfterEach(func() {

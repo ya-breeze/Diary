@@ -24,6 +24,8 @@ export interface Family {
   name: string;
   members: FamilyMember[];
   aiTaggingEnabled?: boolean;
+  aiTaggingBackfill?: boolean;
+  aiTaggingAuto?: boolean;
 }
 
 export interface DiaryEntry {

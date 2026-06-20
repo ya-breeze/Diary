@@ -44,7 +44,30 @@ func (s *FamilyAPIServiceImpl) UpdateFamilySettings(
 		return goserver.Response(401, nil), nil
 	}
 
-	if err := s.db.SetFamilyAITaggingEnabled(familyID, req.AiTaggingEnabled); err != nil {
+	// Load current settings so omitted optional flags keep their existing value.
+	current, err := s.db.GetFamily(familyID)
+	if err != nil {
+		if errors.Is(err, database.ErrNotFound) {
+			return goserver.Response(404, nil), nil
+		}
+		return goserver.Response(500, nil), nil
+	}
+
+	backfill := current.AITaggingBackfill
+	if req.AiTaggingBackfill != nil {
+		backfill = *req.AiTaggingBackfill
+	}
+	auto := current.AITaggingAuto
+	if req.AiTaggingAuto != nil {
+		auto = *req.AiTaggingAuto
+	}
+	// Auto mode and backfill are meaningless without the master switch on.
+	if !req.AiTaggingEnabled {
+		backfill = false
+		auto = false
+	}
+
+	if err = s.db.SetFamilyAISettings(familyID, req.AiTaggingEnabled, backfill, auto); err != nil {
 		if errors.Is(err, database.ErrNotFound) {
 			return goserver.Response(404, nil), nil
 		}
