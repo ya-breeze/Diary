@@ -20,12 +20,12 @@ When a family has `ai_tagging_backfill` enabled, the health subsystem SHALL run 
 - **WHEN** health checks run
 - **THEN** an issue with `check` = `untagged` is reported for that day
 
-#### Scenario: Confident auto-apply under auto mode
+#### Scenario: Confident auto-apply happens during the sweep (no manual fix)
 - **GIVEN** a family with `ai_tagging_backfill = true` and `ai_tagging_auto = true` and threshold τ
 - **AND** a day with no confirmed tags for which the model returns a suggestion with confidence ≥ τ
-- **WHEN** the issue's fix is applied (via `POST /v1/health/fix`)
-- **THEN** the confident tags are written to the day's confirmed `tags`
-- **AND** the issue is reported as `fixable`
+- **WHEN** the `untagged` check runs (the background sweep or a fix request)
+- **THEN** the confident tags are written to the day's confirmed `tags` immediately
+- **AND** no issue is reported for that day (it is resolved)
 
 #### Scenario: Stale day that already has confirmed tags is not auto-applied
 - **GIVEN** a family with `ai_tagging_backfill = true` and `ai_tagging_auto = true`
@@ -39,14 +39,29 @@ When a family has `ai_tagging_backfill` enabled, the health subsystem SHALL run 
 - **AND** an untagged day for which all suggestions have confidence < τ
 - **WHEN** health checks run
 - **THEN** the day's suggestions are stored in `pending_tags`
-- **AND** the issue is reported as not `fixable` with a "solve manually" message
+- **AND** the issue is reported as not `fixable`, identifying the day so the user can open and review it
 
 #### Scenario: Default (non-auto) mode stages suggestions for manual review
 - **GIVEN** a family with `ai_tagging_backfill = true` and `ai_tagging_auto = false`
 - **AND** an untagged day
 - **WHEN** health checks run
 - **THEN** the day's suggestions are stored in `pending_tags`
-- **AND** the issue is reported as not `fixable` (the user accepts chips on the day itself)
+- **AND** the issue is reported as not `fixable`, identifying the day so the user can open and accept the chips
+
+#### Scenario: Untagged check does not repeatedly re-query the model
+- **GIVEN** an untagged day whose suggestions were already staged in `pending_tags` by a prior run
+- **AND** the day's content has not changed since
+- **WHEN** the `untagged` check runs again
+- **THEN** the staged suggestions are surfaced without calling the model again
+
+### Requirement: Reviewing untagged days
+The health UI SHALL present each unresolved `untagged` day as a link to that entry, where its staged suggestions can be reviewed and accepted. The `untagged` group SHALL NOT present a generic auto-fix button (suggestions are applied automatically under auto mode and reviewed per-entry otherwise).
+
+#### Scenario: Untagged issue links to the entry
+- **GIVEN** an `untagged` issue for the day `2024-03-15`
+- **WHEN** the health panel renders it
+- **THEN** it shows a link that opens `/diary/2024-03-15` in edit mode
+- **AND** no "Fix" button is shown for the untagged group
 
 ## MODIFIED Requirements
 

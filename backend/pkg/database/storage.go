@@ -450,7 +450,13 @@ func (s *storage) SetPendingTags(familyID uuid.UUID, date string, pending []stri
 	}
 
 	item.PendingTags = prunePendingTags(models.StringList(pending), item.Tags)
-	if err := s.db.Model(&item).Update("pending_tags", item.PendingTags).Error; err != nil {
+	// Stamp the staleness hash so an already-suggested day isn't re-queried by the
+	// backfill check on every sweep (it only re-runs when the content changes).
+	item.TagsSourceHash = utils.ComputeTagsSourceHash(item.Title, item.Body)
+	if err := s.db.Model(&item).Updates(map[string]any{
+		"pending_tags":     item.PendingTags,
+		"tags_source_hash": item.TagsSourceHash,
+	}).Error; err != nil {
 		return fmt.Errorf(StorageError, err)
 	}
 	return nil

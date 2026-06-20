@@ -61,6 +61,13 @@ Organized by the four phases from the proposal. Each phase is independently ship
 - [x] 7.7 Settings UI: backfill + auto toggles on the profile page (shown when AI tagging is enabled)
 - [x] 7.8 Tests (`check_untagged_test.go`): disabled suggester, backfill off, non-auto stages pending, auto-confident fix applies, auto-uncertain stages, tagged days skipped
 
+## 7b. Phase 4 — backfill UX refinements
+
+- [x] 7b.1 Auto mode applies confident tags **during the sweep** (no manual "Fix" click); resolved days emit no issue
+- [x] 7b.2 Staging `pending_tags` stamps `tags_source_hash`, so already-suggested days aren't re-queried every sweep (only on content change) — added `TestUntaggedDoesNotRequeryStagedDays`
+- [x] 7b.3 `untagged` issues are non-fixable review items; health panel renders them as **links to the entry** (`/diary/{date}?edit=true`), no generic Fix button
+- [x] 7b.4 Spec deltas updated (health): apply-on-sweep, no-re-query, review-link requirement
+
 ## 8. Cross-cutting & verification
 
 - [x] 8.1 Document `GEMINI_API_KEY` + the AI tag suggestion feature in `README.md` (ffmpeg/`ai_tagging_*` media+backfill flags arrive with phases 2–4)

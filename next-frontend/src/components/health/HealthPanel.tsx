@@ -56,8 +56,10 @@ export function HealthPanel({ isOpen, onClose }: HealthPanelProps) {
   const lastChecked = data?.lastChecked ? new Date(data.lastChecked) : null;
 
   const orphanIssues = issues.filter((i) => i.check === 'orphans');
+  const untaggedIssues = issues.filter((i) => i.check === 'untagged');
+  // orphans and untagged have their own per-item UI; everything else is grouped.
   const grouped = issues.reduce<Record<string, HealthIssue[]>>((acc, issue) => {
-    if (issue.check !== 'orphans') {
+    if (issue.check !== 'orphans' && issue.check !== 'untagged') {
       acc[issue.check] = [...(acc[issue.check] ?? []), issue];
     }
     return acc;
@@ -172,6 +174,41 @@ export function HealthPanel({ isOpen, onClose }: HealthPanelProps) {
                 </div>
               );
             })}
+
+          {/* Untagged days — each links to the entry to review its suggestions */}
+          {!isLoading && untaggedIssues.length > 0 && (
+            <div
+              className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700"
+              data-testid="untagged-section"
+            >
+              <div className="mb-2 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                <span className="font-medium text-zinc-800 dark:text-zinc-200">untagged days</span>
+                <span className="text-xs text-zinc-500">
+                  ({untaggedIssues.length})
+                </span>
+              </div>
+              <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+                Open an entry to review and accept its suggested tags.
+              </p>
+              <ul className="space-y-1">
+                {untaggedIssues.map((issue) => (
+                  <li key={issue.path}>
+                    <a
+                      href={`/diary/${issue.path}?edit=true`}
+                      onClick={onClose}
+                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline dark:text-blue-400"
+                      data-testid="untagged-review-link"
+                    >
+                      <Link className="h-3 w-3" />
+                      <span className="font-mono">{issue.path}</span>
+                      <span className="text-zinc-500 dark:text-zinc-400">— {issue.message}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Orphans — per-item */}
           {!isLoading && orphanIssues.length > 0 && (

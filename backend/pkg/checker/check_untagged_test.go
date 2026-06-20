@@ -111,16 +111,14 @@ func TestUntaggedAutoConfidentFixApplies(t *testing.T) {
 
 	sug := fakeSuggester{enabled: true, suggestions: []ai.TagSuggestion{{Name: "beach", Confidence: 0.95}}}
 	issues := runUntagged(t, s, cfg, sug)
-	if len(issues) != 1 || !issues[0].Fixable {
-		t.Fatalf("expected 1 fixable issue, got %+v", issues)
-	}
-	// Applying the fix writes the confident tag to confirmed tags.
-	if err := issues[0].Fix(); err != nil {
-		t.Fatalf("fix: %v", err)
+	// Auto mode applies confident tags during the run and resolves the day —
+	// no issue is surfaced.
+	if len(issues) != 0 {
+		t.Fatalf("expected no issue (auto-applied), got %+v", issues)
 	}
 	item, _ := s.GetItem(fam.ID, "2024-01-01")
 	if len(item.Tags) != 1 || item.Tags[0] != "beach" {
-		t.Fatalf("expected confirmed [beach] after fix, got %v", item.Tags)
+		t.Fatalf("expected confirmed [beach] auto-applied, got %v", item.Tags)
 	}
 }
 
@@ -159,5 +157,46 @@ func TestUntaggedSkipsTaggedDays(t *testing.T) {
 	sug := fakeSuggester{enabled: true, suggestions: []ai.TagSuggestion{{Name: "ocean", Confidence: 0.95}}}
 	if issues := runUntagged(t, s, cfg, sug); len(issues) != 0 {
 		t.Fatalf("tagged up-to-date day should be skipped, got %d issues", len(issues))
+	}
+}
+
+// countingSuggester records how many times the model was queried.
+type countingSuggester struct {
+	calls int
+	out   []ai.TagSuggestion
+}
+
+func (c *countingSuggester) Enabled() bool { return true }
+func (c *countingSuggester) SuggestTags(
+	_ context.Context, _, _ string, _ []string,
+) ([]ai.TagSuggestion, error) {
+	c.calls++
+	return c.out, nil
+}
+
+func TestUntaggedDoesNotRequeryStagedDays(t *testing.T) {
+	s, cfg, done := setupUntagged(t)
+	defer done()
+	fam, _ := s.CreateFamily("f")
+	_, _ = s.CreateUser("u", "p", fam.ID)
+	_ = s.SetFamilyAISettings(fam.ID, true, true, false) // non-auto: stages pending
+	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "beach day"})
+
+	sug := &countingSuggester{out: []ai.TagSuggestion{{Name: "beach", Confidence: 0.95}}}
+
+	// First run stages pending and stamps the hash (1 model call).
+	if issues := runUntagged(t, s, cfg, sug); len(issues) != 1 {
+		t.Fatalf("first run: expected 1 issue, got %d", len(issues))
+	}
+	if sug.calls != 1 {
+		t.Fatalf("first run: expected 1 model call, got %d", sug.calls)
+	}
+
+	// Second run, content unchanged: surfaces staged suggestions without re-querying.
+	if issues := runUntagged(t, s, cfg, sug); len(issues) != 1 {
+		t.Fatalf("second run: expected 1 issue, got %d", len(issues))
+	}
+	if sug.calls != 1 {
+		t.Fatalf("second run: model should not be called again, got %d calls", sug.calls)
 	}
 }

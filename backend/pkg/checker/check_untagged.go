@@ -88,7 +88,7 @@ func (c UntaggedCheck) runForFamily(
 
 		// Already-staged suggestions (content unchanged): surface without a new call.
 		if len(item.PendingTags) > 0 && !stale {
-			issues = append(issues, c.pendingIssue(familyID, item.Date, len(item.PendingTags)))
+			issues = append(issues, c.reviewIssue(familyID, item.Date, len(item.PendingTags)))
 			continue
 		}
 
@@ -105,8 +105,10 @@ func (c UntaggedCheck) runForFamily(
 	return issues, nil
 }
 
-// processItem generates suggestions for one candidate day and returns the issue
-// to surface (ok=false when there's nothing to suggest or an error occurred).
+// processItem generates suggestions for one candidate day. Under auto mode it
+// applies confident tags immediately (resolving the day, no issue). Otherwise it
+// stages the suggestions as pending and returns a non-fixable "review" issue.
+// ok=false when there's nothing to surface (resolved, empty, or error).
 func (c UntaggedCheck) processItem(
 	db database.Storage, cfg *config.Config, logger *slog.Logger,
 	family *models.Family, item *models.Item, knownTags []string, untagged bool,
@@ -122,41 +124,32 @@ func (c UntaggedCheck) processItem(
 		return Issue{}, false
 	}
 
+	// Auto mode: apply confident tags to an untagged day right away — no manual
+	// "fix" step. The day is resolved, so it produces no issue.
 	if family.AITaggingAuto && untagged && len(confident) > 0 {
-		return Issue{
-			Check:    "untagged",
-			FamilyID: familyID.String(),
-			Path:     item.Date,
-			Message:  fmt.Sprintf("%d confident tag(s) can be auto-applied", len(confident)),
-			Fixable:  true,
-			fix:      makeUntaggedFix(db, logger, familyID, item.Date, confident),
-		}, true
+		if err := applyConfidentTags(db, familyID, item.Date, confident); err != nil {
+			logger.Error("Untagged check: auto-apply failed", "familyID", familyID, "date", item.Date, "error", err)
+			return Issue{}, false
+		}
+		logger.Info("Untagged check: auto-applied confident tags", "familyID", familyID, "date", item.Date, "tags", confident)
+		return Issue{}, false
 	}
 
-	// Non-auto, or uncertain under auto: stage suggestions for manual review.
+	// Non-auto, or uncertain under auto: stage suggestions for per-entry review.
 	if err := db.SetPendingTags(familyID, item.Date, names); err != nil {
 		logger.Error("Untagged check: failed to stage pending tags", "familyID", familyID, "date", item.Date, "error", err)
 		return Issue{}, false
 	}
-	msg := fmt.Sprintf("%d suggested tag(s) — review on the entry", len(names))
-	if family.AITaggingAuto {
-		msg = fmt.Sprintf("%d low-confidence suggestion(s) — solve manually", len(names))
-	}
-	return Issue{
-		Check:    "untagged",
-		FamilyID: familyID.String(),
-		Path:     item.Date,
-		Message:  msg,
-		Fixable:  false,
-	}, true
+	return c.reviewIssue(familyID, item.Date, len(names)), true
 }
 
-func (UntaggedCheck) pendingIssue(familyID uuid.UUID, date string, n int) Issue {
+// reviewIssue is a non-fixable issue pointing the user at a day to review.
+func (UntaggedCheck) reviewIssue(familyID uuid.UUID, date string, n int) Issue {
 	return Issue{
 		Check:    "untagged",
 		FamilyID: familyID.String(),
 		Path:     date,
-		Message:  fmt.Sprintf("%d suggested tag(s) awaiting review", n),
+		Message:  fmt.Sprintf("%d suggested tag(s) to review", n),
 		Fixable:  false,
 	}
 }
@@ -183,32 +176,26 @@ func splitByConfidence(
 	return names, confident
 }
 
-// makeUntaggedFix returns a closure that adds the confident tags to a day's
-// confirmed tags (additive — never removes existing tags) and clears those names
-// from its pending list.
-func makeUntaggedFix(
-	db database.Storage, logger *slog.Logger, familyID uuid.UUID, date string, confident []string,
-) func() error {
-	return func() error {
-		item, err := db.GetItem(familyID, date)
-		if err != nil {
-			return fmt.Errorf("getting item %s/%s: %w", familyID, date, err)
-		}
-		existing := make(map[string]struct{}, len(item.Tags))
-		for _, t := range item.Tags {
-			existing[strings.ToLower(t)] = struct{}{}
-		}
-		merged := append(models.StringList{}, item.Tags...)
-		for _, name := range confident {
-			if _, ok := existing[strings.ToLower(name)]; !ok {
-				merged = append(merged, name)
-			}
-		}
-		item.Tags = merged
-		if err := db.PutItem(familyID, item); err != nil {
-			return fmt.Errorf("saving item %s/%s: %w", familyID, date, err)
-		}
-		logger.Info("Auto-applied confident tags", "date", date, "tags", confident)
-		return nil
+// applyConfidentTags adds the confident tags to a day's confirmed tags
+// (additive — never removes existing tags).
+func applyConfidentTags(db database.Storage, familyID uuid.UUID, date string, confident []string) error {
+	item, err := db.GetItem(familyID, date)
+	if err != nil {
+		return fmt.Errorf("getting item %s/%s: %w", familyID, date, err)
 	}
+	existing := make(map[string]struct{}, len(item.Tags))
+	for _, t := range item.Tags {
+		existing[strings.ToLower(t)] = struct{}{}
+	}
+	merged := append(models.StringList{}, item.Tags...)
+	for _, name := range confident {
+		if _, ok := existing[strings.ToLower(name)]; !ok {
+			merged = append(merged, name)
+		}
+	}
+	item.Tags = merged
+	if err := db.PutItem(familyID, item); err != nil {
+		return fmt.Errorf("saving item %s/%s: %w", familyID, date, err)
+	}
+	return nil
 }
