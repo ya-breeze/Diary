@@ -182,6 +182,21 @@ func (mr *MockStorageMockRecorder) GetFamily(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFamily", reflect.TypeOf((*MockStorage)(nil).GetFamily), arg0)
 }
 
+// GetDistinctTags mocks base method.
+func (m *MockStorage) GetDistinctTags(arg0 uuid.UUID) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDistinctTags", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDistinctTags indicates an expected call of GetDistinctTags.
+func (mr *MockStorageMockRecorder) GetDistinctTags(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDistinctTags", reflect.TypeOf((*MockStorage)(nil).GetDistinctTags), arg0)
+}
+
 // GetFamilyByName mocks base method.
 func (m *MockStorage) GetFamilyByName(arg0 string) (*models.Family, error) {
 	m.ctrl.T.Helper()

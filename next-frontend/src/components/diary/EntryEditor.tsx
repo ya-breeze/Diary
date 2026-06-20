@@ -14,6 +14,14 @@ import { formatDateForApi, formatFullDate } from '@/lib/utils/date';
 import { diaryApi, assetsApi } from '@/lib/api';
 import type { DiaryEntry } from '@/types';
 
+// splitTags turns the comma-separated tags field into trimmed tokens. The last
+// element is the "active" token currently being typed (may be empty).
+function splitTags(value: string): string[] {
+  return value.split(',').map((t) => t.trim());
+}
+
+const MAX_TAG_SUGGESTIONS = 8;
+
 const entrySchema = z.object({
   title: z.string().min(1, 'Title is required'),
   body: z.string(),
@@ -39,6 +47,10 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
   const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
+  // Tag autocomplete: the family's existing vocabulary + whether the dropdown is open.
+  const [knownTags, setKnownTags] = useState<string[]>([]);
+  const [tagsFocused, setTagsFocused] = useState(false);
+
   const {
     register,
     handleSubmit,
@@ -59,6 +71,41 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const bodyValue = watch('body');
+  const tagsValue = watch('tags');
+
+  // Load the family's existing tag vocabulary once when the editor opens.
+  useEffect(() => {
+    let cancelled = false;
+    diaryApi
+      .getTags()
+      .then((res) => { if (!cancelled) setKnownTags(res.tags); })
+      .catch(() => { if (!cancelled) setKnownTags([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Compute autocomplete matches for the active (last) token: existing tags that
+  // match it (case-insensitive substring), excluding tags already entered.
+  const tagTokens = splitTags(tagsValue);
+  const activeToken = tagTokens[tagTokens.length - 1] ?? '';
+  const alreadyEntered = new Set(
+    tagTokens.slice(0, -1).map((t) => t.toLowerCase()).filter(Boolean)
+  );
+  const tagMatches = knownTags
+    .filter((t) => !alreadyEntered.has(t.toLowerCase()))
+    .filter((t) =>
+      activeToken === ''
+        ? true
+        : t.toLowerCase().includes(activeToken.toLowerCase()) &&
+          t.toLowerCase() !== activeToken.toLowerCase()
+    )
+    .slice(0, MAX_TAG_SUGGESTIONS);
+
+  // Complete the active token with the chosen tag, leaving a trailing ", ".
+  const applyTagSuggestion = useCallback((tag: string) => {
+    const tokens = splitTags(getValues('tags'));
+    tokens[tokens.length - 1] = tag;
+    setValue('tags', tokens.filter(Boolean).join(', ') + ', ', { shouldDirty: true });
+  }, [getValues, setValue]);
 
   useEffect(() => {
     if (entry?.body) {
@@ -231,11 +278,48 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
             </div>
 
             {/* Tags */}
-            <Input
-              label="Tags"
-              placeholder="Enter tags separated by commas..."
-              {...register('tags')}
-            />
+            {(() => {
+              const tagsField = register('tags');
+              return (
+                <div className="relative">
+                  <Input
+                    label="Tags"
+                    placeholder="Enter tags separated by commas..."
+                    autoComplete="off"
+                    {...tagsField}
+                    onFocus={() => setTagsFocused(true)}
+                    onBlur={(e) => {
+                      tagsField.onBlur(e);
+                      // Delay so a mousedown on a suggestion registers before close.
+                      setTimeout(() => setTagsFocused(false), 150);
+                    }}
+                  />
+                  {tagsFocused && tagMatches.length > 0 && (
+                    <ul
+                      className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-800"
+                      data-testid="tag-autocomplete"
+                    >
+                      {tagMatches.map((tag) => (
+                        <li key={tag}>
+                          <button
+                            type="button"
+                            // onMouseDown (not onClick) so it fires before the input blur.
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              applyTagSuggestion(tag);
+                            }}
+                            className="block w-full px-3 py-1.5 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                            data-testid="tag-autocomplete-option"
+                          >
+                            {tag}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Content */}
             <Textarea

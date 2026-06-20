@@ -312,6 +312,27 @@ func (s *StrictServerImpl) PutItems(ctx context.Context, req PutItemsRequestObje
 	}
 }
 
+// --- GetTags ---
+
+func (s *StrictServerImpl) GetTags(ctx context.Context, _ GetTagsRequestObject) (GetTagsResponseObject, error) {
+	resp, err := s.items.GetTags(ctx)
+	if err != nil {
+		return nil, err
+	}
+	switch resp.Code {
+	case http.StatusOK:
+		body, ok := resp.Body.(TagsResponse)
+		if !ok {
+			return nil, fmt.Errorf("GetTags: unexpected body type %T", resp.Body)
+		}
+		return GetTags200JSONResponse(body), nil
+	case http.StatusUnauthorized:
+		return GetTags401Response{}, nil
+	default:
+		return nil, fmt.Errorf("GetTags: unexpected status %d", resp.Code)
+	}
+}
+
 // --- GetChanges ---
 
 func (s *StrictServerImpl) GetChanges(ctx context.Context, req GetChangesRequestObject) (GetChangesResponseObject, error) {

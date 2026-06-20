@@ -46,6 +46,10 @@ export interface DiaryListResponse {
   totalCount: number;
 }
 
+export interface TagsResponse {
+  tags: string[];
+}
+
 export interface AssetBatchFile {
   originalName: string;
   savedName: string;

@@ -193,6 +193,12 @@ type SyncResponse struct {
 	NextId *int32 `json:"nextId,omitempty"`
 }
 
+// TagsResponse defines model for TagsResponse.
+type TagsResponse struct {
+	// Tags Family's distinct existing tags, deduplicated and sorted
+	Tags []string `json:"tags"`
+}
+
 // User defines model for User.
 type User struct {
 	Email     string             `json:"email"`
@@ -367,6 +373,9 @@ type ClientInterface interface {
 
 	// GetChanges request
 	GetChanges(ctx context.Context, params *GetChangesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetTags request
+	GetTags(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUser request
 	GetUser(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -566,6 +575,18 @@ func (c *Client) PutItems(ctx context.Context, body PutItemsJSONRequestBody, req
 
 func (c *Client) GetChanges(ctx context.Context, params *GetChangesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetChangesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetTags(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTagsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -1121,6 +1142,33 @@ func NewGetChangesRequest(server string, params *GetChangesParams) (*http.Reques
 	return req, nil
 }
 
+// NewGetTagsRequest generates requests for GetTags
+func NewGetTagsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tags")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetUserRequest generates requests for GetUser
 func NewGetUserRequest(server string) (*http.Request, error) {
 	var err error
@@ -1237,6 +1285,9 @@ type ClientWithResponsesInterface interface {
 
 	// GetChangesWithResponse request
 	GetChangesWithResponse(ctx context.Context, params *GetChangesParams, reqEditors ...RequestEditorFn) (*GetChangesResponse, error)
+
+	// GetTagsWithResponse request
+	GetTagsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTagsResponse, error)
 
 	// GetUserWithResponse request
 	GetUserWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetUserResponse, error)
@@ -1529,6 +1580,28 @@ func (r GetChangesResponse) StatusCode() int {
 	return 0
 }
 
+type GetTagsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *TagsResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetTagsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetTagsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetUserResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1698,6 +1771,15 @@ func (c *ClientWithResponses) GetChangesWithResponse(ctx context.Context, params
 		return nil, err
 	}
 	return ParseGetChangesResponse(rsp)
+}
+
+// GetTagsWithResponse request returning *GetTagsResponse
+func (c *ClientWithResponses) GetTagsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTagsResponse, error) {
+	rsp, err := c.GetTags(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetTagsResponse(rsp)
 }
 
 // GetUserWithResponse request returning *GetUserResponse
@@ -2018,6 +2100,31 @@ func ParseGetChangesResponse(rsp *http.Response) (*GetChangesResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest SyncResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+	}
+
+	return response, nil
+}
+
+// ParseGetTagsResponse parses an HTTP response from a GetTagsWithResponse call
+func ParseGetTagsResponse(rsp *http.Response) (*GetTagsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetTagsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TagsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

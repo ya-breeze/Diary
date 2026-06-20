@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/google/uuid"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/ya-breeze/diary.be/pkg/database"
 	"github.com/ya-breeze/diary.be/pkg/database/models"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
@@ -92,6 +92,26 @@ func (s *ItemsAPIServiceImpl) GetItems(
 	}
 
 	return goserver.Response(200, response), nil
+}
+
+// GetTags - list the family's distinct existing tags
+func (s *ItemsAPIServiceImpl) GetTags(ctx context.Context) (goserver.ImplResponse, error) {
+	familyID, ok := common.GetFamilyID(ctx)
+	if !ok {
+		s.logger.Error("Family ID not found in context")
+		return goserver.Response(401, nil), nil
+	}
+
+	tags, err := s.db.GetDistinctTags(familyID)
+	if err != nil {
+		s.logger.Error("Failed to get distinct tags", "error", err, "familyID", familyID)
+		return goserver.Response(500, nil), nil
+	}
+	if tags == nil {
+		tags = []string{}
+	}
+
+	return goserver.Response(200, goserver.TagsResponse{Tags: tags}), nil
 }
 
 // PutItems - upsert diary item

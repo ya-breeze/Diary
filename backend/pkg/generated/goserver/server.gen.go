@@ -193,6 +193,12 @@ type SyncResponse struct {
 	NextId *int32 `json:"nextId,omitempty"`
 }
 
+// TagsResponse defines model for TagsResponse.
+type TagsResponse struct {
+	// Tags Family's distinct existing tags, deduplicated and sorted
+	Tags []string `json:"tags"`
+}
+
 // User defines model for User.
 type User struct {
 	Email     string             `json:"email"`
@@ -289,6 +295,9 @@ type ServerInterface interface {
 	// get changes for synchronization
 	// (GET /v1/sync/changes)
 	GetChanges(w http.ResponseWriter, r *http.Request, params GetChangesParams)
+	// list the family's distinct existing tags
+	// (GET /v1/tags)
+	GetTags(w http.ResponseWriter, r *http.Request)
 	// return user object
 	// (GET /v1/user)
 	GetUser(w http.ResponseWriter, r *http.Request)
@@ -657,6 +666,25 @@ func (siw *ServerInterfaceWrapper) GetChanges(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// GetTags operation middleware
+func (siw *ServerInterfaceWrapper) GetTags(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTags(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetUser operation middleware
 func (siw *ServerInterfaceWrapper) GetUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -814,6 +842,8 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 	r.HandleFunc(options.BaseURL+"/v1/items", wrapper.PutItems).Methods("PUT")
 
 	r.HandleFunc(options.BaseURL+"/v1/sync/changes", wrapper.GetChanges).Methods("GET")
+
+	r.HandleFunc(options.BaseURL+"/v1/tags", wrapper.GetTags).Methods("GET")
 
 	r.HandleFunc(options.BaseURL+"/v1/user", wrapper.GetUser).Methods("GET")
 
@@ -1268,6 +1298,28 @@ func (response GetChanges401Response) VisitGetChangesResponse(w http.ResponseWri
 	return nil
 }
 
+type GetTagsRequestObject struct{}
+
+type GetTagsResponseObject interface {
+	VisitGetTagsResponse(w http.ResponseWriter) error
+}
+
+type GetTags200JSONResponse TagsResponse
+
+func (response GetTags200JSONResponse) VisitGetTagsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetTags401Response struct{}
+
+func (response GetTags401Response) VisitGetTagsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
 type GetUserRequestObject struct{}
 
 type GetUserResponseObject interface {
@@ -1324,6 +1376,9 @@ type StrictServerInterface interface {
 	// get changes for synchronization
 	// (GET /v1/sync/changes)
 	GetChanges(ctx context.Context, request GetChangesRequestObject) (GetChangesResponseObject, error)
+	// list the family's distinct existing tags
+	// (GET /v1/tags)
+	GetTags(ctx context.Context, request GetTagsRequestObject) (GetTagsResponseObject, error)
 	// return user object
 	// (GET /v1/user)
 	GetUser(ctx context.Context, request GetUserRequestObject) (GetUserResponseObject, error)
@@ -1714,6 +1769,30 @@ func (sh *strictHandler) GetChanges(w http.ResponseWriter, r *http.Request, para
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetChangesResponseObject); ok {
 		if err := validResponse.VisitGetChangesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTags operation middleware
+func (sh *strictHandler) GetTags(w http.ResponseWriter, r *http.Request) {
+	var request GetTagsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTags(ctx, request.(GetTagsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTags")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTagsResponseObject); ok {
+		if err := validResponse.VisitGetTagsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -195,6 +195,22 @@ paths:
         "401":
           description: Unauthorized
 
+  /v1/tags:
+    get:
+      tags:
+        - items
+      summary: list the family's distinct existing tags
+      operationId: getTags
+      responses:
+        "200":
+          description: distinct tags for the authenticated family
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagsResponse"
+        "401":
+          description: Unauthorized
+
   /v1/health/issues:
     get:
       tags:
@@ -513,6 +529,18 @@ components:
       required:
         - date
         - title
+
+    TagsResponse:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            type: string
+          description: "Family's distinct existing tags, deduplicated and sorted"
+          example: ["family", "travel", "work"]
+      required:
+        - tags
 
     ItemsListResponse:
       type: object
