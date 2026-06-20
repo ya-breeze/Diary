@@ -53,6 +53,10 @@ func (s *FamilyAPIServiceImpl) UpdateFamilySettings(
 		return goserver.Response(500, nil), nil
 	}
 
+	enabled := current.AITaggingEnabled
+	if req.AiTaggingEnabled != nil {
+		enabled = *req.AiTaggingEnabled
+	}
 	backfill := current.AITaggingBackfill
 	if req.AiTaggingBackfill != nil {
 		backfill = *req.AiTaggingBackfill
@@ -61,13 +65,18 @@ func (s *FamilyAPIServiceImpl) UpdateFamilySettings(
 	if req.AiTaggingAuto != nil {
 		auto = *req.AiTaggingAuto
 	}
-	// Auto mode and backfill are meaningless without the master switch on.
-	if !req.AiTaggingEnabled {
+	useImages := current.AITaggingUseImages
+	if req.AiTaggingUseImages != nil {
+		useImages = *req.AiTaggingUseImages
+	}
+	// Derived flags are meaningless without the master switch on.
+	if !enabled {
 		backfill = false
 		auto = false
+		useImages = false
 	}
 
-	if err = s.db.SetFamilyAISettings(familyID, req.AiTaggingEnabled, backfill, auto); err != nil {
+	if err = s.db.SetFamilyAISettings(familyID, enabled, backfill, auto, useImages); err != nil {
 		if errors.Is(err, database.ErrNotFound) {
 			return goserver.Response(404, nil), nil
 		}

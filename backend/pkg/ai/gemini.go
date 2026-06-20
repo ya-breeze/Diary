@@ -44,7 +44,7 @@ func (g *geminiSuggester) Enabled() bool { return true }
 const maxBodyChars = 8000
 
 func (g *geminiSuggester) SuggestTags(
-	ctx context.Context, title, body string, knownTags []string,
+	ctx context.Context, title, body string, images []ImageAsset, knownTags []string,
 ) ([]TagSuggestion, error) {
 	if isBlank(title, body) {
 		return nil, nil
@@ -54,10 +54,18 @@ func (g *geminiSuggester) SuggestTags(
 		body = body[:maxBodyChars]
 	}
 	prompt := buildPrompt(title, body, knownTags)
+
+	parts := make([]*genai.Part, 0, 1+len(images))
+	parts = append(parts, &genai.Part{Text: prompt})
+	for _, img := range images {
+		parts = append(parts, genai.NewPartFromBytes(img.Data, img.MIMEType))
+	}
+	contents := []*genai.Content{{Role: genai.RoleUser, Parts: parts}}
+
 	resp, err := g.client.Models.GenerateContent(
 		ctx,
 		g.model,
-		genai.Text(prompt),
+		contents,
 		&genai.GenerateContentConfig{
 			ResponseMIMEType: "application/json",
 			ResponseSchema:   tagSuggestionSchema(),

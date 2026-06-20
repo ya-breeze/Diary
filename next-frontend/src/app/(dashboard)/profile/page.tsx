@@ -66,6 +66,7 @@ export default function ProfilePage() {
     aiTaggingEnabled: boolean;
     aiTaggingBackfill?: boolean;
     aiTaggingAuto?: boolean;
+    aiTaggingUseImages?: boolean;
   }) => {
     setSavingAi(true);
     try {
@@ -98,6 +99,17 @@ export default function ProfilePage() {
       aiTaggingEnabled: true,
       aiTaggingBackfill: family.aiTaggingBackfill,
       aiTaggingAuto: !family.aiTaggingAuto,
+      aiTaggingUseImages: family.aiTaggingUseImages,
+    });
+  };
+
+  const toggleUseImages = () => {
+    if (!family) return;
+    void saveAiSettings({
+      aiTaggingEnabled: true,
+      aiTaggingBackfill: family.aiTaggingBackfill,
+      aiTaggingAuto: family.aiTaggingAuto,
+      aiTaggingUseImages: !family.aiTaggingUseImages,
     });
   };
 
@@ -223,6 +235,27 @@ export default function ProfilePage() {
                     data-testid="ai-auto-toggle"
                   />
                 </label>
+                <div className="space-y-1">
+                  <label className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300">
+                      Include images in suggestions
+                    </span>
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      checked={!!family.aiTaggingUseImages}
+                      disabled={savingAi}
+                      onChange={toggleUseImages}
+                      className="h-5 w-5 cursor-pointer accent-blue-600 disabled:opacity-50"
+                      data-testid="ai-use-images-toggle"
+                    />
+                  </label>
+                  {family.aiTaggingUseImages && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      Images from your entries will be sent to Google Gemini for analysis.
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>

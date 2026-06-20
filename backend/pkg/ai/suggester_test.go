@@ -10,7 +10,7 @@ func TestDisabledSuggester(t *testing.T) {
 	if s.Enabled() {
 		t.Fatal("disabled suggester should report Enabled()=false")
 	}
-	got, err := s.SuggestTags(context.Background(), "Title", "Body", nil)
+	got, err := s.SuggestTags(context.Background(), "Title", "Body", nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

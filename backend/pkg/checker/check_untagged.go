@@ -117,7 +117,11 @@ func (c UntaggedCheck) processItem(
 	family *models.Family, item *models.Item, knownTags []string, untagged bool,
 ) (Issue, bool) {
 	familyID := family.ID
-	suggestions, err := c.Suggester.SuggestTags(context.Background(), item.Title, item.Body, knownTags)
+	var images []ai.ImageAsset
+	if family.AITaggingUseImages {
+		images = ai.LoadImageAssets(item.Body, cfg.DataPath, familyID.String())
+	}
+	suggestions, err := c.Suggester.SuggestTags(context.Background(), item.Title, item.Body, images, knownTags)
 	if err != nil {
 		logger.Error("Untagged check: suggestion failed", "familyID", familyID, "date", item.Date, "error", err)
 		return Issue{}, false
@@ -128,22 +132,47 @@ func (c UntaggedCheck) processItem(
 	}
 
 	// Auto mode: apply confident tags to an untagged day right away — no manual
-	// "fix" step. The day is resolved, so it produces no issue.
+	// "fix" step. Low-confidence suggestions are still staged for review.
 	if family.AITaggingAuto && untagged && len(confident) > 0 {
 		if err := db.AddConfirmedTags(familyID, item.Date, confident); err != nil {
 			logger.Error("Untagged check: auto-apply failed", "familyID", familyID, "date", item.Date, "error", err)
 			return Issue{}, false
 		}
 		logger.Info("Untagged check: auto-applied confident tags", "familyID", familyID, "date", item.Date, "tags", confident)
+		uncertain := subtractStrings(names, confident)
+		if len(uncertain) > 0 {
+			if err := db.SetPendingTags(familyID, item.Date, uncertain); err != nil {
+				logger.Error("Untagged check: failed to stage pending tags", "familyID", familyID, "date", item.Date, "error", err)
+				return Issue{}, false
+			}
+			return c.reviewIssue(familyID, item.Date, len(uncertain)), true
+		}
 		return Issue{}, false
 	}
 
-	// Non-auto, or uncertain under auto: stage suggestions for per-entry review.
+	// Non-auto, or auto with no confident suggestions: stage all for review.
 	if err := db.SetPendingTags(familyID, item.Date, names); err != nil {
 		logger.Error("Untagged check: failed to stage pending tags", "familyID", familyID, "date", item.Date, "error", err)
 		return Issue{}, false
 	}
 	return c.reviewIssue(familyID, item.Date, len(names)), true
+}
+
+func subtractStrings(all, exclude []string) []string {
+	if len(exclude) == 0 {
+		return all
+	}
+	ex := make(map[string]struct{}, len(exclude))
+	for _, s := range exclude {
+		ex[s] = struct{}{}
+	}
+	var out []string
+	for _, s := range all {
+		if _, ok := ex[s]; !ok {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // reviewIssue is a non-fixable issue pointing the user at a day to review.

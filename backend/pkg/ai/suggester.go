@@ -20,17 +20,26 @@ type TagSuggestion struct {
 	Confidence float64 `json:"confidence"`
 }
 
-// Suggester produces tag suggestions for an entry's text.
+// ImageAsset is an image file to include as inline context for multimodal
+// suggestion. MIMEType must be a Gemini-supported image type (image/jpeg,
+// image/png, image/webp, image/gif).
+type ImageAsset struct {
+	MIMEType string
+	Data     []byte
+}
+
+// Suggester produces tag suggestions for an entry's text and optional images.
 type Suggester interface {
 	// Enabled reports whether AI suggestion is actually available (API key set).
 	Enabled() bool
-	// SuggestTags returns suggested tags for the given title/body. knownTags is
-	// the family's existing vocabulary; the model is asked to prefer it and coin
-	// at most a couple of new tags. Results are de-duplicated and confidence-sorted
-	// but NOT filtered against the entry's confirmed tags — keeping pending and
-	// confirmed disjoint is the caller's/storage's responsibility. Returns an empty
-	// slice (no error) when there is nothing to tag or the suggester is disabled.
-	SuggestTags(ctx context.Context, title, body string, knownTags []string) ([]TagSuggestion, error)
+	// SuggestTags returns suggested tags for the given title/body plus any inline
+	// images. knownTags is the family's existing vocabulary; the model is asked to
+	// prefer it and coin at most a couple of new tags. Pass nil/empty images for
+	// text-only suggestion. Results are de-duplicated and confidence-sorted but NOT
+	// filtered against confirmed tags — that is the caller's responsibility. Returns
+	// an empty slice (no error) when there is nothing to tag or the suggester is
+	// disabled.
+	SuggestTags(ctx context.Context, title, body string, images []ImageAsset, knownTags []string) ([]TagSuggestion, error)
 }
 
 // NewDisabledSuggester returns a Suggester that is always disabled. Useful for
@@ -43,7 +52,7 @@ type disabledSuggester struct{}
 func (disabledSuggester) Enabled() bool { return false }
 
 func (disabledSuggester) SuggestTags(
-	_ context.Context, _, _ string, _ []string,
+	_ context.Context, _, _ string, _ []ImageAsset, _ []string,
 ) ([]TagSuggestion, error) {
 	return nil, nil
 }

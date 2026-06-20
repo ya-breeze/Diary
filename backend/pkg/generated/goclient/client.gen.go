@@ -102,17 +102,21 @@ type FamilyResponse struct {
 	AiTaggingBackfill *bool `json:"aiTaggingBackfill,omitempty"`
 
 	// AiTaggingEnabled Per-family master switch for AI tag suggestion
-	AiTaggingEnabled *bool              `json:"aiTaggingEnabled,omitempty"`
-	Id               openapi_types.UUID `json:"id"`
-	Members          []FamilyMember     `json:"members"`
-	Name             string             `json:"name"`
+	AiTaggingEnabled *bool `json:"aiTaggingEnabled,omitempty"`
+
+	// AiTaggingUseImages Include referenced image assets in tag suggestion requests (images are sent to Gemini)
+	AiTaggingUseImages *bool              `json:"aiTaggingUseImages,omitempty"`
+	Id                 openapi_types.UUID `json:"id"`
+	Members            []FamilyMember     `json:"members"`
+	Name               string             `json:"name"`
 }
 
 // FamilySettingsRequest defines model for FamilySettingsRequest.
 type FamilySettingsRequest struct {
-	AiTaggingAuto     *bool `json:"aiTaggingAuto,omitempty"`
-	AiTaggingBackfill *bool `json:"aiTaggingBackfill,omitempty"`
-	AiTaggingEnabled  bool  `json:"aiTaggingEnabled"`
+	AiTaggingAuto      *bool `json:"aiTaggingAuto,omitempty"`
+	AiTaggingBackfill  *bool `json:"aiTaggingBackfill,omitempty"`
+	AiTaggingEnabled   *bool `json:"aiTaggingEnabled,omitempty"`
+	AiTaggingUseImages *bool `json:"aiTaggingUseImages,omitempty"`
 }
 
 // HealthFixRequest defines model for HealthFixRequest.

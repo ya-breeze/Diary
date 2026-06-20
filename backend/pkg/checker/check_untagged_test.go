@@ -20,7 +20,7 @@ type fakeSuggester struct {
 
 func (f fakeSuggester) Enabled() bool { return f.enabled }
 func (f fakeSuggester) SuggestTags(
-	_ context.Context, _, _ string, _ []string,
+	_ context.Context, _, _ string, _ []ai.ImageAsset, _ []string,
 ) ([]ai.TagSuggestion, error) {
 	return f.suggestions, nil
 }
@@ -63,7 +63,7 @@ func TestUntaggedDisabledSuggester(t *testing.T) {
 	defer done()
 	fam, _ := s.CreateFamily("f")
 	_, _ = s.CreateUser("u", "p", fam.ID)
-	_ = s.SetFamilyAISettings(fam.ID, true, true, false)
+	_ = s.SetFamilyAISettings(fam.ID, true, true, false, false)
 	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "x"})
 
 	if issues := runUntagged(t, s, cfg, fakeSuggester{enabled: false}); len(issues) != 0 {
@@ -76,7 +76,7 @@ func TestUntaggedBackfillOff(t *testing.T) {
 	defer done()
 	fam, _ := s.CreateFamily("f")
 	_, _ = s.CreateUser("u", "p", fam.ID)
-	_ = s.SetFamilyAISettings(fam.ID, true, false, false) // backfill OFF
+	_ = s.SetFamilyAISettings(fam.ID, true, false, false, false) // backfill OFF
 	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "beach day"})
 
 	sug := fakeSuggester{enabled: true, suggestions: []ai.TagSuggestion{{Name: "beach", Confidence: 0.9}}}
@@ -90,7 +90,7 @@ func TestUntaggedNonAutoStagesPending(t *testing.T) {
 	defer done()
 	fam, _ := s.CreateFamily("f")
 	_, _ = s.CreateUser("u", "p", fam.ID)
-	_ = s.SetFamilyAISettings(fam.ID, true, true, false) // backfill on, auto OFF
+	_ = s.SetFamilyAISettings(fam.ID, true, true, false, false) // backfill on, auto OFF
 	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "beach day"})
 	makeLegacy(t, s, "2024-01-01")
 
@@ -117,7 +117,7 @@ func TestUntaggedAutoConfidentFixApplies(t *testing.T) {
 	defer done()
 	fam, _ := s.CreateFamily("f")
 	_, _ = s.CreateUser("u", "p", fam.ID)
-	_ = s.SetFamilyAISettings(fam.ID, true, true, true) // auto ON
+	_ = s.SetFamilyAISettings(fam.ID, true, true, true, false) // auto ON
 	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "beach day"})
 	makeLegacy(t, s, "2024-01-01")
 
@@ -139,7 +139,7 @@ func TestUntaggedAutoUncertainStagesPending(t *testing.T) {
 	defer done()
 	fam, _ := s.CreateFamily("f")
 	_, _ = s.CreateUser("u", "p", fam.ID)
-	_ = s.SetFamilyAISettings(fam.ID, true, true, true) // auto ON
+	_ = s.SetFamilyAISettings(fam.ID, true, true, true, false) // auto ON
 	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "beach day"})
 	makeLegacy(t, s, "2024-01-01")
 
@@ -163,7 +163,7 @@ func TestUntaggedSkipsTaggedDays(t *testing.T) {
 	defer done()
 	fam, _ := s.CreateFamily("f")
 	_, _ = s.CreateUser("u", "p", fam.ID)
-	_ = s.SetFamilyAISettings(fam.ID, true, true, true)
+	_ = s.SetFamilyAISettings(fam.ID, true, true, true, false)
 	// Already tagged and saved (hash up to date) → not a candidate.
 	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "beach day", Tags: models.StringList{"beach"}})
 
@@ -181,7 +181,7 @@ type countingSuggester struct {
 
 func (c *countingSuggester) Enabled() bool { return true }
 func (c *countingSuggester) SuggestTags(
-	_ context.Context, _, _ string, _ []string,
+	_ context.Context, _, _ string, _ []ai.ImageAsset, _ []string,
 ) ([]ai.TagSuggestion, error) {
 	c.calls++
 	return c.out, nil
@@ -192,7 +192,7 @@ func TestUntaggedDoesNotRequeryStagedDays(t *testing.T) {
 	defer done()
 	fam, _ := s.CreateFamily("f")
 	_, _ = s.CreateUser("u", "p", fam.ID)
-	_ = s.SetFamilyAISettings(fam.ID, true, true, false) // non-auto: stages pending
+	_ = s.SetFamilyAISettings(fam.ID, true, true, false, false) // non-auto: stages pending
 	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "beach day"})
 	makeLegacy(t, s, "2024-01-01")
 
@@ -220,7 +220,7 @@ func TestUntaggedDismissClearsFromReview(t *testing.T) {
 	defer done()
 	fam, _ := s.CreateFamily("f")
 	_, _ = s.CreateUser("u", "p", fam.ID)
-	_ = s.SetFamilyAISettings(fam.ID, true, true, false) // non-auto
+	_ = s.SetFamilyAISettings(fam.ID, true, true, false, false) // non-auto
 	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "beach day"})
 	makeLegacy(t, s, "2024-01-01")
 

@@ -584,6 +584,10 @@ components:
               type: boolean
               description: "Auto-apply confident suggestions to untagged days on unattended triggers"
               example: false
+            aiTaggingUseImages:
+              type: boolean
+              description: "Include referenced image assets in tag suggestion requests (images are sent to Gemini)"
+              example: false
           required:
             - name
             - members
@@ -600,8 +604,9 @@ components:
         aiTaggingAuto:
           type: boolean
           example: false
-      required:
-        - aiTaggingEnabled
+        aiTaggingUseImages:
+          type: boolean
+          example: false
 
     ItemsRequest:
       type: object

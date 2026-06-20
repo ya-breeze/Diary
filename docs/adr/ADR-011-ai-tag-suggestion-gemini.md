@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 (Introduced by OpenSpec change `add-ai-day-tagging`. Supersedes part of ADR-007's check enumeration — see ADR-007.)
 

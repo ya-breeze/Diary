@@ -17,6 +17,9 @@ type Family struct {
 	// AITaggingAuto lets unattended triggers (on-save, backfill) auto-apply
 	// confident suggestions to untagged days instead of only staging pending tags.
 	AITaggingAuto bool `gorm:"default:false"`
+	// AITaggingUseImages sends the entry's referenced image assets to Gemini
+	// alongside the text. Off by default; privacy-sensitive opt-in.
+	AITaggingUseImages bool `gorm:"default:false"`
 }
 
 func (f Family) FromDB() goserver.FamilyResponse {
@@ -27,12 +30,14 @@ func (f Family) FromDB() goserver.FamilyResponse {
 	aiTaggingEnabled := f.AITaggingEnabled
 	aiTaggingBackfill := f.AITaggingBackfill
 	aiTaggingAuto := f.AITaggingAuto
+	aiTaggingUseImages := f.AITaggingUseImages
 	return goserver.FamilyResponse{
-		Id:                f.ID,
-		Name:              f.Name,
-		Members:           members,
-		AiTaggingEnabled:  &aiTaggingEnabled,
-		AiTaggingBackfill: &aiTaggingBackfill,
-		AiTaggingAuto:     &aiTaggingAuto,
+		Id:                 f.ID,
+		Name:               f.Name,
+		Members:            members,
+		AiTaggingEnabled:   &aiTaggingEnabled,
+		AiTaggingBackfill:  &aiTaggingBackfill,
+		AiTaggingAuto:      &aiTaggingAuto,
+		AiTaggingUseImages: &aiTaggingUseImages,
 	}
 }

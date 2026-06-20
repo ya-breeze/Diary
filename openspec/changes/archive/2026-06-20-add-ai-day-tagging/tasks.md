@@ -36,11 +36,11 @@ Organized by the four phases from the proposal. Each phase is independently ship
 
 ## 5. Phase 2 — Image-based suggestions
 
-- [ ] 5.1 Add per-family `ai_tagging_use_images` config (default off)
-- [ ] 5.2 Extend `TagSuggester` with multimodal input: include referenced image assets as inline parts when enabled
-- [ ] 5.3 Resolve image asset paths from `GetAssetsFromMarkdown` and load bytes with MIME detection
-- [ ] 5.4 Settings UI toggle + privacy note that images are sent to Gemini
-- [ ] 5.5 Tests: images included only when flag on; text-only when off
+- [x] 5.1 Add per-family `ai_tagging_use_images` config (default off)
+- [x] 5.2 Extend `TagSuggester` with multimodal input: include referenced image assets as inline parts when enabled
+- [x] 5.3 Resolve image asset paths from `GetAssetsFromMarkdown` and load bytes with MIME detection
+- [x] 5.4 Settings UI toggle + privacy note that images are sent to Gemini
+- [x] 5.5 Tests: images included only when flag on; text-only when off
 
 ## 6. Phase 3 — Video keyframe suggestions
 

@@ -37,6 +37,20 @@ func (m *MockStorage) EXPECT() *MockStorageMockRecorder {
 	return m.recorder
 }
 
+// AddConfirmedTags mocks base method.
+func (m *MockStorage) AddConfirmedTags(arg0 uuid.UUID, arg1 string, arg2 []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddConfirmedTags", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddConfirmedTags indicates an expected call of AddConfirmedTags.
+func (mr *MockStorageMockRecorder) AddConfirmedTags(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddConfirmedTags", reflect.TypeOf((*MockStorage)(nil).AddConfirmedTags), arg0, arg1, arg2)
+}
+
 // AddIgnoredOrphan mocks base method.
 func (m *MockStorage) AddIgnoredOrphan(arg0 uuid.UUID, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -167,49 +181,6 @@ func (mr *MockStorageMockRecorder) GetDB() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDB", reflect.TypeOf((*MockStorage)(nil).GetDB))
 }
 
-// GetFamily mocks base method.
-func (m *MockStorage) GetFamily(arg0 uuid.UUID) (*models.Family, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetFamily", arg0)
-	ret0, _ := ret[0].(*models.Family)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetFamily indicates an expected call of GetFamily.
-func (mr *MockStorageMockRecorder) GetFamily(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFamily", reflect.TypeOf((*MockStorage)(nil).GetFamily), arg0)
-}
-
-// SetFamilyAITaggingEnabled mocks base method.
-func (m *MockStorage) SetFamilyAITaggingEnabled(arg0 uuid.UUID, arg1 bool) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetFamilyAITaggingEnabled", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetFamilyAITaggingEnabled indicates an expected call of SetFamilyAITaggingEnabled.
-func (mr *MockStorageMockRecorder) SetFamilyAITaggingEnabled(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFamilyAITaggingEnabled", reflect.TypeOf((*MockStorage)(nil).SetFamilyAITaggingEnabled), arg0, arg1)
-}
-
-// SetFamilyAISettings mocks base method.
-func (m *MockStorage) SetFamilyAISettings(arg0 uuid.UUID, arg1, arg2, arg3 bool) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetFamilyAISettings", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetFamilyAISettings indicates an expected call of SetFamilyAISettings.
-func (mr *MockStorageMockRecorder) SetFamilyAISettings(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFamilyAISettings", reflect.TypeOf((*MockStorage)(nil).SetFamilyAISettings), arg0, arg1, arg2, arg3)
-}
-
 // GetDistinctTags mocks base method.
 func (m *MockStorage) GetDistinctTags(arg0 uuid.UUID) ([]string, error) {
 	m.ctrl.T.Helper()
@@ -223,6 +194,21 @@ func (m *MockStorage) GetDistinctTags(arg0 uuid.UUID) ([]string, error) {
 func (mr *MockStorageMockRecorder) GetDistinctTags(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDistinctTags", reflect.TypeOf((*MockStorage)(nil).GetDistinctTags), arg0)
+}
+
+// GetFamily mocks base method.
+func (m *MockStorage) GetFamily(arg0 uuid.UUID) (*models.Family, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFamily", arg0)
+	ret0, _ := ret[0].(*models.Family)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetFamily indicates an expected call of GetFamily.
+func (mr *MockStorageMockRecorder) GetFamily(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFamily", reflect.TypeOf((*MockStorage)(nil).GetFamily), arg0)
 }
 
 // GetFamilyByName mocks base method.
@@ -417,6 +403,34 @@ func (mr *MockStorageMockRecorder) RemoveIgnoredOrphan(arg0, arg1 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveIgnoredOrphan", reflect.TypeOf((*MockStorage)(nil).RemoveIgnoredOrphan), arg0, arg1)
 }
 
+// SetFamilyAISettings mocks base method.
+func (m *MockStorage) SetFamilyAISettings(arg0 uuid.UUID, arg1, arg2, arg3, arg4 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetFamilyAISettings", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetFamilyAISettings indicates an expected call of SetFamilyAISettings.
+func (mr *MockStorageMockRecorder) SetFamilyAISettings(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFamilyAISettings", reflect.TypeOf((*MockStorage)(nil).SetFamilyAISettings), arg0, arg1, arg2, arg3, arg4)
+}
+
+// SetFamilyAITaggingEnabled mocks base method.
+func (m *MockStorage) SetFamilyAITaggingEnabled(arg0 uuid.UUID, arg1 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetFamilyAITaggingEnabled", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetFamilyAITaggingEnabled indicates an expected call of SetFamilyAITaggingEnabled.
+func (mr *MockStorageMockRecorder) SetFamilyAITaggingEnabled(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFamilyAITaggingEnabled", reflect.TypeOf((*MockStorage)(nil).SetFamilyAITaggingEnabled), arg0, arg1)
+}
+
 // SetPendingTags mocks base method.
 func (m *MockStorage) SetPendingTags(arg0 uuid.UUID, arg1 string, arg2 []string) error {
 	m.ctrl.T.Helper()
@@ -429,18 +443,4 @@ func (m *MockStorage) SetPendingTags(arg0 uuid.UUID, arg1 string, arg2 []string)
 func (mr *MockStorageMockRecorder) SetPendingTags(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPendingTags", reflect.TypeOf((*MockStorage)(nil).SetPendingTags), arg0, arg1, arg2)
-}
-
-// AddConfirmedTags mocks base method.
-func (m *MockStorage) AddConfirmedTags(arg0 uuid.UUID, arg1 string, arg2 []string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddConfirmedTags", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddConfirmedTags indicates an expected call of AddConfirmedTags.
-func (mr *MockStorageMockRecorder) AddConfirmedTags(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddConfirmedTags", reflect.TypeOf((*MockStorage)(nil).AddConfirmedTags), arg0, arg1, arg2)
 }

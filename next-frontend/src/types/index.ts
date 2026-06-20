@@ -26,6 +26,7 @@ export interface Family {
   aiTaggingEnabled?: boolean;
   aiTaggingBackfill?: boolean;
   aiTaggingAuto?: boolean;
+  aiTaggingUseImages?: boolean;
 }
 
 export interface DiaryEntry {

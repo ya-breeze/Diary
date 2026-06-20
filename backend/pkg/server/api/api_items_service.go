@@ -23,6 +23,7 @@ type ItemsAPIServiceImpl struct {
 	db        database.Storage
 	suggester ai.Suggester
 	threshold float64
+	dataPath  string
 
 	// inflight coalesces background retags: at most one per (family,date) runs
 	// at a time, so rapid saves don't spawn piles of concurrent model calls.
@@ -31,13 +32,14 @@ type ItemsAPIServiceImpl struct {
 }
 
 func NewItemsAPIService(
-	logger *slog.Logger, db database.Storage, suggester ai.Suggester, threshold float64,
+	logger *slog.Logger, db database.Storage, suggester ai.Suggester, threshold float64, dataPath string,
 ) goserver.ItemsAPIService {
 	return &ItemsAPIServiceImpl{
 		logger:        logger,
 		db:            db,
 		suggester:     suggester,
 		threshold:     threshold,
+		dataPath:      dataPath,
 		retagInflight: make(map[string]struct{}),
 	}
 }
@@ -282,7 +284,8 @@ func (s *ItemsAPIServiceImpl) SuggestItemTags(
 		return goserver.Response(401, nil), nil
 	}
 
-	if !s.aiTaggingEnabled(familyID) {
+	family, ok2 := s.enabledFamily(familyID)
+	if !ok2 {
 		return goserver.Response(503, nil), nil
 	}
 
@@ -297,7 +300,12 @@ func (s *ItemsAPIServiceImpl) SuggestItemTags(
 		return goserver.Response(500, nil), nil
 	}
 
-	suggestions, err := s.suggester.SuggestTags(ctx, req.Title, body, knownTags)
+	var images []ai.ImageAsset
+	if family.AITaggingUseImages {
+		images = ai.LoadImageAssets(body, s.dataPath, familyID.String())
+	}
+
+	suggestions, err := s.suggester.SuggestTags(ctx, req.Title, body, images, knownTags)
 	if err != nil {
 		s.logger.Error("Tag suggestion failed", "error", err, "familyID", familyID)
 		return goserver.Response(500, nil), nil
@@ -308,18 +316,21 @@ func (s *ItemsAPIServiceImpl) SuggestItemTags(
 	}), nil
 }
 
-// aiTaggingEnabled reports whether AI tagging may run for the family: the server
-// must have an API key (suggester enabled) AND the family must have opted in.
-func (s *ItemsAPIServiceImpl) aiTaggingEnabled(familyID uuid.UUID) bool {
+// enabledFamily returns the family and true when AI tagging is available for
+// it (suggester configured + family opted in). Returns nil, false otherwise.
+func (s *ItemsAPIServiceImpl) enabledFamily(familyID uuid.UUID) (*models.Family, bool) {
 	if s.suggester == nil || !s.suggester.Enabled() {
-		return false
+		return nil, false
 	}
 	family, err := s.db.GetFamily(familyID)
 	if err != nil {
 		s.logger.Error("Failed to load family for AI gate", "error", err, "familyID", familyID)
-		return false
+		return nil, false
 	}
-	return family.AITaggingEnabled
+	if !family.AITaggingEnabled {
+		return nil, false
+	}
+	return family, true
 }
 
 // maybeRetag asynchronously refreshes an entry's AI tags. It is a no-op unless
@@ -331,14 +342,12 @@ func (s *ItemsAPIServiceImpl) aiTaggingEnabled(familyID uuid.UUID) bool {
 func (s *ItemsAPIServiceImpl) maybeRetag(
 	ctx context.Context, familyID uuid.UUID, date, title, body string, confirmed models.StringList,
 ) {
-	if s.suggester == nil || !s.suggester.Enabled() {
-		return
-	}
-	family, err := s.db.GetFamily(familyID)
-	if err != nil || !family.AITaggingEnabled {
+	family, ok := s.enabledFamily(familyID)
+	if !ok {
 		return
 	}
 	autoMode := family.AITaggingAuto
+	useImages := family.AITaggingUseImages
 
 	// Coalesce: skip if a retag for this exact day is already running.
 	key := familyID.String() + "|" + date
@@ -359,21 +368,25 @@ func (s *ItemsAPIServiceImpl) maybeRetag(
 			delete(s.retagInflight, key)
 			s.retagMu.Unlock()
 		}()
-		s.runRetag(ctx, familyID, date, title, body, confirmed, autoMode)
+		s.runRetag(ctx, familyID, date, title, body, confirmed, autoMode, useImages)
 	}()
 }
 
 // runRetag performs the background suggestion + routing for maybeRetag.
 func (s *ItemsAPIServiceImpl) runRetag(
 	ctx context.Context, familyID uuid.UUID, date, title, body string,
-	confirmed models.StringList, autoMode bool,
+	confirmed models.StringList, autoMode bool, useImages bool,
 ) {
 	knownTags, err := s.db.GetDistinctTags(familyID)
 	if err != nil {
 		s.logger.Error("Retag: failed to load known tags", "error", err, "familyID", familyID)
 		return
 	}
-	suggestions, err := s.suggester.SuggestTags(ctx, title, body, knownTags)
+	var images []ai.ImageAsset
+	if useImages {
+		images = ai.LoadImageAssets(body, s.dataPath, familyID.String())
+	}
+	suggestions, err := s.suggester.SuggestTags(ctx, title, body, images, knownTags)
 	if err != nil {
 		s.logger.Error("Retag: suggestion failed", "error", err, "familyID", familyID, "date", date)
 		return
@@ -387,11 +400,35 @@ func (s *ItemsAPIServiceImpl) runRetag(
 		if err := s.db.AddConfirmedTags(familyID, date, confident); err != nil {
 			s.logger.Error("Retag: failed to auto-apply tags", "error", err, "familyID", familyID, "date", date)
 		}
+		// Stage any low-confidence suggestions that weren't auto-applied.
+		if uncertain := subtractStrings(pending, confident); len(uncertain) > 0 {
+			if err := s.db.SetPendingTags(familyID, date, uncertain); err != nil {
+				s.logger.Error("Retag: failed to store pending tags", "error", err, "familyID", familyID, "date", date)
+			}
+		}
 		return
 	}
 	if err := s.db.SetPendingTags(familyID, date, pending); err != nil {
 		s.logger.Error("Retag: failed to store pending tags", "error", err, "familyID", familyID, "date", date)
 	}
+}
+
+// subtractStrings returns the elements of all that are not in exclude.
+func subtractStrings(all, exclude []string) []string {
+	if len(exclude) == 0 {
+		return all
+	}
+	ex := make(map[string]struct{}, len(exclude))
+	for _, s := range exclude {
+		ex[s] = struct{}{}
+	}
+	var out []string
+	for _, s := range all {
+		if _, ok := ex[s]; !ok {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // toAPITagSuggestions maps internal suggestions to the API response type.
