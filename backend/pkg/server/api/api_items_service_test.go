@@ -814,3 +814,72 @@ var _ = Describe("ItemsAPIService AcceptItemTag", func() {
 		Expect(resp.Code).To(Equal(401))
 	})
 })
+
+// Blank-tag filtering: items carrying legacy blank tags must never expose them
+// through the API, even when scrubBlankTags hasn't run yet.
+var _ = Describe("ItemsAPIService blank-tag filtering", func() {
+	var (
+		logger   *slog.Logger
+		storage  database.Storage
+		service  goserver.ItemsAPIService
+		tempDir  string
+		familyID uuid.UUID
+		ctx      context.Context
+	)
+
+	BeforeEach(func() {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+		var err error
+		tempDir, err = os.MkdirTemp("", "blanktag_test")
+		Expect(err).NotTo(HaveOccurred())
+		storage = database.NewStorage(logger, &config.Config{DataPath: tempDir})
+		Expect(storage.Open()).To(Succeed())
+		fam, err := storage.CreateFamily("blank-tag-fam")
+		Expect(err).NotTo(HaveOccurred())
+		familyID = fam.ID
+		ctx = createContextWithFamilyIDForItems(familyID)
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8, "")
+	})
+
+	AfterEach(func() {
+		storage.Close()
+		os.RemoveAll(tempDir)
+	})
+
+	It("strips blank tags from GetItems response without affecting valid tags", func() {
+		// Write a clean item then corrupt its tags via raw SQL to simulate legacy
+		// data that predates the write-path filter.
+		Expect(storage.PutItem(familyID, &models.Item{Date: "2024-03-01", Title: "day"})).To(Succeed())
+		Expect(storage.GetDB().Exec(
+			`UPDATE items SET tags = '["real","","  "]', pending_tags = '[""," beach"]'
+			 WHERE date = ? AND family_id = ?`, "2024-03-01", familyID,
+		).Error).To(Succeed())
+
+		resp, err := service.GetItems(ctx, "2024-03-01", "", "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(200))
+		body := resp.Body.(goserver.ItemsListResponse)
+		Expect(body.Items).To(HaveLen(1))
+		item := body.Items[0]
+		Expect(*item.Tags).To(Equal([]string{"real"}))
+		Expect(*item.PendingTags).To(Equal([]string{"beach"}))
+	})
+
+	It("returns non-nil empty slices when all stored tags are blank", func() {
+		Expect(storage.PutItem(familyID, &models.Item{Date: "2024-03-02", Title: "day2"})).To(Succeed())
+		Expect(storage.GetDB().Exec(
+			`UPDATE items SET tags = '[""]', pending_tags = '["  "]'
+			 WHERE date = ? AND family_id = ?`, "2024-03-02", familyID,
+		).Error).To(Succeed())
+
+		resp, err := service.GetItems(ctx, "2024-03-02", "", "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(200))
+		body := resp.Body.(goserver.ItemsListResponse)
+		item := body.Items[0]
+		Expect(item.Tags).NotTo(BeNil())
+		Expect(*item.Tags).To(BeEmpty())
+		Expect(item.PendingTags).NotTo(BeNil())
+		Expect(*item.PendingTags).To(BeEmpty())
+	})
+})

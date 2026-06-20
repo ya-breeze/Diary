@@ -93,6 +93,12 @@ The user can edit an existing entry or create a new one for a date. Edit mode is
 - **WHEN** the entry is saved
 - **THEN** the server stores `["happy", "work"]` (the empty segments are discarded)
 
+#### Scenario: Blank tags are filtered from API responses
+- **GIVEN** an entry whose stored `tags` or `pending_tags` contain empty or whitespace-only strings (legacy data written before the save-path filter existed)
+- **WHEN** the entry is fetched via the API
+- **THEN** the response omits those blank entries from both `tags` and `pending_tags`
+- **AND** valid (non-blank) tags are returned unchanged
+
 #### Scenario: Body is optional
 - **WHEN** the user saves an entry with a title but no body text
 - **THEN** the entry is saved with an empty body (no error)

@@ -6,11 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
-
 	kinauth "github.com/ya-breeze/kin-core/auth"
 
 	"github.com/ya-breeze/diary.be/pkg/config"
+	"github.com/ya-breeze/diary.be/pkg/database/models"
 )
 
 // TestMigrationPasswordCompat verifies that users migrated from the old schema
@@ -86,5 +87,92 @@ func TestMigrationPasswordCompat(t *testing.T) {
 	// Wrong password must still fail
 	if kinauth.VerifyPassword("wrong-password", passwordHash) {
 		t.Errorf("VerifyPassword accepted wrong password")
+	}
+}
+
+// TestScrubBlankTags verifies that scrubBlankTags removes empty/whitespace entries
+// while leaving valid tags untouched.
+func TestScrubBlankTags(t *testing.T) {
+	logger := slog.Default()
+	db, err := openSqlite(logger, ":memory:", false)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := autoMigrateModels(db); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	familyID := uuid.New()
+
+	cases := []struct {
+		date        string
+		tags        string // raw JSON, to simulate legacy data with blank tags
+		pending     string
+		wantTags    models.StringList
+		wantPending models.StringList
+	}{
+		{
+			date:        "2024-01-01",
+			tags:        `[""]`,
+			pending:     `["  "]`,
+			wantTags:    models.StringList{},
+			wantPending: models.StringList{},
+		},
+		{
+			date:        "2024-01-02",
+			tags:        `["family","","alisa"]`,
+			pending:     `[]`,
+			wantTags:    models.StringList{"family", "alisa"},
+			wantPending: models.StringList{},
+		},
+		{
+			date:        "2024-01-03",
+			tags:        `["work"]`,
+			pending:     `["beach"]`,
+			wantTags:    models.StringList{"work"},
+			wantPending: models.StringList{"beach"},
+		},
+	}
+
+	// Insert via raw SQL to bypass the application-layer write filter so we can
+	// seed the blank-tag patterns that existed in legacy data.
+	now := time.Now().UTC().Format(time.RFC3339)
+	for _, c := range cases {
+		if err := db.Exec(
+			`INSERT INTO items (id, family_id, date, title, tags, pending_tags, created_at, updated_at)
+			 VALUES (?, ?, ?, 't', ?, ?, ?, ?)`,
+			uuid.New().String(), familyID, c.date, c.tags, c.pending, now, now,
+		).Error; err != nil {
+			t.Fatalf("seed %s: %v", c.date, err)
+		}
+	}
+
+	if err := scrubBlankTags(logger, db); err != nil {
+		t.Fatalf("scrubBlankTags: %v", err)
+	}
+
+	for _, c := range cases {
+		var got models.Item
+		if err := db.Select("tags, pending_tags").Where("date = ? AND family_id = ?", c.date, familyID).First(&got).Error; err != nil {
+			t.Fatalf("fetch %s: %v", c.date, err)
+		}
+		if len(got.Tags) != len(c.wantTags) {
+			t.Errorf("%s tags: got %v, want %v", c.date, got.Tags, c.wantTags)
+			continue
+		}
+		for i := range c.wantTags {
+			if got.Tags[i] != c.wantTags[i] {
+				t.Errorf("%s tags[%d]: got %q, want %q", c.date, i, got.Tags[i], c.wantTags[i])
+			}
+		}
+		if len(got.PendingTags) != len(c.wantPending) {
+			t.Errorf("%s pending_tags: got %v, want %v", c.date, got.PendingTags, c.wantPending)
+			continue
+		}
+		for i := range c.wantPending {
+			if got.PendingTags[i] != c.wantPending[i] {
+				t.Errorf("%s pending_tags[%d]: got %q, want %q", c.date, i, got.PendingTags[i], c.wantPending[i])
+			}
+		}
 	}
 }
