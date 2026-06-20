@@ -51,7 +51,7 @@ type Storage interface {
 	SetFamilyAITaggingEnabled(familyID uuid.UUID, enabled bool) error
 
 	// GetDistinctTags returns the family's existing tag vocabulary (deduplicated,
-	// sorted) for use as AI suggestion context.
+	// sorted) — used for tag autocomplete and as AI suggestion context.
 	GetDistinctTags(familyID uuid.UUID) ([]string, error)
 
 	GetItem(familyID uuid.UUID, date string) (*models.Item, error)

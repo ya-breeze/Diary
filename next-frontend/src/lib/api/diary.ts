@@ -6,6 +6,7 @@ import type {
   SearchParams,
   SuggestTagsRequest,
   SuggestTagsResponse,
+  TagsResponse,
 } from '@/types';
 
 export const diaryApi = {
@@ -35,4 +36,6 @@ export const diaryApi = {
       method: 'POST',
       body: req,
     }),
+
+  getTags: () => apiClient<TagsResponse>('/v1/tags'),
 };

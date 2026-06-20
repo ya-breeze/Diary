@@ -38,6 +38,7 @@ type ItemsAPIService interface {
 	GetItems(ctx context.Context, date string, search string, tags string) (ImplResponse, error)
 	PutItems(ctx context.Context, itemsRequest ItemsRequest) (ImplResponse, error)
 	SuggestItemTags(ctx context.Context, req SuggestTagsRequest) (ImplResponse, error)
+	GetTags(ctx context.Context) (ImplResponse, error)
 }
 
 // SyncAPIService defines the business logic for the Sync API.

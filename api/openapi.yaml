@@ -243,6 +243,22 @@ paths:
         "503":
           description: AI tagging is not available (no API key or disabled for family)
 
+  /v1/tags:
+    get:
+      tags:
+        - items
+      summary: list the family's distinct existing tags
+      operationId: getTags
+      responses:
+        "200":
+          description: distinct tags for the authenticated family
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagsResponse"
+        "401":
+          description: Unauthorized
+
   /v1/health/issues:
     get:
       tags:
@@ -619,6 +635,18 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TagSuggestion"
+      required:
+        - tags
+
+    TagsResponse:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            type: string
+          description: "Family's distinct existing tags, deduplicated and sorted"
+          example: ["family", "travel", "work"]
       required:
         - tags
 

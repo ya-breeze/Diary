@@ -553,6 +553,8 @@ func (f fakeSuggester) SuggestTags(
 	return f.suggestions, nil
 }
 
+func ptr(s string) *string { return &s }
+
 var _ = Describe("ItemsAPIService SuggestItemTags", func() {
 	var (
 		logger   *slog.Logger
@@ -625,4 +627,61 @@ var _ = Describe("ItemsAPIService SuggestItemTags", func() {
 	})
 })
 
-func ptr(s string) *string { return &s }
+var _ = Describe("ItemsAPIService GetTags", func() {
+	var (
+		logger   *slog.Logger
+		storage  database.Storage
+		service  goserver.ItemsAPIService
+		tempDir  string
+		familyID uuid.UUID
+		ctx      context.Context
+	)
+
+	BeforeEach(func() {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+		var err error
+		tempDir, err = os.MkdirTemp("", "gettags_test")
+		Expect(err).NotTo(HaveOccurred())
+		storage = database.NewStorage(logger, &config.Config{DataPath: tempDir})
+		Expect(storage.Open()).To(Succeed())
+		fam, err := storage.CreateFamily("tags-fam")
+		Expect(err).NotTo(HaveOccurred())
+		familyID = fam.ID
+		ctx = createContextWithFamilyIDForItems(familyID)
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester())
+	})
+
+	AfterEach(func() {
+		storage.Close()
+		os.RemoveAll(tempDir)
+	})
+
+	It("returns 401 without a family in context", func() {
+		resp, err := service.GetTags(context.Background())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(401))
+	})
+
+	It("returns an empty list when there are no tags", func() {
+		resp, err := service.GetTags(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(200))
+		body, ok := resp.Body.(goserver.TagsResponse)
+		Expect(ok).To(BeTrue())
+		Expect(body.Tags).To(BeEmpty())
+	})
+
+	It("returns deduplicated, sorted tags", func() {
+		for _, it := range []*models.Item{
+			{Date: "2024-02-01", Title: "x", Tags: models.StringList{"travel", "family"}},
+			{Date: "2024-02-02", Title: "y", Tags: models.StringList{"family", "work"}},
+		} {
+			Expect(storage.PutItem(familyID, it)).To(Succeed())
+		}
+		resp, err := service.GetTags(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(200))
+		body := resp.Body.(goserver.TagsResponse)
+		Expect(body.Tags).To(Equal([]string{"family", "travel", "work"}))
+	})
+})

@@ -28,6 +28,11 @@ func TestGetDistinctTagsAndAISettings(t *testing.T) {
 		t.Fatalf("create family: %v", err)
 	}
 
+	// Empty before any tagged entries.
+	if got, err := s.GetDistinctTags(fam.ID); err != nil || len(got) != 0 {
+		t.Fatalf("expected empty, got %v err %v", got, err)
+	}
+
 	// Two entries sharing one tag, plus a unique one each.
 	for _, it := range []*models.Item{
 		{Date: "2024-01-01", Title: "a", Tags: models.StringList{"travel", "family"}},
@@ -50,6 +55,12 @@ func TestGetDistinctTagsAndAISettings(t *testing.T) {
 		if tags[i] != want[i] {
 			t.Fatalf("got %v want %v", tags, want)
 		}
+	}
+
+	// A second family does not see the first family's tags.
+	other, _ := s.CreateFamily("other")
+	if got, _ := s.GetDistinctTags(other.ID); len(got) != 0 {
+		t.Fatalf("expected family scoping, got %v", got)
 	}
 
 	// AI settings toggle round-trips.
