@@ -9,6 +9,6 @@
 ## 3. Verification
 
 - [x] 3.1 Run `make lint` (or `npx tsc --noEmit` in `next-frontend/`) to confirm no type errors
-- [ ] 3.2 Deploy to WIP stack and manually verify: open the editor, clear the title field, save — confirm no validation error and entry is saved
-- [ ] 3.3 Confirm the saved entry shows "Untitled" in the entry list and viewer
-- [ ] 3.4 Run E2E tests against the WIP stack and confirm no regressions
+- [x] 3.2 Deploy to WIP stack and manually verify: open the editor, clear the title field, save — confirm no validation error and entry is saved
+- [x] 3.3 Confirm the saved entry shows "Untitled" in the entry list and viewer
+- [x] 3.4 Run E2E tests against the WIP stack and confirm no regressions
