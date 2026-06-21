@@ -5,6 +5,7 @@ const TEST_DATE = '2010-06-15';      // used by test 1 (create+persist)
 const EDIT_TEST_DATE = '2010-06-16'; // used by test 2 (edit flow)
 const BACK_NAV_PREV_DATE = '2010-06-17'; // test 4: the back-target entry
 const BACK_NAV_DATE = '2010-06-18';      // test 4: the entry we edit
+const EMPTY_TITLE_DATE = '2010-06-19';  // test 5: empty title saves as Untitled
 
 test.describe('Diary entries', () => {
     test('create entry: write, save, reload, content persists', async ({ page }) => {
@@ -46,6 +47,18 @@ test.describe('Diary entries', () => {
         await page.goto('/diary/1990-01-01?edit=true');
         // Empty entry shows EntryEditor when navigating with ?edit=true
         await expect(page.locator('input[placeholder="Enter a title..."]')).toBeVisible({ timeout: 5000 });
+    });
+
+    test('empty title saves as Untitled', async ({ page }) => {
+        await page.goto(`/diary/${EMPTY_TITLE_DATE}?edit=true`);
+        await expect(page.locator('input[placeholder="Enter a title..."]')).toBeVisible({ timeout: 5000 });
+
+        // Leave title blank, add body so the entry is not completely empty
+        await page.fill('textarea[placeholder="Write your thoughts..."]', 'No title body');
+        await page.click('button[type="submit"]:has-text("Save Changes")');
+
+        await expect(page).toHaveURL(new RegExp(`/diary/${EMPTY_TITLE_DATE}$`), { timeout: 10000 });
+        await expect(page.getByRole('article').getByRole('heading', { name: 'Untitled' })).toBeVisible({ timeout: 5000 });
     });
 
     test('back button after edit+save does not re-enter the editor', async ({ page }) => {
