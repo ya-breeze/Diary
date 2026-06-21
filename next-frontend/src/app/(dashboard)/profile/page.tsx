@@ -90,7 +90,6 @@ export default function ProfilePage() {
     void saveAiSettings({
       aiTaggingEnabled: true,
       aiTaggingBackfill: !family.aiTaggingBackfill,
-      aiTaggingAuto: family.aiTaggingAuto,
     });
   };
 
@@ -98,9 +97,7 @@ export default function ProfilePage() {
     if (!family) return;
     void saveAiSettings({
       aiTaggingEnabled: true,
-      aiTaggingBackfill: family.aiTaggingBackfill,
       aiTaggingAuto: !family.aiTaggingAuto,
-      aiTaggingUseImages: family.aiTaggingUseImages,
     });
   };
 
@@ -108,10 +105,7 @@ export default function ProfilePage() {
     if (!family) return;
     void saveAiSettings({
       aiTaggingEnabled: true,
-      aiTaggingBackfill: family.aiTaggingBackfill,
-      aiTaggingAuto: family.aiTaggingAuto,
       aiTaggingUseImages: !family.aiTaggingUseImages,
-      aiTaggingUseVideo: family.aiTaggingUseVideo,
     });
   };
 
@@ -119,9 +113,6 @@ export default function ProfilePage() {
     if (!family) return;
     void saveAiSettings({
       aiTaggingEnabled: true,
-      aiTaggingBackfill: family.aiTaggingBackfill,
-      aiTaggingAuto: family.aiTaggingAuto,
-      aiTaggingUseImages: family.aiTaggingUseImages,
       aiTaggingUseVideo: !family.aiTaggingUseVideo,
     });
   };
