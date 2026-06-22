@@ -31,10 +31,42 @@ export function useSaveEntry() {
   });
 }
 
-export function useSearchEntries(searchText: string, enabled: boolean = true) {
+export function useSearchEntries(searchText: string, tags: string = '', enabled: boolean = true) {
   return useQuery({
-    queryKey: ['search', searchText],
-    queryFn: () => diaryApi.search(searchText),
-    enabled: enabled && searchText.length > 0,
+    queryKey: ['search', searchText, tags],
+    queryFn: () => diaryApi.search(searchText, tags || undefined),
+    enabled: enabled && (searchText.length > 0 || tags.length > 0),
+  });
+}
+
+export function useTagStats() {
+  return useQuery({
+    queryKey: ['tag-stats'],
+    queryFn: () => diaryApi.getTagStats(),
+  });
+}
+
+export function useRenameTag() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ name, newName }: { name: string; newName: string }) =>
+      diaryApi.renameTag(name, newName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tag-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['entries'] });
+      queryClient.invalidateQueries({ queryKey: ['search'] });
+    },
+  });
+}
+
+export function useDeleteTag() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => diaryApi.deleteTag(name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tag-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['entries'] });
+      queryClient.invalidateQueries({ queryKey: ['search'] });
+    },
   });
 }

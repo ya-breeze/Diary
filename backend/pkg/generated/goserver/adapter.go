@@ -333,6 +333,66 @@ func (s *StrictServerImpl) GetTags(ctx context.Context, _ GetTagsRequestObject) 
 	}
 }
 
+// --- GetTagStats ---
+
+func (s *StrictServerImpl) GetTagStats(ctx context.Context, _ GetTagStatsRequestObject) (GetTagStatsResponseObject, error) {
+	resp, err := s.items.GetTagStats(ctx)
+	if err != nil {
+		return nil, err
+	}
+	switch resp.Code {
+	case http.StatusOK:
+		body, ok := resp.Body.(TagStatsResponse)
+		if !ok {
+			return nil, fmt.Errorf("GetTagStats: unexpected body type %T", resp.Body)
+		}
+		return GetTagStats200JSONResponse(body), nil
+	case http.StatusUnauthorized:
+		return GetTagStats401Response{}, nil
+	default:
+		return nil, fmt.Errorf("GetTagStats: unexpected status %d", resp.Code)
+	}
+}
+
+// --- RenameTag ---
+
+func (s *StrictServerImpl) RenameTag(ctx context.Context, req RenameTagRequestObject) (RenameTagResponseObject, error) {
+	if req.Body == nil {
+		return RenameTag400Response{}, nil
+	}
+	resp, err := s.items.RenameTag(ctx, req.Name, *req.Body)
+	if err != nil {
+		return nil, err
+	}
+	switch resp.Code {
+	case http.StatusOK:
+		return RenameTag200Response{}, nil
+	case http.StatusBadRequest:
+		return RenameTag400Response{}, nil
+	case http.StatusUnauthorized:
+		return RenameTag401Response{}, nil
+	default:
+		return nil, fmt.Errorf("RenameTag: unexpected status %d", resp.Code)
+	}
+}
+
+// --- DeleteTag ---
+
+func (s *StrictServerImpl) DeleteTag(ctx context.Context, req DeleteTagRequestObject) (DeleteTagResponseObject, error) {
+	resp, err := s.items.DeleteTag(ctx, req.Name)
+	if err != nil {
+		return nil, err
+	}
+	switch resp.Code {
+	case http.StatusNoContent, http.StatusOK:
+		return DeleteTag204Response{}, nil
+	case http.StatusUnauthorized:
+		return DeleteTag401Response{}, nil
+	default:
+		return nil, fmt.Errorf("DeleteTag: unexpected status %d", resp.Code)
+	}
+}
+
 // --- GetChanges ---
 
 func (s *StrictServerImpl) GetChanges(ctx context.Context, req GetChangesRequestObject) (GetChangesResponseObject, error) {

@@ -186,6 +186,12 @@ type ItemsResponse struct {
 	Title        string              `json:"title"`
 }
 
+// RenameTagRequest defines model for RenameTagRequest.
+type RenameTagRequest struct {
+	// NewName New name for the tag; merges into an existing tag where an entry already carries it
+	NewName string `json:"newName"`
+}
+
 // SuggestTagsRequest defines model for SuggestTagsRequest.
 type SuggestTagsRequest struct {
 	Body  *string            `json:"body,omitempty"`
@@ -235,6 +241,19 @@ type SyncResponse struct {
 
 	// NextId ID to use for the next sync request (if hasMore is true)
 	NextId *int32 `json:"nextId,omitempty"`
+}
+
+// TagStat defines model for TagStat.
+type TagStat struct {
+	// Count Number of entries using this tag
+	Count int    `json:"count"`
+	Name  string `json:"name"`
+}
+
+// TagStatsResponse defines model for TagStatsResponse.
+type TagStatsResponse struct {
+	// Tags Family's distinct tags with usage counts, sorted by count desc then name asc
+	Tags []TagStat `json:"tags"`
 }
 
 // TagSuggestion defines model for TagSuggestion.
@@ -316,6 +335,9 @@ type DismissItemTagJSONRequestBody = DismissTagRequest
 // SuggestItemTagsJSONRequestBody defines body for SuggestItemTags for application/json ContentType.
 type SuggestItemTagsJSONRequestBody = SuggestTagsRequest
 
+// RenameTagJSONRequestBody defines body for RenameTag for application/json ContentType.
+type RenameTagJSONRequestBody = RenameTagRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// return asset by path
@@ -372,6 +394,15 @@ type ServerInterface interface {
 	// list the family's distinct existing tags
 	// (GET /v1/tags)
 	GetTags(w http.ResponseWriter, r *http.Request)
+	// list the family's distinct tags with per-tag usage counts
+	// (GET /v1/tags/stats)
+	GetTagStats(w http.ResponseWriter, r *http.Request)
+	// delete a tag from all of the family's entries
+	// (DELETE /v1/tags/{name})
+	DeleteTag(w http.ResponseWriter, r *http.Request, name string)
+	// rename a tag across all of the family's entries
+	// (PATCH /v1/tags/{name})
+	RenameTag(w http.ResponseWriter, r *http.Request, name string)
 	// return user object
 	// (GET /v1/user)
 	GetUser(w http.ResponseWriter, r *http.Request)
@@ -835,6 +866,85 @@ func (siw *ServerInterfaceWrapper) GetTags(w http.ResponseWriter, r *http.Reques
 	handler.ServeHTTP(w, r)
 }
 
+// GetTagStats operation middleware
+func (siw *ServerInterfaceWrapper) GetTagStats(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTagStats(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteTag operation middleware
+func (siw *ServerInterfaceWrapper) DeleteTag(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", mux.Vars(r)["name"], &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteTag(w, r, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RenameTag operation middleware
+func (siw *ServerInterfaceWrapper) RenameTag(w http.ResponseWriter, r *http.Request) {
+	var err error
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", mux.Vars(r)["name"], &name, runtime.BindStyledParameterOptions{Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RenameTag(w, r, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetUser operation middleware
 func (siw *ServerInterfaceWrapper) GetUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -1002,6 +1112,12 @@ func HandlerWithOptions(si ServerInterface, options GorillaServerOptions) http.H
 	r.HandleFunc(options.BaseURL+"/v1/sync/changes", wrapper.GetChanges).Methods("GET")
 
 	r.HandleFunc(options.BaseURL+"/v1/tags", wrapper.GetTags).Methods("GET")
+
+	r.HandleFunc(options.BaseURL+"/v1/tags/stats", wrapper.GetTagStats).Methods("GET")
+
+	r.HandleFunc(options.BaseURL+"/v1/tags/{name}", wrapper.DeleteTag).Methods("DELETE")
+
+	r.HandleFunc(options.BaseURL+"/v1/tags/{name}", wrapper.RenameTag).Methods("PATCH")
 
 	r.HandleFunc(options.BaseURL+"/v1/user", wrapper.GetUser).Methods("GET")
 
@@ -1623,6 +1739,80 @@ func (response GetTags401Response) VisitGetTagsResponse(w http.ResponseWriter) e
 	return nil
 }
 
+type GetTagStatsRequestObject struct{}
+
+type GetTagStatsResponseObject interface {
+	VisitGetTagStatsResponse(w http.ResponseWriter) error
+}
+
+type GetTagStats200JSONResponse TagStatsResponse
+
+func (response GetTagStats200JSONResponse) VisitGetTagStatsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetTagStats401Response struct{}
+
+func (response GetTagStats401Response) VisitGetTagStatsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type DeleteTagRequestObject struct {
+	Name string `json:"name"`
+}
+
+type DeleteTagResponseObject interface {
+	VisitDeleteTagResponse(w http.ResponseWriter) error
+}
+
+type DeleteTag204Response struct{}
+
+func (response DeleteTag204Response) VisitDeleteTagResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteTag401Response struct{}
+
+func (response DeleteTag401Response) VisitDeleteTagResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
+type RenameTagRequestObject struct {
+	Name string `json:"name"`
+	Body *RenameTagJSONRequestBody
+}
+
+type RenameTagResponseObject interface {
+	VisitRenameTagResponse(w http.ResponseWriter) error
+}
+
+type RenameTag200Response struct{}
+
+func (response RenameTag200Response) VisitRenameTagResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type RenameTag400Response struct{}
+
+func (response RenameTag400Response) VisitRenameTagResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type RenameTag401Response struct{}
+
+func (response RenameTag401Response) VisitRenameTagResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
 type GetUserRequestObject struct{}
 
 type GetUserResponseObject interface {
@@ -1694,6 +1884,15 @@ type StrictServerInterface interface {
 	// list the family's distinct existing tags
 	// (GET /v1/tags)
 	GetTags(ctx context.Context, request GetTagsRequestObject) (GetTagsResponseObject, error)
+	// list the family's distinct tags with per-tag usage counts
+	// (GET /v1/tags/stats)
+	GetTagStats(ctx context.Context, request GetTagStatsRequestObject) (GetTagStatsResponseObject, error)
+	// delete a tag from all of the family's entries
+	// (DELETE /v1/tags/{name})
+	DeleteTag(ctx context.Context, request DeleteTagRequestObject) (DeleteTagResponseObject, error)
+	// rename a tag across all of the family's entries
+	// (PATCH /v1/tags/{name})
+	RenameTag(ctx context.Context, request RenameTagRequestObject) (RenameTagResponseObject, error)
 	// return user object
 	// (GET /v1/user)
 	GetUser(ctx context.Context, request GetUserRequestObject) (GetUserResponseObject, error)
@@ -2232,6 +2431,89 @@ func (sh *strictHandler) GetTags(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetTagsResponseObject); ok {
 		if err := validResponse.VisitGetTagsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTagStats operation middleware
+func (sh *strictHandler) GetTagStats(w http.ResponseWriter, r *http.Request) {
+	var request GetTagStatsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTagStats(ctx, request.(GetTagStatsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTagStats")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTagStatsResponseObject); ok {
+		if err := validResponse.VisitGetTagStatsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteTag operation middleware
+func (sh *strictHandler) DeleteTag(w http.ResponseWriter, r *http.Request, name string) {
+	var request DeleteTagRequestObject
+
+	request.Name = name
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteTag(ctx, request.(DeleteTagRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteTag")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteTagResponseObject); ok {
+		if err := validResponse.VisitDeleteTagResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RenameTag operation middleware
+func (sh *strictHandler) RenameTag(w http.ResponseWriter, r *http.Request, name string) {
+	var request RenameTagRequestObject
+
+	request.Name = name
+
+	var body RenameTagJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RenameTag(ctx, request.(RenameTagRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RenameTag")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RenameTagResponseObject); ok {
+		if err := validResponse.VisitRenameTagResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

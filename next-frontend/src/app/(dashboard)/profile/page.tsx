@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { LogOut, BookOpen, Flame, Tag, Users, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui';
 import { useAuthStore } from '@/store';
-import { useDiaryEntries } from '@/hooks';
+import { useDiaryEntries, useTagStats } from '@/hooks';
 import { authApi } from '@/lib/api/auth';
 import type { Family } from '@/types';
 
@@ -117,9 +117,10 @@ export default function ProfilePage() {
     });
   };
 
+  const { data: tagStats } = useTagStats();
   const entries = data?.items ?? [];
   const totalCount = data?.totalCount ?? 0;
-  const uniqueTags = new Set(entries.flatMap((e) => e.tags ?? [])).size;
+  const uniqueTags = tagStats?.tags.length;
   const streak = computeStreak(entries.map((e) => e.date));
   const topTags = computeTopTags(entries);
 
@@ -155,19 +156,39 @@ export default function ProfilePage() {
         {/* Stat cards */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { icon: BookOpen, label: 'Entries', value: isLoading ? '—' : String(totalCount) },
-            { icon: Flame, label: 'Streak', value: isLoading ? '—' : `${streak}d` },
-            { icon: Tag, label: 'Tags', value: isLoading ? '—' : String(uniqueTags) },
-          ].map(({ icon: Icon, label, value }) => (
-            <div
-              key={label}
-              className="flex flex-col items-center gap-1 rounded-xl border border-zinc-200 bg-white py-4 dark:border-zinc-800 dark:bg-zinc-900"
-            >
-              <Icon className="h-4 w-4 text-zinc-400" />
-              <span className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">{value}</span>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">{label}</span>
-            </div>
-          ))}
+            { icon: BookOpen, label: 'Entries', value: isLoading ? '—' : String(totalCount), onClick: undefined },
+            { icon: Flame, label: 'Streak', value: isLoading ? '—' : `${streak}d`, onClick: undefined },
+            {
+              icon: Tag,
+              label: 'Tags',
+              value: uniqueTags === undefined ? '—' : String(uniqueTags),
+              onClick: () => router.push('/tags'),
+            },
+          ].map(({ icon: Icon, label, value, onClick }) => {
+            const cardClass =
+              'flex flex-col items-center gap-1 rounded-xl border border-zinc-200 bg-white py-4 dark:border-zinc-800 dark:bg-zinc-900';
+            const inner = (
+              <>
+                <Icon className="h-4 w-4 text-zinc-400" />
+                <span className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">{value}</span>
+                <span className="text-xs text-zinc-500 dark:text-zinc-400">{label}</span>
+              </>
+            );
+            return onClick ? (
+              <button
+                key={label}
+                onClick={onClick}
+                className={`${cardClass} transition hover:border-zinc-300 hover:bg-zinc-50 dark:hover:border-zinc-700 dark:hover:bg-zinc-800`}
+                data-testid="tags-stat-card"
+              >
+                {inner}
+              </button>
+            ) : (
+              <div key={label} className={cardClass}>
+                {inner}
+              </div>
+            );
+          })}
         </div>
 
         {/* Family */}
