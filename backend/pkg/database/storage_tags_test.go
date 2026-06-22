@@ -224,6 +224,36 @@ func TestDeleteTag(t *testing.T) {
 	}
 }
 
+// TestGetItemsTagFilterToleratesMalformedTags reproduces the browse-by-tag 500:
+// a legacy row whose tags column holds a non-JSON value (e.g. an empty string)
+// must not break a tag-only filter. The JSON_EXTRACT-based query raised
+// "malformed JSON" on such a row and failed the whole scan.
+func TestGetItemsTagFilterToleratesMalformedTags(t *testing.T) {
+	s, fam := newTagStorage(t)
+
+	putItems(t, s, fam.ID,
+		&models.Item{Date: "2024-05-01", Title: "tagged", Tags: models.StringList{"girls"}},
+		&models.Item{Date: "2024-05-02", Title: "legacy", Tags: models.StringList{"girls"}},
+	)
+	// Force a non-JSON (empty-string) tags column on the second row to mimic the
+	// legacy data that triggered the production "malformed JSON" error.
+	if err := s.GetDB().Exec(
+		"UPDATE items SET tags = '' WHERE family_id = ? AND date = ?", fam.ID, "2024-05-02",
+	).Error; err != nil {
+		t.Fatalf("force empty tags: %v", err)
+	}
+
+	// A tag-only filter (no date, no search) must not error and must find the
+	// well-formed tagged row.
+	items, _, err := s.GetItems(fam.ID, SearchParams{Tags: []string{"girls"}})
+	if err != nil {
+		t.Fatalf("GetItems with malformed row present: %v", err)
+	}
+	if len(items) != 1 || items[0].Date != "2024-05-01" {
+		t.Fatalf("expected the single tagged row, got %d items", len(items))
+	}
+}
+
 func equalTags(got, want []string) bool {
 	if len(got) != len(want) {
 		return false

@@ -26,6 +26,9 @@ export function useSaveEntry() {
     mutationFn: (entry: DiaryEntryRequest) => diaryApi.saveItem(entry),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['entries'] });
+      // Saving an entry can introduce/remove tags, so the tag vocabulary and
+      // usage counts may have changed — refresh the Tags page data too.
+      queryClient.invalidateQueries({ queryKey: ['tag-stats'] });
       queryClient.setQueryData(['entry', data.date], data);
     },
   });

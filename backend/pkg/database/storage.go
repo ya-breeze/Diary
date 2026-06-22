@@ -498,13 +498,16 @@ func (s *storage) GetItems(familyID uuid.UUID, searchParams SearchParams) ([]*mo
 		query = query.Where("title LIKE ? OR body LIKE ?", searchPattern, searchPattern)
 	}
 
-	// Apply tag filters if specified
+	// Apply tag filters if specified (OR across the requested tags). Match the
+	// raw JSON-text column directly rather than via JSON_EXTRACT: tags are stored
+	// as a JSON array string (e.g. `["a","b"]`), so a LIKE on the quoted name
+	// finds membership without parsing. JSON_EXTRACT would raise "malformed JSON"
+	// and fail the whole query if any row has a NULL/legacy non-JSON tags value.
 	if len(searchParams.Tags) > 0 {
-		// For JSON tag filtering, we need to check if any of the specified tags exist in the JSON array
 		tagConditions := make([]string, len(searchParams.Tags))
 		tagArgs := make([]any, len(searchParams.Tags))
 		for i, tag := range searchParams.Tags {
-			tagConditions[i] = "JSON_EXTRACT(tags, '$') LIKE ?"
+			tagConditions[i] = "tags LIKE ?"
 			tagArgs[i] = "%\"" + tag + "\"%"
 		}
 		tagQuery := strings.Join(tagConditions, " OR ")
