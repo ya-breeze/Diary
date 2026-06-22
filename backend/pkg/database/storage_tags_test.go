@@ -3,6 +3,7 @@ package database
 import (
 	"log/slog"
 	"os"
+	"sort"
 	"testing"
 
 	"github.com/google/uuid"
@@ -251,6 +252,57 @@ func TestGetItemsTagFilterToleratesMalformedTags(t *testing.T) {
 	}
 	if len(items) != 1 || items[0].Date != "2024-05-01" {
 		t.Fatalf("expected the single tagged row, got %d items", len(items))
+	}
+}
+
+// TestGetItemsCombinedTextAndTagFilter asserts the semantics the search page
+// relies on: multiple tags are OR'd together, and a text query is AND'd with the
+// tag filter.
+func TestGetItemsCombinedTextAndTagFilter(t *testing.T) {
+	s, fam := newTagStorage(t)
+
+	putItems(t, s, fam.ID,
+		&models.Item{Date: "2024-06-01", Title: "beach trip", Body: "x", Tags: models.StringList{"travel"}},
+		&models.Item{Date: "2024-06-02", Title: "family dinner", Body: "y", Tags: models.StringList{"family"}},
+		&models.Item{Date: "2024-06-03", Title: "beach with family", Body: "z", Tags: models.StringList{"family"}},
+		&models.Item{Date: "2024-06-04", Title: "work notes", Body: "w", Tags: models.StringList{"work"}},
+	)
+
+	datesOf := func(items []*models.Item) []string {
+		out := make([]string, len(items))
+		for i, it := range items {
+			out[i] = it.Date
+		}
+		sort.Strings(out)
+		return out
+	}
+
+	// OR among tags: travel OR family → the three travel/family entries.
+	items, _, err := s.GetItems(fam.ID, SearchParams{Tags: []string{"travel", "family"}})
+	if err != nil {
+		t.Fatalf("tags OR: %v", err)
+	}
+	if got := datesOf(items); !equalTags(got, []string{"2024-06-01", "2024-06-02", "2024-06-03"}) {
+		t.Fatalf("tags OR got %v", got)
+	}
+
+	// Text AND tags: "beach" AND family → only the beach-with-family entry
+	// (the beach/travel entry is excluded by the tag filter).
+	items, _, err = s.GetItems(fam.ID, SearchParams{SearchText: "beach", Tags: []string{"family"}})
+	if err != nil {
+		t.Fatalf("text AND tags: %v", err)
+	}
+	if got := datesOf(items); !equalTags(got, []string{"2024-06-03"}) {
+		t.Fatalf("text AND tags got %v", got)
+	}
+
+	// Text alone matches title or body, independent of tags.
+	items, _, err = s.GetItems(fam.ID, SearchParams{SearchText: "beach"})
+	if err != nil {
+		t.Fatalf("text only: %v", err)
+	}
+	if got := datesOf(items); !equalTags(got, []string{"2024-06-01", "2024-06-03"}) {
+		t.Fatalf("text only got %v", got)
 	}
 }
 

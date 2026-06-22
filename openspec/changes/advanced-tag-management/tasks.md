@@ -50,6 +50,7 @@
 - [x] 8.1 Add a tag filter chip row to the search page (add/remove chips; reuse `knownTags` for suggestions)
 - [x] 8.2 Pass selected tags to `diaryApi.search` as comma-separated `tags`; run a tag-only search even when text is below the 2-char minimum
 - [x] 8.3 Ensure text + tags combine (AND with text, OR among tags) per spec
+- [x] 8.4 Tests: backend `GetItems` combined-filter unit test (OR among tags, AND with text) + `search.spec.ts` e2e (tag-only below 2-char, OR, AND, chip removal)
 
 ## 9. Verification
 
