@@ -313,9 +313,17 @@ export default function ProfilePage() {
             <p className="mb-3 text-sm font-medium text-zinc-500 dark:text-zinc-400">Top tags</p>
             <div className="flex flex-wrap gap-2">
               {topTags.map((tag) => (
-                <Badge key={tag} variant="default">
-                  {tag}
-                </Badge>
+                <button
+                  key={tag}
+                  onClick={() => router.push(`/tags?tag=${encodeURIComponent(tag)}`)}
+                  className="rounded-full focus:outline-none focus:ring-2 focus:ring-zinc-400"
+                  data-testid="top-tag"
+                  title={`Browse entries tagged "${tag}"`}
+                >
+                  <Badge variant="default" className="cursor-pointer hover:opacity-80">
+                    {tag}
+                  </Badge>
+                </button>
               ))}
             </div>
           </div>

@@ -35,3 +35,23 @@ The profile SHALL show three summary stats derived from all of the family's entr
 #### Scenario: Stats show loading placeholder while data loads
 - **GIVEN** the entries request is in flight
 - **THEN** all three stat values display `—` instead of numbers
+
+### Requirement: Top tags
+The profile SHALL show the top 5 most-used tags. Each top tag SHALL be clickable and navigate to the Tags page browse view for that tag.
+
+#### Scenario: Top 5 tags ranked by frequency
+- **GIVEN** tag frequencies: `happy=10, work=8, outdoors=5, travel=3, food=2, misc=1`
+- **THEN** the top tags section shows `["happy", "work", "outdoors", "travel", "food"]` (top 5 only)
+
+#### Scenario: Fewer than 5 unique tags
+- **GIVEN** the family has only 3 unique tags
+- **THEN** all 3 are shown (no padding or placeholder for the missing slots)
+
+#### Scenario: No tags used
+- **GIVEN** no entry has any tags
+- **THEN** the top tags section is not shown
+
+#### Scenario: Clicking a top tag browses its entries
+- **GIVEN** the top tags section shows `travel`
+- **WHEN** the user clicks the `travel` tag
+- **THEN** they are navigated to the Tags page browse view for `travel` (e.g. `/tags?tag=travel`)

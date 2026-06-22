@@ -52,13 +52,18 @@ The application SHALL provide a dedicated Tags page that lists every distinct ta
 - **THEN** an empty-state message is shown instead of a tag list
 
 ### Requirement: Browse entries by tag
-The Tags page SHALL let the user view all entries carrying a chosen tag, using the existing tag filter (`GET /v1/items?tags=`), which matches entries containing any of the requested tags (OR semantics).
+The Tags page SHALL let the user view all entries carrying a chosen tag, using the existing tag filter (`GET /v1/items?tags=`), which matches entries containing any of the requested tags (OR semantics). The browsed tag SHALL be reflected in the page URL (e.g. `/tags?tag=<name>`) so the view is deep-linkable and bookmarkable.
 
 #### Scenario: Selecting a tag shows its entries
 - **GIVEN** three entries are tagged `travel`
 - **WHEN** the user selects the `travel` tag to browse
 - **THEN** all three entries are listed
 - **AND** clicking an entry navigates to `/diary/[date]` for that entry
+
+#### Scenario: Browsing a tag is reflected in the URL
+- **GIVEN** the user selects the `travel` tag to browse
+- **THEN** the page URL includes the tag (e.g. `/tags?tag=travel`)
+- **AND** navigating directly to that URL shows the same browse view for `travel`
 
 #### Scenario: Multiple tags use OR semantics
 - **GIVEN** entry A is tagged only `travel` and entry B is tagged only `family`

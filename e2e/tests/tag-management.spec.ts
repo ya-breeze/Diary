@@ -38,11 +38,28 @@ test.describe('Tag management', () => {
         await expect(page.locator('h1', { hasText: 'Tags' })).toBeVisible();
     });
 
-    test('browse-by-tag lists the tagged entry', async ({ page }) => {
+    test('profile top tags are clickable and browse that tag', async ({ page }) => {
+        await page.goto('/profile');
+        const topTag = page.locator('[data-testid="top-tag"]').first();
+        await expect(topTag).toBeVisible({ timeout: 10000 });
+        const name = (await topTag.innerText()).trim();
+        await topTag.click();
+        // Lands on the deep-linked browse view for that tag.
+        await expect(page).toHaveURL(
+            (url) => url.pathname === '/tags' && url.searchParams.get('tag') === name,
+        );
+    });
+
+    test('browse-by-tag lists the tagged entry and is deep-linkable via URL', async ({ page }) => {
         await seedEntry(page, '2013-02-02', 'TM browse target', ['tmbrowse2']);
         await page.goto('/tags');
         await tagRow(page, 'tmbrowse2').locator('[data-testid="tag-browse"]').click();
-        // The browse view shows the seeded entry.
+        // The browse view shows the seeded entry, and the URL carries the tag.
+        await expect(page.getByText('TM browse target')).toBeVisible({ timeout: 5000 });
+        await expect(page).toHaveURL(/\/tags\?tag=tmbrowse2$/);
+
+        // Navigating directly to the deep link reproduces the same browse view.
+        await page.goto('/tags?tag=tmbrowse2');
         await expect(page.getByText('TM browse target')).toBeVisible({ timeout: 5000 });
     });
 

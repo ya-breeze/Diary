@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Pencil, Trash2, Check, X, Tag } from 'lucide-react';
 import { Button, Modal } from '@/components/ui';
 import { EntryCard } from '@/components/layout';
@@ -14,12 +14,23 @@ import {
 import type { TagStat } from '@/types';
 
 export default function TagsPage() {
+  // useSearchParams requires a Suspense boundary in the App Router.
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-zinc-500">Loading…</div>}>
+      <TagsPageInner />
+    </Suspense>
+  );
+}
+
+function TagsPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data, isLoading } = useTagStats();
   const renameTag = useRenameTag();
   const deleteTag = useDeleteTag();
 
-  const [browseTag, setBrowseTag] = useState<string | null>(null);
+  // The browsed tag lives in the URL (?tag=) so the view is deep-linkable.
+  const browseTag = searchParams.get('tag');
   const [editing, setEditing] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [pendingDelete, setPendingDelete] = useState<TagStat | null>(null);
@@ -59,7 +70,7 @@ export default function TagsPage() {
   };
 
   if (browseTag) {
-    return <TagBrowse tag={browseTag} onBack={() => setBrowseTag(null)} />;
+    return <TagBrowse tag={browseTag} onBack={() => router.push('/tags')} />;
   }
 
   return (
@@ -131,7 +142,7 @@ export default function TagsPage() {
                 ) : (
                   <>
                     <button
-                      onClick={() => setBrowseTag(stat.name)}
+                      onClick={() => router.push(`/tags?tag=${encodeURIComponent(stat.name)}`)}
                       className="flex-1 text-left text-sm font-medium text-zinc-900 hover:underline dark:text-zinc-100"
                       data-testid="tag-browse"
                     >

@@ -37,6 +37,7 @@
 - [x] 6.1 Create the Tags page route under `next-frontend/src/app/(dashboard)` listing tags with counts from `getTagStats()`, sorted by count desc, with an empty state
 - [x] 6.2 Add browse-by-tag: selecting a tag shows entries via the existing `diaryApi.search`/`?tags=` filter; entry cards navigate to `/diary/[date]`
 - [x] 6.3 Make the profile "Tags" stat card a link to the Tags page; switched its count to `getTagStats()` (server count)
+- [x] 6.4 Make browse deep-linkable via `/tags?tag=<name>` (URL-driven, bookmarkable) and make the profile "Top tags" badges clickable → browse
 
 ## 7. Rename / delete UI (tag-management)
 
