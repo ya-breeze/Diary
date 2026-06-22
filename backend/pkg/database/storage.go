@@ -152,6 +152,13 @@ func (s *storage) Open() error {
 		panic("failed to migrate database")
 	}
 
+	// Normalize any non-JSON tags columns (NULL/''/garbage from legacy data) to
+	// '[]' before the list-based scrub, so JSON functions never see malformed input.
+	if err := normalizeTagColumns(s.log, s.db); err != nil {
+		s.log.Error("failed to normalize tag columns", "error", err)
+		// non-fatal: proceed with startup
+	}
+
 	if err := scrubBlankTags(s.log, s.db); err != nil {
 		s.log.Error("failed to scrub blank tags", "error", err)
 		// non-fatal: proceed with startup

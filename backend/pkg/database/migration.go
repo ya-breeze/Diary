@@ -27,6 +27,30 @@ func autoMigrateModels(db *gorm.DB) error {
 	return db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_items_family_date ON items(family_id, date)").Error
 }
 
+// normalizeTagColumns rewrites any items whose tags / pending_tags column is not
+// a valid JSON array (NULL, empty string, or other legacy/non-JSON content) to
+// an empty JSON array `[]`. Runs at startup. This protects JSON-based queries
+// (which raise "malformed JSON" on such rows) and keeps the column type
+// consistent. Uses SQLite's json_valid(); a no-op on already-valid data.
+func normalizeTagColumns(log *slog.Logger, db *gorm.DB) error {
+	total := int64(0)
+	for _, col := range []string{"tags", "pending_tags"} {
+		// #nosec G202 -- col is a fixed identifier from the loop, not user input.
+		res := db.Exec(
+			"UPDATE items SET " + col + " = '[]' " +
+				"WHERE " + col + " IS NULL OR " + col + " = '' OR json_valid(" + col + ") = 0",
+		)
+		if res.Error != nil {
+			return res.Error
+		}
+		total += res.RowsAffected
+	}
+	if total > 0 {
+		log.Info("Normalized malformed tag columns to []", "rowsAffected", total)
+	}
+	return nil
+}
+
 // scrubBlankTags removes empty and whitespace-only entries from the tags and
 // pending_tags of every item. Runs at startup to clean up data written before
 // the save-path filter was in place.

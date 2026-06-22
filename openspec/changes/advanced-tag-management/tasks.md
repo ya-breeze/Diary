@@ -11,6 +11,7 @@
 - [x] 2.2 Add `RenameTag(familyID, oldName, newName) error`: load entries carrying `oldName`, rewrite each `StringList` (replace, de-dup, preserve order, skip if `newName` already present), re-save inside one transaction via the existing item-update path so change-tracking is bumped
 - [x] 2.3 Add `DeleteTag(familyID, name) error`: load entries carrying `name`, remove it from each `StringList`, re-save inside one transaction
 - [x] 2.4 Unit tests in `storage_tags_test.go`: stats counting/sorting/family-scoping; rename incl. merge-on-collision, non-existent tag no-op, family scoping; delete incl. last-tag-becomes-empty, non-existent no-op (rollback is structurally guaranteed by the shared transaction helper `mutateFamilyTags`)
+- [x] 2.5 Make the tag filter robust to legacy non-JSON `tags` columns (`tags LIKE ?` instead of `JSON_EXTRACT`, which 500s on malformed rows) + regression test; add a startup `normalizeTagColumns` migration that rewrites NULL/empty/non-JSON tag columns to `[]` + test
 
 ## 3. API handlers (Go)
 
