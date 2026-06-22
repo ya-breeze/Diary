@@ -686,6 +686,123 @@ var _ = Describe("ItemsAPIService GetTags", func() {
 	})
 })
 
+var _ = Describe("ItemsAPIService tag management", func() {
+	var (
+		logger   *slog.Logger
+		storage  database.Storage
+		service  goserver.ItemsAPIService
+		tempDir  string
+		familyID uuid.UUID
+		ctx      context.Context
+	)
+
+	BeforeEach(func() {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+		var err error
+		tempDir, err = os.MkdirTemp("", "tagmgmt_test")
+		Expect(err).NotTo(HaveOccurred())
+		storage = database.NewStorage(logger, &config.Config{DataPath: tempDir})
+		Expect(storage.Open()).To(Succeed())
+		fam, err := storage.CreateFamily("tagmgmt-fam")
+		Expect(err).NotTo(HaveOccurred())
+		familyID = fam.ID
+		ctx = createContextWithFamilyIDForItems(familyID)
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8, "")
+	})
+
+	AfterEach(func() {
+		storage.Close()
+		os.RemoveAll(tempDir)
+	})
+
+	Describe("GetTagStats", func() {
+		It("returns 401 without a family in context", func() {
+			resp, err := service.GetTagStats(context.Background())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Code).To(Equal(401))
+		})
+
+		It("returns tags with counts sorted by count desc then name", func() {
+			for _, it := range []*models.Item{
+				{Date: "2024-03-01", Title: "a", Tags: models.StringList{"family", "travel"}},
+				{Date: "2024-03-02", Title: "b", Tags: models.StringList{"family", "work"}},
+				{Date: "2024-03-03", Title: "c", Tags: models.StringList{"family"}},
+			} {
+				Expect(storage.PutItem(familyID, it)).To(Succeed())
+			}
+			resp, err := service.GetTagStats(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Code).To(Equal(200))
+			body := resp.Body.(goserver.TagStatsResponse)
+			Expect(body.Tags).To(Equal([]goserver.TagStat{
+				{Name: "family", Count: 3},
+				{Name: "travel", Count: 1},
+				{Name: "work", Count: 1},
+			}))
+		})
+
+		It("returns an empty list when there are no tags", func() {
+			resp, err := service.GetTagStats(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Code).To(Equal(200))
+			body := resp.Body.(goserver.TagStatsResponse)
+			Expect(body.Tags).To(BeEmpty())
+		})
+	})
+
+	Describe("RenameTag", func() {
+		It("returns 401 without a family in context", func() {
+			resp, err := service.RenameTag(context.Background(), "a", goserver.RenameTagRequest{NewName: "b"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Code).To(Equal(401))
+		})
+
+		It("rejects a blank new name with 400", func() {
+			resp, err := service.RenameTag(ctx, "old", goserver.RenameTagRequest{NewName: "  "})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Code).To(Equal(400))
+		})
+
+		It("rejects an unchanged name with 400", func() {
+			resp, err := service.RenameTag(ctx, "old", goserver.RenameTagRequest{NewName: "old"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Code).To(Equal(400))
+		})
+
+		It("renames the tag across all entries", func() {
+			Expect(storage.PutItem(familyID, &models.Item{
+				Date: "2024-03-01", Title: "a", Tags: models.StringList{"vacaiton", "work"},
+			})).To(Succeed())
+			resp, err := service.RenameTag(ctx, "vacaiton", goserver.RenameTagRequest{NewName: "vacation"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Code).To(Equal(200))
+			saved, err := storage.GetItem(familyID, "2024-03-01")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(saved.Tags).To(Equal(models.StringList{"vacation", "work"}))
+		})
+	})
+
+	Describe("DeleteTag", func() {
+		It("returns 401 without a family in context", func() {
+			resp, err := service.DeleteTag(context.Background(), "a")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Code).To(Equal(401))
+		})
+
+		It("removes the tag from all entries and returns 204", func() {
+			Expect(storage.PutItem(familyID, &models.Item{
+				Date: "2024-03-01", Title: "a", Tags: models.StringList{"misc", "work"},
+			})).To(Succeed())
+			resp, err := service.DeleteTag(ctx, "misc")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Code).To(Equal(204))
+			saved, err := storage.GetItem(familyID, "2024-03-01")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(saved.Tags).To(Equal(models.StringList{"work"}))
+		})
+	})
+})
+
 var _ = Describe("ItemsAPIService DismissItemTag", func() {
 	var (
 		logger   *slog.Logger

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
 	kinauth "github.com/ya-breeze/kin-core/auth"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/ya-breeze/diary.be/pkg/config"
 	"github.com/ya-breeze/diary.be/pkg/database/models"
@@ -173,6 +173,64 @@ func TestScrubBlankTags(t *testing.T) {
 			if got.PendingTags[i] != c.wantPending[i] {
 				t.Errorf("%s pending_tags[%d]: got %q, want %q", c.date, i, got.PendingTags[i], c.wantPending[i])
 			}
+		}
+	}
+}
+
+// TestNormalizeTagColumns verifies that NULL/empty/non-JSON tag columns are
+// rewritten to '[]' while valid JSON arrays are left untouched.
+func TestNormalizeTagColumns(t *testing.T) {
+	logger := slog.Default()
+	db, err := openSqlite(logger, ":memory:", false)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := autoMigrateModels(db); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	familyID := uuid.New()
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	cases := []struct {
+		date     string
+		tags     string // raw column literal (may be non-JSON)
+		nullTags bool
+		want     string // expected raw column after normalization
+	}{
+		{date: "2024-02-01", tags: "''", want: "[]"},               // empty string
+		{date: "2024-02-02", nullTags: true, want: "[]"},           // NULL
+		{date: "2024-02-03", tags: "'garbage'", want: "[]"},        // non-JSON text
+		{date: "2024-02-04", tags: `'["work"]'`, want: `["work"]`}, // valid, untouched
+	}
+
+	for _, c := range cases {
+		tagsLiteral := c.tags
+		if c.nullTags {
+			tagsLiteral = "NULL"
+		}
+		if err := db.Exec(
+			`INSERT INTO items (id, family_id, date, title, tags, pending_tags, created_at, updated_at)
+			 VALUES (?, ?, ?, 't', `+tagsLiteral+`, '[]', ?, ?)`,
+			uuid.New().String(), familyID, c.date, now, now,
+		).Error; err != nil {
+			t.Fatalf("seed %s: %v", c.date, err)
+		}
+	}
+
+	if err := normalizeTagColumns(logger, db); err != nil {
+		t.Fatalf("normalizeTagColumns: %v", err)
+	}
+
+	for _, c := range cases {
+		var raw string
+		if err := db.Raw(
+			"SELECT tags FROM items WHERE date = ? AND family_id = ?", c.date, familyID,
+		).Scan(&raw).Error; err != nil {
+			t.Fatalf("fetch %s: %v", c.date, err)
+		}
+		if raw != c.want {
+			t.Errorf("%s tags raw: got %q, want %q", c.date, raw, c.want)
 		}
 	}
 }

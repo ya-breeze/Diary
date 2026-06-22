@@ -65,5 +65,25 @@ export default defineConfig({
                 storageState: path.resolve(__dirname, 'auth-state.json'),
             },
         },
+        // Tag management (Tags page: counts, browse, rename, delete)
+        {
+            name: 'tag-management',
+            testMatch: '**/tag-management.spec.ts',
+            dependencies: ['global-setup'],
+            use: {
+                ...devices['Desktop Chrome'],
+                storageState: path.resolve(__dirname, 'auth-state.json'),
+            },
+        },
+        // Search page (text + tag-chip filtering)
+        {
+            name: 'search',
+            testMatch: '**/search.spec.ts',
+            dependencies: ['global-setup'],
+            use: {
+                ...devices['Desktop Chrome'],
+                storageState: path.resolve(__dirname, 'auth-state.json'),
+            },
+        },
     ],
 });

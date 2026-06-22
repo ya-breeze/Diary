@@ -71,6 +71,19 @@ export interface TagsResponse {
   tags: string[];
 }
 
+export interface TagStat {
+  name: string;
+  count: number;
+}
+
+export interface TagStatsResponse {
+  tags: TagStat[];
+}
+
+export interface RenameTagRequest {
+  newName: string;
+}
+
 export interface AssetBatchFile {
   originalName: string;
   savedName: string;

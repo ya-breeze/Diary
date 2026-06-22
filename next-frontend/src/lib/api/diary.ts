@@ -7,6 +7,7 @@ import type {
   SuggestTagsRequest,
   SuggestTagsResponse,
   TagsResponse,
+  TagStatsResponse,
 } from '@/types';
 
 export const diaryApi = {
@@ -50,4 +51,17 @@ export const diaryApi = {
     }),
 
   getTags: () => apiClient<TagsResponse>('/v1/tags'),
+
+  getTagStats: () => apiClient<TagStatsResponse>('/v1/tags/stats'),
+
+  renameTag: (name: string, newName: string) =>
+    apiClient<void>(`/v1/tags/${encodeURIComponent(name)}`, {
+      method: 'PATCH',
+      body: { newName },
+    }),
+
+  deleteTag: (name: string) =>
+    apiClient<void>(`/v1/tags/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    }),
 };

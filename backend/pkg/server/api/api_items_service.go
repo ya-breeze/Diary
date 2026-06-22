@@ -118,6 +118,71 @@ func (s *ItemsAPIServiceImpl) GetTags(ctx context.Context) (goserver.ImplRespons
 	return goserver.Response(200, goserver.TagsResponse{Tags: tags}), nil
 }
 
+// GetTagStats - list the family's distinct tags with per-tag usage counts.
+func (s *ItemsAPIServiceImpl) GetTagStats(ctx context.Context) (goserver.ImplResponse, error) {
+	familyID, ok := common.GetFamilyID(ctx)
+	if !ok {
+		s.logger.Error("Family ID not found in context")
+		return goserver.Response(401, nil), nil
+	}
+
+	stats, err := s.db.GetTagStats(familyID)
+	if err != nil {
+		s.logger.Error("Failed to get tag stats", "error", err, "familyID", familyID)
+		return goserver.Response(500, nil), nil
+	}
+
+	tags := make([]goserver.TagStat, 0, len(stats))
+	for _, st := range stats {
+		tags = append(tags, goserver.TagStat{Name: st.Name, Count: st.Count})
+	}
+	return goserver.Response(200, goserver.TagStatsResponse{Tags: tags}), nil
+}
+
+// RenameTag renames a tag across all of the family's entries. A blank new name
+// or one equal to the existing name is rejected; collisions merge.
+func (s *ItemsAPIServiceImpl) RenameTag(
+	ctx context.Context, name string, req goserver.RenameTagRequest,
+) (goserver.ImplResponse, error) {
+	familyID, ok := common.GetFamilyID(ctx)
+	if !ok {
+		s.logger.Error("Family ID not found in context")
+		return goserver.Response(401, nil), nil
+	}
+
+	oldName := strings.TrimSpace(name)
+	newName := strings.TrimSpace(req.NewName)
+	if oldName == "" || newName == "" || oldName == newName {
+		return goserver.Response(400, nil), nil
+	}
+
+	if err := s.db.RenameTag(familyID, oldName, newName); err != nil {
+		s.logger.Error("Failed to rename tag", "error", err, "familyID", familyID, "old", oldName, "new", newName)
+		return goserver.Response(500, nil), nil
+	}
+	return goserver.Response(200, nil), nil
+}
+
+// DeleteTag removes a tag from all of the family's entries.
+func (s *ItemsAPIServiceImpl) DeleteTag(ctx context.Context, name string) (goserver.ImplResponse, error) {
+	familyID, ok := common.GetFamilyID(ctx)
+	if !ok {
+		s.logger.Error("Family ID not found in context")
+		return goserver.Response(401, nil), nil
+	}
+
+	tagName := strings.TrimSpace(name)
+	if tagName == "" {
+		return goserver.Response(204, nil), nil
+	}
+
+	if err := s.db.DeleteTag(familyID, tagName); err != nil {
+		s.logger.Error("Failed to delete tag", "error", err, "familyID", familyID, "tag", tagName)
+		return goserver.Response(500, nil), nil
+	}
+	return goserver.Response(204, nil), nil
+}
+
 // DismissItemTag removes a single pending suggestion from a day without
 // confirming it.
 func (s *ItemsAPIServiceImpl) DismissItemTag(

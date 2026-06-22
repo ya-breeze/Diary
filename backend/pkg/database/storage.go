@@ -34,6 +34,12 @@ type SearchParams struct {
 	Date string
 }
 
+// TagStat is a distinct tag together with the number of entries using it.
+type TagStat struct {
+	Name  string
+	Count int
+}
+
 //nolint:interfacebloat // keep a single storage interface for simplicity
 type Storage interface {
 	Open() error
@@ -55,6 +61,14 @@ type Storage interface {
 	// GetDistinctTags returns the family's existing tag vocabulary (deduplicated,
 	// sorted) — used for tag autocomplete and as AI suggestion context.
 	GetDistinctTags(familyID uuid.UUID) ([]string, error)
+	// GetTagStats returns the family's distinct tags with per-tag usage counts,
+	// sorted by count descending then name ascending.
+	GetTagStats(familyID uuid.UUID) ([]TagStat, error)
+	// RenameTag renames a tag across every entry of the family, merging into the
+	// target name where an entry already carries it. Atomic (single transaction).
+	RenameTag(familyID uuid.UUID, oldName, newName string) error
+	// DeleteTag removes a tag from every entry of the family. Atomic.
+	DeleteTag(familyID uuid.UUID, name string) error
 
 	GetItem(familyID uuid.UUID, date string) (*models.Item, error)
 	GetItems(familyID uuid.UUID, searchParams SearchParams) ([]*models.Item, int, error)
@@ -136,6 +150,13 @@ func (s *storage) Open() error {
 	if err := autoMigrateModels(s.db); err != nil {
 		s.log.Error("failed to migrate database", "error", err)
 		panic("failed to migrate database")
+	}
+
+	// Normalize any non-JSON tags columns (NULL/''/garbage from legacy data) to
+	// '[]' before the list-based scrub, so JSON functions never see malformed input.
+	if err := normalizeTagColumns(s.log, s.db); err != nil {
+		s.log.Error("failed to normalize tag columns", "error", err)
+		// non-fatal: proceed with startup
 	}
 
 	if err := scrubBlankTags(s.log, s.db); err != nil {
@@ -314,6 +335,146 @@ func (s *storage) GetDistinctTags(familyID uuid.UUID) ([]string, error) {
 	return tags, nil
 }
 
+func (s *storage) GetTagStats(familyID uuid.UUID) ([]TagStat, error) {
+	var items []*models.Item
+	if err := s.db.Select("tags").Where("family_id = ?", familyID).Find(&items).Error; err != nil {
+		return nil, fmt.Errorf(StorageError, err)
+	}
+
+	counts := map[string]int{}
+	for _, item := range items {
+		// Count each distinct tag at most once per entry.
+		seen := map[string]struct{}{}
+		for _, t := range item.Tags {
+			t = strings.TrimSpace(t)
+			if t == "" {
+				continue
+			}
+			if _, ok := seen[t]; ok {
+				continue
+			}
+			seen[t] = struct{}{}
+			counts[t]++
+		}
+	}
+
+	stats := make([]TagStat, 0, len(counts))
+	for name, count := range counts {
+		stats = append(stats, TagStat{Name: name, Count: count})
+	}
+	sort.Slice(stats, func(i, j int) bool {
+		if stats[i].Count != stats[j].Count {
+			return stats[i].Count > stats[j].Count
+		}
+		return stats[i].Name < stats[j].Name
+	})
+	return stats, nil
+}
+
+// mutateFamilyTags walks every entry of the family inside a single transaction,
+// applies mutate to each entry's tags, and re-saves (recording a change for sync)
+// only those entries whose tags actually changed. A failure rolls back the whole
+// operation so no entry is left partially updated.
+func (s *storage) mutateFamilyTags(
+	familyID uuid.UUID, mutate func(models.StringList) (models.StringList, bool),
+) error {
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		return fmt.Errorf(StorageError, tx.Error)
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var items []*models.Item
+	if err := tx.Where("family_id = ?", familyID).Find(&items).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf(StorageError, err)
+	}
+
+	for _, item := range items {
+		newTags, changed := mutate(item.Tags)
+		if !changed {
+			continue
+		}
+		item.Tags = newTags
+		if err := tx.Save(item).Error; err != nil {
+			tx.Rollback()
+			return fmt.Errorf(StorageError, err)
+		}
+		if err := s.createChangeRecordInTx(
+			tx, familyID, item.Date, models.OperationTypeUpdated, item, nil,
+		); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to create change record: %w", err)
+		}
+	}
+	if err := tx.Commit().Error; err != nil {
+		return fmt.Errorf(StorageError, err)
+	}
+	return nil
+}
+
+func (s *storage) RenameTag(familyID uuid.UUID, oldName, newName string) error {
+	oldName = strings.TrimSpace(oldName)
+	newName = strings.TrimSpace(newName)
+	if oldName == "" || newName == "" || oldName == newName {
+		return nil
+	}
+	return s.mutateFamilyTags(familyID, func(tags models.StringList) (models.StringList, bool) {
+		if !containsTag(tags, oldName) {
+			return tags, false
+		}
+		// Replace oldName with newName, preserving order and dropping any
+		// duplicate that the rename creates (merge-on-collision).
+		out := make(models.StringList, 0, len(tags))
+		seen := map[string]struct{}{}
+		for _, t := range tags {
+			if t == oldName {
+				t = newName
+			}
+			if _, ok := seen[t]; ok {
+				continue
+			}
+			seen[t] = struct{}{}
+			out = append(out, t)
+		}
+		return out, true
+	})
+}
+
+func (s *storage) DeleteTag(familyID uuid.UUID, name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil
+	}
+	return s.mutateFamilyTags(familyID, func(tags models.StringList) (models.StringList, bool) {
+		if !containsTag(tags, name) {
+			return tags, false
+		}
+		out := make(models.StringList, 0, len(tags))
+		for _, t := range tags {
+			if t == name {
+				continue
+			}
+			out = append(out, t)
+		}
+		return out, true
+	})
+}
+
+// containsTag reports whether tags contains an exact match for name.
+func containsTag(tags models.StringList, name string) bool {
+	for _, t := range tags {
+		if t == name {
+			return true
+		}
+	}
+	return false
+}
+
 // #endregion Family
 
 // #region Item
@@ -344,13 +505,16 @@ func (s *storage) GetItems(familyID uuid.UUID, searchParams SearchParams) ([]*mo
 		query = query.Where("title LIKE ? OR body LIKE ?", searchPattern, searchPattern)
 	}
 
-	// Apply tag filters if specified
+	// Apply tag filters if specified (OR across the requested tags). Match the
+	// raw JSON-text column directly rather than via JSON_EXTRACT: tags are stored
+	// as a JSON array string (e.g. `["a","b"]`), so a LIKE on the quoted name
+	// finds membership without parsing. JSON_EXTRACT would raise "malformed JSON"
+	// and fail the whole query if any row has a NULL/legacy non-JSON tags value.
 	if len(searchParams.Tags) > 0 {
-		// For JSON tag filtering, we need to check if any of the specified tags exist in the JSON array
 		tagConditions := make([]string, len(searchParams.Tags))
 		tagArgs := make([]any, len(searchParams.Tags))
 		for i, tag := range searchParams.Tags {
-			tagConditions[i] = "JSON_EXTRACT(tags, '$') LIKE ?"
+			tagConditions[i] = "tags LIKE ?"
 			tagArgs[i] = "%\"" + tag + "\"%"
 		}
 		tagQuery := strings.Join(tagConditions, " OR ")

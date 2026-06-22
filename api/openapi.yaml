@@ -311,6 +311,66 @@ paths:
         "401":
           description: Unauthorized
 
+  /v1/tags/stats:
+    get:
+      tags:
+        - items
+      summary: list the family's distinct tags with per-tag usage counts
+      operationId: getTagStats
+      responses:
+        "200":
+          description: tag usage statistics for the authenticated family
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TagStatsResponse"
+        "401":
+          description: Unauthorized
+
+  /v1/tags/{name}:
+    patch:
+      tags:
+        - items
+      summary: rename a tag across all of the family's entries
+      operationId: renameTag
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: current tag name (URL-encoded)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameTagRequest"
+        required: true
+      responses:
+        "200":
+          description: tag renamed across all entries
+        "400":
+          description: Invalid request data (blank or unchanged new name)
+        "401":
+          description: Unauthorized
+    delete:
+      tags:
+        - items
+      summary: delete a tag from all of the family's entries
+      operationId: deleteTag
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: tag name to delete (URL-encoded)
+      responses:
+        "204":
+          description: tag deleted from all entries
+        "401":
+          description: Unauthorized
+
   /v1/health/issues:
     get:
       tags:
@@ -741,6 +801,41 @@ components:
           example: ["family", "travel", "work"]
       required:
         - tags
+
+    TagStat:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "travel"
+        count:
+          type: integer
+          description: "Number of entries using this tag"
+          example: 12
+      required:
+        - name
+        - count
+
+    TagStatsResponse:
+      type: object
+      properties:
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/TagStat"
+          description: "Family's distinct tags with usage counts, sorted by count desc then name asc"
+      required:
+        - tags
+
+    RenameTagRequest:
+      type: object
+      properties:
+        newName:
+          type: string
+          description: "New name for the tag; merges into an existing tag where an entry already carries it"
+          example: "vacation"
+      required:
+        - newName
 
     ItemsListResponse:
       type: object

@@ -41,6 +41,9 @@ type ItemsAPIService interface {
 	DismissItemTag(ctx context.Context, req DismissTagRequest) (ImplResponse, error)
 	AcceptItemTag(ctx context.Context, req DismissTagRequest) (ImplResponse, error)
 	GetTags(ctx context.Context) (ImplResponse, error)
+	GetTagStats(ctx context.Context) (ImplResponse, error)
+	RenameTag(ctx context.Context, name string, req RenameTagRequest) (ImplResponse, error)
+	DeleteTag(ctx context.Context, name string) (ImplResponse, error)
 }
 
 // SyncAPIService defines the business logic for the Sync API.

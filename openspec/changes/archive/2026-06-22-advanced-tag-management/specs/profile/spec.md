@@ -1,22 +1,4 @@
-# Feature: Profile
-
-## Purpose
-How the profile page presents the logged-in user's identity, writing statistics, top tags, family information, and logout.
-## Requirements
-### Requirement: User identity display
-The profile page SHALL show who is logged in.
-
-#### Scenario: Avatar initials derived from email
-- **GIVEN** the logged-in user's email is `alice@example.com`
-- **THEN** the avatar shows `AL` (first two characters, uppercased)
-
-#### Scenario: Member since date
-- **GIVEN** the user has a `startDate` field set
-- **THEN** the profile shows "Member since [Month YYYY]" (e.g. "Member since March 2023")
-
-#### Scenario: No startDate set
-- **GIVEN** the user has no `startDate`
-- **THEN** the "Member since" line is not shown
+## MODIFIED Requirements
 
 ### Requirement: Writing statistics
 The profile SHALL show three summary stats derived from all of the family's entries. The "Tags" stat SHALL link to the dedicated Tags page.
@@ -73,26 +55,3 @@ The profile SHALL show the top 5 most-used tags. Each top tag SHALL be clickable
 - **GIVEN** the top tags section shows `travel`
 - **WHEN** the user clicks the `travel` tag
 - **THEN** they are navigated to the Tags page browse view for `travel` (e.g. `/tags?tag=travel`)
-
-### Requirement: Family information
-The profile SHALL show the family the user belongs to.
-
-#### Scenario: Family name and members shown
-- **GIVEN** the user belongs to a family named "Smith Family" with members `alice@example.com` and `bob@example.com`
-- **THEN** the family section shows the family name and both email addresses
-
-#### Scenario: Family section hidden when data is unavailable
-- **GIVEN** the family API call fails or returns no data
-- **THEN** the family section is not shown (no error message)
-
-### Requirement: Logout from profile
-The user SHALL be able to log out from the profile page.
-
-#### Scenario: Logout button visible
-- **THEN** a "Log out" button is always visible on the profile page
-
-#### Scenario: Logout clears session and redirects
-- **WHEN** the user clicks "Log out"
-- **THEN** the auth state is cleared and the user is redirected to `/login`
-- (See also: auth/spec.md — Logout requirement for server-side behaviour)
-

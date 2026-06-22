@@ -186,6 +186,12 @@ type ItemsResponse struct {
 	Title        string              `json:"title"`
 }
 
+// RenameTagRequest defines model for RenameTagRequest.
+type RenameTagRequest struct {
+	// NewName New name for the tag; merges into an existing tag where an entry already carries it
+	NewName string `json:"newName"`
+}
+
 // SuggestTagsRequest defines model for SuggestTagsRequest.
 type SuggestTagsRequest struct {
 	Body  *string            `json:"body,omitempty"`
@@ -235,6 +241,19 @@ type SyncResponse struct {
 
 	// NextId ID to use for the next sync request (if hasMore is true)
 	NextId *int32 `json:"nextId,omitempty"`
+}
+
+// TagStat defines model for TagStat.
+type TagStat struct {
+	// Count Number of entries using this tag
+	Count int    `json:"count"`
+	Name  string `json:"name"`
+}
+
+// TagStatsResponse defines model for TagStatsResponse.
+type TagStatsResponse struct {
+	// Tags Family's distinct tags with usage counts, sorted by count desc then name asc
+	Tags []TagStat `json:"tags"`
 }
 
 // TagSuggestion defines model for TagSuggestion.
@@ -315,6 +334,9 @@ type DismissItemTagJSONRequestBody = DismissTagRequest
 
 // SuggestItemTagsJSONRequestBody defines body for SuggestItemTags for application/json ContentType.
 type SuggestItemTagsJSONRequestBody = SuggestTagsRequest
+
+// RenameTagJSONRequestBody defines body for RenameTag for application/json ContentType.
+type RenameTagJSONRequestBody = RenameTagRequest
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
@@ -458,6 +480,17 @@ type ClientInterface interface {
 
 	// GetTags request
 	GetTags(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetTagStats request
+	GetTagStats(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteTag request
+	DeleteTag(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RenameTagWithBody request with any body
+	RenameTagWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RenameTag(ctx context.Context, name string, body RenameTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUser request
 	GetUser(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -765,6 +798,54 @@ func (c *Client) GetChanges(ctx context.Context, params *GetChangesParams, reqEd
 
 func (c *Client) GetTags(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetTagsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetTagStats(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTagStatsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteTag(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteTagRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RenameTagWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRenameTagRequestWithBody(c.Server, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RenameTag(ctx context.Context, name string, body RenameTagJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRenameTagRequest(c.Server, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1507,6 +1588,114 @@ func NewGetTagsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewGetTagStatsRequest generates requests for GetTagStats
+func NewGetTagStatsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tags/stats")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteTagRequest generates requests for DeleteTag
+func NewDeleteTagRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tags/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRenameTagRequest calls the generic RenameTag builder with application/json body
+func NewRenameTagRequest(server string, name string, body RenameTagJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRenameTagRequestWithBody(server, name, "application/json", bodyReader)
+}
+
+// NewRenameTagRequestWithBody generates requests for RenameTag with any type of body
+func NewRenameTagRequestWithBody(server string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/tags/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetUserRequest generates requests for GetUser
 func NewGetUserRequest(server string) (*http.Request, error) {
 	var err error
@@ -1646,6 +1835,17 @@ type ClientWithResponsesInterface interface {
 
 	// GetTagsWithResponse request
 	GetTagsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTagsResponse, error)
+
+	// GetTagStatsWithResponse request
+	GetTagStatsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTagStatsResponse, error)
+
+	// DeleteTagWithResponse request
+	DeleteTagWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteTagResponse, error)
+
+	// RenameTagWithBodyWithResponse request with any body
+	RenameTagWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenameTagResponse, error)
+
+	RenameTagWithResponse(ctx context.Context, name string, body RenameTagJSONRequestBody, reqEditors ...RequestEditorFn) (*RenameTagResponse, error)
 
 	// GetUserWithResponse request
 	GetUserWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetUserResponse, error)
@@ -2048,6 +2248,70 @@ func (r GetTagsResponse) StatusCode() int {
 	return 0
 }
 
+type GetTagStatsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *TagStatsResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetTagStatsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetTagStatsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteTagResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteTagResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteTagResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RenameTagResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r RenameTagResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RenameTagResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetUserResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2294,6 +2558,41 @@ func (c *ClientWithResponses) GetTagsWithResponse(ctx context.Context, reqEditor
 		return nil, err
 	}
 	return ParseGetTagsResponse(rsp)
+}
+
+// GetTagStatsWithResponse request returning *GetTagStatsResponse
+func (c *ClientWithResponses) GetTagStatsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetTagStatsResponse, error) {
+	rsp, err := c.GetTagStats(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetTagStatsResponse(rsp)
+}
+
+// DeleteTagWithResponse request returning *DeleteTagResponse
+func (c *ClientWithResponses) DeleteTagWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteTagResponse, error) {
+	rsp, err := c.DeleteTag(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteTagResponse(rsp)
+}
+
+// RenameTagWithBodyWithResponse request with arbitrary body returning *RenameTagResponse
+func (c *ClientWithResponses) RenameTagWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenameTagResponse, error) {
+	rsp, err := c.RenameTagWithBody(ctx, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRenameTagResponse(rsp)
+}
+
+func (c *ClientWithResponses) RenameTagWithResponse(ctx context.Context, name string, body RenameTagJSONRequestBody, reqEditors ...RequestEditorFn) (*RenameTagResponse, error) {
+	rsp, err := c.RenameTag(ctx, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRenameTagResponse(rsp)
 }
 
 // GetUserWithResponse request returning *GetUserResponse
@@ -2743,6 +3042,63 @@ func ParseGetTagsResponse(rsp *http.Response) (*GetTagsResponse, error) {
 			return nil, err
 		}
 		response.JSON200 = &dest
+	}
+
+	return response, nil
+}
+
+// ParseGetTagStatsResponse parses an HTTP response from a GetTagStatsWithResponse call
+func ParseGetTagStatsResponse(rsp *http.Response) (*GetTagStatsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetTagStatsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TagStatsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+	}
+
+	return response, nil
+}
+
+// ParseDeleteTagResponse parses an HTTP response from a DeleteTagWithResponse call
+func ParseDeleteTagResponse(rsp *http.Response) (*DeleteTagResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteTagResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseRenameTagResponse parses an HTTP response from a RenameTagWithResponse call
+func ParseRenameTagResponse(rsp *http.Response) (*RenameTagResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RenameTagResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil
