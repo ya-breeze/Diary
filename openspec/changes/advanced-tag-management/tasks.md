@@ -29,7 +29,7 @@
 - [x] 5.1 Replace the comma-separated tags `<Input>` in `EntryEditor.tsx` with a chip row (removable `[tag ×]` chips) plus an inline add-tag `<input>`; serialize chips to `tags: string[]` on save
 - [x] 5.2 Re-anchor the existing autocomplete dropdown to the inline input (match against `knownTags`, exclude already-selected chips, commit on select/Enter/comma, clear input after)
 - [x] 5.3 Preserve AI suggestion chips and accept/dismiss behavior unchanged alongside the new confirmed-tag chips
-- [ ] 5.4 Update `e2e` tag-autocomplete spec to drive the inline input and assert chip add/remove
+- [x] 5.4 Update `e2e` tag-autocomplete spec to drive the inline input and assert chip add/remove
 
 ## 6. Tags page + browse (tag-management)
 
@@ -53,5 +53,5 @@
 
 - [x] 9.1 Run backend static checks/tests (`make lint` / `make test` or `go vet` + `go test ./...`) and fix issues
 - [x] 9.2 Run frontend lint/build/typecheck and fix issues
-- [ ] 9.3 Deploy the branch to the diary-wip stack and run the Playwright E2E suite against it (chip editor, Tags page, browse, search filter, rename/delete); fix failures
-- [ ] 9.4 Add/confirm E2E coverage for rename merge-on-collision and delete confirmation
+- [x] 9.3 Deployed the branch to diary-wip and ran the Playwright E2E suite against it: 22 passed, 1 pre-existing flaky (ai-tagging backfill toggle, passes on retry, unrelated to this change)
+- [x] 9.4 Added `tag-management.spec.ts` covering profile→Tags link, browse-by-tag, rename merge-on-collision (count merges to 3), and delete confirmation ("from N entries")
