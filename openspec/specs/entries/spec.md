@@ -78,11 +78,6 @@ The user can edit an existing entry or create a new one for a date. Edit mode is
 - **THEN** the URL changes to `/diary/[date]?edit=true` by replacing the current history entry (not pushing a new one)
 - **AND** a full-screen editor overlay is shown pre-filled with the entry's title, date, tags, and body
 
-#### Scenario: Title is required
-- **WHEN** the user submits the editor form with an empty title
-- **THEN** a validation error "Title is required" is shown
-- **AND** the entry is not saved
-
 #### Scenario: Tags are comma-separated
 - **GIVEN** the user types `"happy, work,  outdoors "` in the tags field
 - **WHEN** the entry is saved
@@ -118,6 +113,23 @@ The user can edit an existing entry or create a new one for a date. Edit mode is
 - **WHEN** they press the browser/OS Back button
 - **THEN** they return to the previous real page (the entry list), not back into the editor or a duplicate viewer
 - **AND** a single further Back press leaves the diary
+
+### Requirement: Title is optional
+The system SHALL accept diary entries with an empty or blank title. When a title is absent, the UI SHALL display "Untitled" in place of a title.
+
+#### Scenario: Empty title is accepted
+- **WHEN** the user submits the editor form with an empty title field
+- **THEN** the entry is saved successfully (no validation error)
+
+#### Scenario: Untitled entry displayed in entry card
+- **GIVEN** a saved entry with an empty title
+- **WHEN** the entry appears in the entry list
+- **THEN** the entry card displays "Untitled" in place of a title
+
+#### Scenario: Untitled entry displayed in viewer
+- **GIVEN** a saved entry with an empty title
+- **WHEN** the user navigates to that entry's detail view
+- **THEN** the viewer displays "Untitled" in place of a title
 
 ### Requirement: Upsert semantics
 Saving an entry SHALL fully replace the entry for that date, preserving and updating its `tags_source_hash`, and preserving `pending_tags` except where acceptance or retagging changes them.
