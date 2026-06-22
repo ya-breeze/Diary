@@ -2,9 +2,7 @@
 
 ## Purpose
 How the profile page presents the logged-in user's identity, writing statistics, top tags, family information, and logout.
-
 ## Requirements
-
 ### Requirement: User identity display
 The profile page SHALL show who is logged in.
 
@@ -21,7 +19,7 @@ The profile page SHALL show who is logged in.
 - **THEN** the "Member since" line is not shown
 
 ### Requirement: Writing statistics
-The profile SHALL show three summary stats derived from all of the family's entries.
+The profile SHALL show three summary stats derived from all of the family's entries. The "Tags" stat SHALL link to the dedicated Tags page.
 
 #### Scenario: Entry count
 - **GIVEN** the family has 42 diary entries
@@ -30,6 +28,11 @@ The profile SHALL show three summary stats derived from all of the family's entr
 #### Scenario: Unique tag count
 - **GIVEN** entries use tags `["happy", "work", "happy", "outdoors"]` across all entries
 - **THEN** the "Tags" stat shows `3` (unique tags: happy, work, outdoors)
+
+#### Scenario: Tags stat links to the Tags page
+- **GIVEN** the user is on the profile page
+- **WHEN** they click the "Tags" statistic card
+- **THEN** they are navigated to the Tags page
 
 #### Scenario: Writing streak — active streak
 - **GIVEN** entries exist for today and each of the previous 4 consecutive days
@@ -52,7 +55,7 @@ The profile SHALL show three summary stats derived from all of the family's entr
 - **THEN** all three stat values display `—` instead of numbers
 
 ### Requirement: Top tags
-The profile SHALL show the top 5 most-used tags.
+The profile SHALL show the top 5 most-used tags. Each top tag SHALL be clickable and navigate to the Tags page browse view for that tag.
 
 #### Scenario: Top 5 tags ranked by frequency
 - **GIVEN** tag frequencies: `happy=10, work=8, outdoors=5, travel=3, food=2, misc=1`
@@ -65,6 +68,11 @@ The profile SHALL show the top 5 most-used tags.
 #### Scenario: No tags used
 - **GIVEN** no entry has any tags
 - **THEN** the top tags section is not shown
+
+#### Scenario: Clicking a top tag browses its entries
+- **GIVEN** the top tags section shows `travel`
+- **WHEN** the user clicks the `travel` tag
+- **THEN** they are navigated to the Tags page browse view for `travel` (e.g. `/tags?tag=travel`)
 
 ### Requirement: Family information
 The profile SHALL show the family the user belongs to.
@@ -87,3 +95,4 @@ The user SHALL be able to log out from the profile page.
 - **WHEN** the user clicks "Log out"
 - **THEN** the auth state is cleared and the user is redirected to `/login`
 - (See also: auth/spec.md — Logout requirement for server-side behaviour)
+

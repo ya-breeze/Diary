@@ -71,22 +71,31 @@ The viewer SHALL show prev/next links to adjacent entries that have content.
 - **THEN** the next arrow links directly to `2024-03-15` (not to `2024-03-02`)
 
 ### Requirement: Edit an entry
-The user can edit an existing entry or create a new one for a date. Edit mode is reflected in the URL via `?edit=true`, but entering and leaving edit mode SHALL replace the current history entry rather than push a new one, so the browser/OS Back button does not accumulate edit-mode history entries.
+The user can edit an existing entry or create a new one for a date. Edit mode is reflected in the URL via `?edit=true`, but entering and leaving edit mode SHALL replace the current history entry rather than push a new one, so the browser/OS Back button does not accumulate edit-mode history entries. Tags SHALL be edited as a chip field: confirmed tags are shown as removable chips and new tags are added through an inline input.
 
 #### Scenario: Open editor from viewer
 - **WHEN** they click the Edit button
 - **THEN** the URL changes to `/diary/[date]?edit=true` by replacing the current history entry (not pushing a new one)
 - **AND** a full-screen editor overlay is shown pre-filled with the entry's title, date, tags, and body
 
-#### Scenario: Tags are comma-separated
-- **GIVEN** the user types `"happy, work,  outdoors "` in the tags field
-- **WHEN** the entry is saved
-- **THEN** the server stores `["happy", "work", "outdoors"]` (trimmed, empty values removed)
+#### Scenario: Confirmed tags render as removable chips
+- **GIVEN** the entry being edited has tags `["happy","work","outdoors"]`
+- **THEN** each tag is shown as a chip with an X (remove) control
+- **AND** removing a chip drops only that tag, leaving the others intact
 
-#### Scenario: Whitespace-only tags are stripped
-- **GIVEN** the user submits tags `"happy, , ,work"`
+#### Scenario: Adding a tag via the inline input
+- **GIVEN** the user types `outdoors` in the inline add-tag input and commits it (Enter or comma)
+- **THEN** `outdoors` is added as a chip
+- **AND** the inline input is cleared, ready for the next tag
+
+#### Scenario: Tags are trimmed and de-duplicated on save
+- **GIVEN** the user has chips `happy`, `work`, `outdoors` (a leading/trailing space on an added tag is trimmed when committed)
 - **WHEN** the entry is saved
-- **THEN** the server stores `["happy", "work"]` (the empty segments are discarded)
+- **THEN** the server stores `["happy", "work", "outdoors"]` (trimmed, empty values removed, no duplicates)
+
+#### Scenario: Whitespace-only input is not added as a tag
+- **GIVEN** the user commits a blank or whitespace-only value in the inline input
+- **THEN** no chip is added and the entry's tags are unchanged
 
 #### Scenario: Blank tags are filtered from API responses
 - **GIVEN** an entry whose stored `tags` or `pending_tags` contain empty or whitespace-only strings (legacy data written before the save-path filter existed)
