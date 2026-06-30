@@ -19,10 +19,21 @@ async function setAiTagging(page: import('@playwright/test').Page, enabled: bool
     }
 }
 
+// Uncheck a toggle if it is currently checked, then wait for it to settle.
+async function ensureUnchecked(page: import('@playwright/test').Page, selector: string) {
+    if (await page.locator(selector).isChecked()) {
+        await page.locator(selector).click();
+        await expect(page.locator(selector)).not.toBeChecked({ timeout: 5000 });
+    }
+}
+
 test.describe('AI tagging', () => {
     test.afterAll(async ({ browser }) => {
-        // Leave the family setting disabled so other suites see default behavior.
+        // Reset all AI settings so other suites and future runs see a clean state.
         const page = await browser.newPage();
+        await setAiTagging(page, true);
+        await ensureUnchecked(page, '[data-testid="ai-backfill-toggle"]');
+        await ensureUnchecked(page, '[data-testid="ai-auto-toggle"]');
         await setAiTagging(page, false);
         await page.close();
     });
@@ -55,8 +66,11 @@ test.describe('AI tagging', () => {
         await expect(page.locator(auto)).toHaveCount(0);
 
         // On: they appear; toggling each persists across reload.
+        // Normalise to unchecked first so the test is idempotent across runs.
         await setAiTagging(page, true);
         await expect(page.locator(backfill)).toBeVisible({ timeout: 5000 });
+        await ensureUnchecked(page, backfill);
+        await ensureUnchecked(page, auto);
         await page.locator(backfill).click();
         await expect(page.locator(backfill)).toBeChecked({ timeout: 5000 });
         await page.locator(auto).click();
