@@ -8,7 +8,7 @@ The system SHALL provide AI tag suggestion only when a Gemini API key is configu
 
 #### Scenario: API key not configured
 - **GIVEN** the server has no `GEMINI_API_KEY` set
-- **WHEN** any AI tagging trigger fires (button, debounce, save, or backfill)
+- **WHEN** any AI tagging trigger fires (button, save, or backfill)
 - **THEN** no AI call is made
 - **AND** no error is surfaced to the user for normal entry operations
 - **AND** the "suggest tags" action reports that AI tagging is unavailable
@@ -50,7 +50,7 @@ Every suggestion call SHALL return its suggestions in the API response. Suggesti
 
 #### Scenario: Attended suggestion returns chips without persisting
 - **GIVEN** a brand-new, unsaved entry being edited
-- **WHEN** the explicit "suggest tags" action or the in-editor debounce produces suggestions
+- **WHEN** the explicit "suggest tags" action produces suggestions
 - **THEN** the suggestions are returned in the response and shown as chips
 - **AND** nothing is written to storage (no `pending_tags` row exists yet for an unsaved entry)
 
@@ -130,25 +130,6 @@ The system SHALL expose an explicit "suggest tags" action for a day that returns
 - **THEN** suggestions are returned and shown as accept-able chips
 - **AND** no confirmed tag is written until the user accepts a chip
 
-### Requirement: In-editor debounced auto-suggest
-While an entry is being edited, the system SHALL fetch suggestions automatically after a short period of inactivity, and this attended path SHALL only suggest (never auto-apply) regardless of the auto-tag setting.
-
-#### Scenario: Suggestions appear after the user stops typing
-- **GIVEN** the user is editing an entry and has changed its content
-- **WHEN** roughly 4 seconds elapse with no further changes
-- **THEN** suggestions are fetched and shown as chips
-- **AND** no confirmed tag is written automatically
-
-#### Scenario: No re-suggest without a content change
-- **GIVEN** suggestions were just fetched for the current content
-- **WHEN** the debounce interval elapses again with no content change since the last fetch
-- **THEN** no new suggestion call is made
-
-#### Scenario: Auto mode does not change in-editor behavior
-- **GIVEN** a family with `ai_tagging_auto = true`
-- **WHEN** the in-editor debounce fires
-- **THEN** suggestions are still only shown as chips and are not auto-applied
-
 ### Requirement: Confidence-based routing for unattended triggers
 For triggers where the user is not present (save-and-leave, backfill), the destination of suggestions SHALL be governed by `ai_tagging_auto`. Confident auto-apply SHALL only seed days that have **no confirmed tags**; once a day has any confirmed tag, unattended triggers SHALL only stage suggestions in `pending_tags` and never auto-apply. This prevents AI from re-adding a tag the user has curated or removed.
 
@@ -215,7 +196,7 @@ When `ai_tagging_use_video` is enabled, the system SHALL sample a small number o
 - **AND** no error blocks the suggestion
 
 ### Requirement: Per-family AI tagging configuration
-The system SHALL expose per-family AI tagging settings, all of which default to off, and the in-editor and explicit suggestion paths SHALL require only `ai_tagging_enabled`.
+The system SHALL expose per-family AI tagging settings, all of which default to off, and the explicit suggestion path SHALL require only `ai_tagging_enabled`.
 
 #### Scenario: Settings exposed and persisted
 - **WHEN** a family views its settings
