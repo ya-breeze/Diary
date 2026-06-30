@@ -14,9 +14,6 @@ import { formatDateForApi, formatFullDate } from '@/lib/utils/date';
 import { diaryApi, assetsApi, authApi } from '@/lib/api';
 import type { DiaryEntry } from '@/types';
 
-// Debounce window for in-editor auto-suggest after the user stops typing.
-const SUGGEST_DEBOUNCE_MS = 4000;
-
 // Max existing-tag autocomplete options shown at once.
 const MAX_TAG_SUGGESTIONS = 8;
 
@@ -53,9 +50,6 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
   const [aiEnabled, setAiEnabled] = useState(false);
   const [suggestedTags, setSuggestedTags] = useState<string[]>(entry?.pendingTags ?? []);
   const [suggesting, setSuggesting] = useState(false);
-  // Tracks the last title|body we requested suggestions for, so the debounce
-  // does not re-request unchanged content.
-  const lastSuggestedRef = useRef<string>('');
 
   // Tag autocomplete (non-AI): the family's existing vocabulary + dropdown state.
   const [knownTags, setKnownTags] = useState<string[]>([]);
@@ -83,7 +77,6 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
   });
 
   const bodyValue = watch('body');
-  const titleValue = watch('title');
   const tagsValue = watch('tags');
 
   // Check whether the family has AI tagging enabled (controls suggest UI).
@@ -96,8 +89,8 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
     return () => { cancelled = true; };
   }, []);
 
-  // Fetch suggestions for the current draft. Used by the explicit button and the
-  // debounced auto-suggest. Never writes tags — only surfaces accept-able chips.
+  // Fetch suggestions for the current draft (explicit button only).
+  // Never writes tags — only surfaces accept-able chips.
   const fetchSuggestions = useCallback(async () => {
     const title = getValues('title');
     const body = getValues('body');
@@ -105,7 +98,6 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
     setSuggesting(true);
     try {
       const res = await diaryApi.suggestTags({ date: currentDate, title, body });
-      lastSuggestedRef.current = `${title} ${body}`;
       setSuggestedTags(res.tags.map((t) => t.name));
     } catch (error) {
       console.error('Tag suggestion failed:', error);
@@ -113,16 +105,6 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
       setSuggesting(false);
     }
   }, [currentDate, getValues]);
-
-  // Debounced in-editor auto-suggest: after the user pauses, fetch suggestions
-  // if the content changed since the last request. Attended path — suggest only.
-  useEffect(() => {
-    if (!aiEnabled) return;
-    if (!titleValue.trim() && !bodyValue.trim()) return;
-    if (`${titleValue} ${bodyValue}` === lastSuggestedRef.current) return;
-    const handle = setTimeout(() => { void fetchSuggestions(); }, SUGGEST_DEBOUNCE_MS);
-    return () => clearTimeout(handle);
-  }, [aiEnabled, titleValue, bodyValue, fetchSuggestions]);
 
   // Accept a suggested tag: add it to the tags field and remove the chip. For an
   // existing entry, also persist it immediately (mirrors dismiss) so it sticks

@@ -1,8 +1,8 @@
 ## 1. Frontend: remove debounce
 
-- [ ] 1.1 Delete `SUGGEST_DEBOUNCE_MS` constant from `EntryEditor.tsx`
-- [ ] 1.2 Delete the debounced auto-suggest `useEffect` block (lines 117–125)
-- [ ] 1.3 Verify `lastSuggestedRef` is still needed (used only by the deleted effect) and remove it too if unused
+- [x] 1.1 Delete `SUGGEST_DEBOUNCE_MS` constant from `EntryEditor.tsx`
+- [x] 1.2 Delete the debounced auto-suggest `useEffect` block (lines 117–125)
+- [x] 1.3 Verify `lastSuggestedRef` is still needed (used only by the deleted effect) and remove it too if unused
 
 ## 2. Spec update
 
