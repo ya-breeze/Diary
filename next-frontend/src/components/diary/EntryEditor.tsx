@@ -11,8 +11,9 @@ import { cn } from '@/lib/utils';
 import { ImageGrid } from '@/components/assets';
 import { useSaveEntry } from '@/hooks';
 import { formatDateForApi, formatFullDate } from '@/lib/utils/date';
-import { diaryApi, assetsApi, authApi } from '@/lib/api';
-import type { DiaryEntry } from '@/types';
+import { diaryApi, assetsApi, authApi, getErrorMessage } from '@/lib/api';
+import { useToast } from '@/providers';
+import { ApiError, type DiaryEntry } from '@/types';
 
 // Max existing-tag autocomplete options shown at once.
 const MAX_TAG_SUGGESTIONS = 8;
@@ -38,6 +39,7 @@ export interface EntryEditorProps {
 
 export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditorProps) {
   const router = useRouter();
+  const toast = useToast();
   const saveEntry = useSaveEntry();
   const [currentDate, setCurrentDate] = useState(
     entry?.date || initialDate || formatDateForApi(new Date())
@@ -100,11 +102,11 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
       const res = await diaryApi.suggestTags({ date: currentDate, title, body });
       setSuggestedTags(res.tags.map((t) => t.name));
     } catch (error) {
-      console.error('Tag suggestion failed:', error);
+      toast.error(getErrorMessage(error));
     } finally {
       setSuggesting(false);
     }
-  }, [currentDate, getValues]);
+  }, [currentDate, getValues, toast]);
 
   // Accept a suggested tag: add it to the tags field and remove the chip. For an
   // existing entry, also persist it immediately (mirrors dismiss) so it sticks
@@ -115,19 +117,25 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
       setValue('tags', [...current, name].join(', '), { shouldDirty: true });
     }
     setSuggestedTags((prev) => prev.filter((t) => t !== name));
-    diaryApi.acceptTag(currentDate, name).catch(() => {
-      // 404 for a not-yet-saved entry is fine — it persists on save.
+    diaryApi.acceptTag(currentDate, name).catch((error) => {
+      // 404 for a not-yet-saved entry is expected — it persists on save.
+      if (!(error instanceof ApiError && error.status === 404)) {
+        toast.error(getErrorMessage(error));
+      }
     });
-  }, [currentDate, getValues, setValue]);
+  }, [currentDate, getValues, setValue, toast]);
 
   // Dismiss a suggested tag: drop it locally and clear it from the entry's
   // persisted pending tags (best-effort; the chip is already gone visually).
   const dismissSuggestion = useCallback((name: string) => {
     setSuggestedTags((prev) => prev.filter((t) => t !== name));
     diaryApi.dismissTag(currentDate, name).catch((error) => {
-      console.error('Failed to dismiss suggestion:', error);
+      // 404 for a not-yet-saved entry is expected — nothing to dismiss yet.
+      if (!(error instanceof ApiError && error.status === 404)) {
+        toast.error(getErrorMessage(error));
+      }
     });
-  }, [currentDate]);
+  }, [currentDate, toast]);
 
   // Hide suggestions already present (case-insensitive) in the tags field.
   const visibleSuggestions = suggestedTags.filter(
@@ -205,9 +213,9 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
       }
       setCurrentDate(date);
     } catch (error) {
-      console.error('Failed to load entry for date:', error);
+      toast.error(getErrorMessage(error));
     }
-  }, [reset]);
+  }, [reset, toast]);
 
   const handleDateChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const newDate = e.target.value;
@@ -232,7 +240,7 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
         tags: data.tags.split(',').map((t) => t.trim()).filter(Boolean),
       });
     } catch (error) {
-      console.error('Save failed:', error);
+      toast.error(getErrorMessage(error));
       return;
     }
     const target = pendingDate!;
@@ -273,12 +281,12 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
         const imageMarkdown = uploadedUrls.map((url) => `![](${url})`).join('\n\n');
         setValue('body', `${bodyValue}\n\n${imageMarkdown}`, { shouldDirty: true });
       } catch (error) {
-        console.error('Upload failed:', error);
+        toast.error(getErrorMessage(error));
       } finally {
         setUploadProgress(null);
       }
     },
-    [bodyValue, setValue]
+    [bodyValue, setValue, toast]
   );
 
   const onSubmit = async (data: EntryFormData) => {
@@ -296,7 +304,7 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
       onSave?.();
       router.replace(`/diary/${currentDate}`);
     } catch (error) {
-      console.error('Save failed:', error);
+      toast.error(getErrorMessage(error));
     }
   };
 

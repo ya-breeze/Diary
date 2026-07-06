@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui';
 import { useAuthStore } from '@/store';
 import { useDiaryEntries, useTagStats } from '@/hooks';
 import { authApi } from '@/lib/api/auth';
+import { getErrorMessage } from '@/lib/api';
+import { useToast } from '@/providers';
 import type { Family } from '@/types';
 
 function computeStreak(dates: string[]): number {
@@ -53,6 +55,7 @@ function formatDate(iso: string): string {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const toast = useToast();
   const { user, logout } = useAuthStore();
   const { data, isLoading } = useDiaryEntries();
   const [family, setFamily] = useState<Family | null>(null);
@@ -74,7 +77,7 @@ export default function ProfilePage() {
       const updated = await authApi.updateFamilySettings(next);
       setFamily(updated);
     } catch (error) {
-      console.error('Failed to update AI tagging setting:', error);
+      toast.error(getErrorMessage(error));
     } finally {
       setSavingAi(false);
     }
@@ -129,8 +132,15 @@ export default function ProfilePage() {
     : '??';
 
   const handleLogout = async () => {
-    await logout();
-    router.push('/login');
+    // logout() clears the local session even if the server call fails; surface
+    // any failure but still send the (now logged-out) user to the login page.
+    try {
+      await logout();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      router.push('/login');
+    }
   };
 
   return (
