@@ -39,8 +39,10 @@ Lives alongside the API layer (e.g. `src/lib/api/`). Handles `ApiError` (use its
 User-initiated failures toast; background enhancement fetches and the 401 path stay silent (still logged).
 - **Why:** Literal "toast everything" spams users for fetches they never triggered (aiEnabled probe, knownTags load) on flaky networks, training them to ignore toasts. Surfacing what the user asked for is the actual intent.
 - **Boundary (from current code):**
-  - Toast: `EntryEditor` upload / save (`onSubmit`) / suggest / accept / dismiss; `profile` AI-setting update; `tags` page action; `authStore` logout.
-  - Silent (keep `console.error`): `EntryEditor` `aiEnabled` probe and `knownTags` load; `client.ts` 401 refresh/redirect.
+  - Toast: `EntryEditor` upload / save (`onSubmit`) / save-and-switch (`handleSaveAndSwitch`) / load-on-date-change (`reloadForDate`) / suggest / accept / dismiss; `profile` AI-setting update; `authStore` logout.
+  - Silent (keep `console.error`): `EntryEditor` `aiEnabled` probe and `knownTags` load; `profile` `getFamily` load; `authStore.validateSession`; `client.ts` 401 refresh/redirect.
+  - Already conform, left as-is (not swallow sites): `tags` page rename/delete → inline `setError` banner; `authStore.login` → sets store error and rethrows so the login page shows it inline.
+- **Note:** the original proposal wrongly described the `tags` page as a silent `catch {}`; it already surfaces errors via an inline banner. It is excluded from the sweep to avoid rewriting working, conforming code.
 
 ### Decision: Toast placement and lifecycle
 Toasts render top-level (portal/fixed container in the provider), auto-dismiss after a few seconds, are manually dismissible, and stack. An `error` variant is required now; a `success`/`info` variant is optional and cheap to include but not required by any spec scenario.

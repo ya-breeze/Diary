@@ -8,18 +8,21 @@
 
 - [ ] 2.1 `EntryEditor` image upload: on failure, `toast.error(getErrorMessage(e))` and clear the progress indicator
 - [ ] 2.2 `EntryEditor` save (`onSubmit`): on failure, toast and keep the user in the editor with content intact
-- [ ] 2.3 `EntryEditor` suggest tags: on failure, toast
-- [ ] 2.4 `EntryEditor` accept tag: on failure, toast
-- [ ] 2.5 `EntryEditor` dismiss tag: on failure, toast
-- [ ] 2.6 `profile` page update AI tagging setting: on failure, toast
-- [ ] 2.7 `tags` page action (replace the silent `catch {}`): on failure, toast
-- [ ] 2.8 `authStore` logout: on failure, toast
+- [ ] 2.3 `EntryEditor` save-and-switch (`handleSaveAndSwitch`): on failure, toast and stay on the current date with content intact (no date switch)
+- [ ] 2.4 `EntryEditor` load-on-date-change (`reloadForDate`): on failure, toast
+- [ ] 2.5 `EntryEditor` suggest tags: on failure, toast
+- [ ] 2.6 `EntryEditor` accept tag: on failure, toast
+- [ ] 2.7 `EntryEditor` dismiss tag: on failure, toast
+- [ ] 2.8 `profile` page update AI tagging setting: on failure, toast
+- [ ] 2.9 `authStore` logout: on failure, toast
 
 ## 3. Preserve silent degradation
 
 - [ ] 3.1 Confirm `EntryEditor` `aiEnabled` probe still degrades silently (AI treated as off) and keeps `console.error`; no toast
 - [ ] 3.2 Confirm `EntryEditor` `knownTags` autocomplete load still degrades silently (empty list) and keeps `console.error`; no toast
-- [ ] 3.3 Confirm `client.ts` 401 refresh/redirect path raises no toast
+- [ ] 3.3 Confirm `profile` `getFamily` load and `authStore.validateSession` still degrade silently; no toast
+- [ ] 3.4 Confirm `client.ts` 401 refresh/redirect path raises no toast
+- [ ] 3.5 Leave the `tags` page inline error banner and `authStore.login` rethrow (login inline banner) as-is — verify they still surface errors and are not double-reported via a toast
 
 ## 4. Verification
 

@@ -7,11 +7,11 @@ When a user action fails in the frontend (uploading images, saving an entry, req
 - Introduce a toast notification system: a `ToastProvider` mounted at the root layout and a `useToast()` hook, matching the KinCart approach (custom, zero new dependencies).
 - Add a shared `getErrorMessage(error)` helper that normalizes the different error shapes thrown across the app (`ApiError` from `apiClient`, plain `Error`, and the raw XHR reject from `assetsApi.uploadAssetsBatch`) into a user-readable string.
 - Replace `console.error`-only handling at every **user-initiated** action failure with a toast:
-  - `EntryEditor`: image upload, save entry, suggest tags, accept tag, dismiss tag
+  - `EntryEditor`: image upload, save entry (both the `onSubmit` save and the save-then-switch-date path `handleSaveAndSwitch`), load-entry-on-date-change (`reloadForDate`), suggest tags, accept tag, dismiss tag
   - `profile`: update AI tagging setting
-  - `tags` page: currently a silent `catch {}`
   - `authStore`: logout
-- **Background enhancement** fetches (the `aiEnabled` probe, the `knownTags` autocomplete load) and the 401 refresh/redirect path continue to degrade silently, keeping `console.error` for debugging — they are not user-initiated and should not raise toasts.
+- **Background enhancement** fetches (the `aiEnabled` probe, the `knownTags` autocomplete load, the `profile` `getFamily` load), the background session check (`authStore.validateSession`), and the 401 refresh/redirect path continue to degrade silently, keeping `console.error` for debugging — they are not user-initiated and should not raise toasts.
+- Out of scope (already conform): the `tags` page already surfaces rename/delete failures via an inline error banner (`setError`), and `authStore.login` sets the store error and rethrows so the login page shows it inline. These are left as-is; migrating them to toast for stylistic consistency is deliberately not part of this change.
 - Toasts show a message only (no retry action).
 
 Not breaking: existing login inline-error behavior is preserved (it may optionally adopt the toast infra later, but is out of scope here).
@@ -27,7 +27,7 @@ Not breaking: existing login inline-error behavior is preserved (it may optional
 ## Impact
 
 - **New code**: toast context/provider + hook, `getErrorMessage` helper, mount point in root layout.
-- **Modified code**: `next-frontend/src/components/diary/EntryEditor.tsx`, `next-frontend/src/app/(dashboard)/profile/page.tsx`, `next-frontend/src/app/(dashboard)/tags/page.tsx`, `next-frontend/src/store/authStore.ts`.
+- **Modified code**: `next-frontend/src/components/diary/EntryEditor.tsx`, `next-frontend/src/app/(dashboard)/profile/page.tsx`, `next-frontend/src/store/authStore.ts`.
 - **Referenced (no behavior change)**: `next-frontend/src/lib/api/client.ts` (`ApiError`), `next-frontend/src/lib/api/assets.ts` (raw XHR error shape) — consumed by `getErrorMessage`.
 - **Dependencies**: none added (custom toast implementation).
 - **Tests**: frontend/E2E coverage for at least one failure path (e.g. upload failure shows a toast).

@@ -2,7 +2,7 @@
 
 ### Requirement: Failed user-initiated actions surface an error to the user
 
-The frontend SHALL display a human-readable error message to the user whenever an action the user explicitly initiated fails. A user-initiated action is one triggered by a direct user gesture, including: uploading images, saving a diary entry, requesting tag suggestions, accepting a suggested tag, dismissing a suggested tag, updating the AI tagging setting, and logging out. Such failures MUST NOT be swallowed into logging only.
+The frontend SHALL display a human-readable error message to the user whenever an action the user explicitly initiated fails. A user-initiated action is one triggered by a direct user gesture, including: uploading images, saving a diary entry (whether saving in place or saving before switching to another date), switching to another date in the editor, requesting tag suggestions, accepting a suggested tag, dismissing a suggested tag, updating the AI tagging setting, and logging out. Such failures MUST NOT be swallowed into logging only.
 
 #### Scenario: Image upload fails
 
@@ -15,6 +15,17 @@ The frontend SHALL display a human-readable error message to the user whenever a
 - **WHEN** the user saves a diary entry and the save request fails
 - **THEN** the app displays an error notification containing a human-readable message
 - **AND** the user remains in the editor with their content intact
+
+#### Scenario: Saving before switching to another date fails
+
+- **WHEN** the user switches to another date while the entry has unsaved changes and chooses to save first, and that save fails
+- **THEN** the app displays an error notification containing a human-readable message
+- **AND** the editor stays on the current date with the unsaved content intact (the date switch does not occur)
+
+#### Scenario: Loading an entry after switching dates fails
+
+- **WHEN** the user switches to another date in the editor and loading that date's entry fails
+- **THEN** the app displays an error notification containing a human-readable message
 
 #### Scenario: Tag suggestion request fails
 
@@ -52,7 +63,7 @@ The frontend SHALL normalize the different error shapes produced across the app 
 
 ### Requirement: Background enhancements degrade silently
 
-Optional, non-user-initiated background fetches SHALL degrade silently without raising a user-facing error notification. These include the AI-enabled capability probe and the known-tags autocomplete load. The token-refresh / 401 handling path SHALL NOT raise a user-facing error notification. Silent degradation MAY still log to the developer console for debugging.
+Optional, non-user-initiated background fetches SHALL degrade silently without raising a user-facing error notification. These include the AI-enabled capability probe, the known-tags autocomplete load, the profile family-info load, and the background session validation check. The token-refresh / 401 handling path SHALL NOT raise a user-facing error notification. Silent degradation MAY still log to the developer console for debugging.
 
 #### Scenario: AI-enabled probe fails
 
