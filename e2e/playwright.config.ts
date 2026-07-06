@@ -85,5 +85,15 @@ export default defineConfig({
                 storageState: path.resolve(__dirname, 'auth-state.json'),
             },
         },
+        // Error feedback (failed user actions surface a toast)
+        {
+            name: 'error-feedback',
+            testMatch: '**/error-feedback.spec.ts',
+            dependencies: ['global-setup'],
+            use: {
+                ...devices['Desktop Chrome'],
+                storageState: path.resolve(__dirname, 'auth-state.json'),
+            },
+        },
     ],
 });

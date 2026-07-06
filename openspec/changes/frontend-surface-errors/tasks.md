@@ -28,4 +28,4 @@
 
 - [x] 4.1 Run `make lint` (runs eslint in `next-frontend`) and `make build` (runs `next build`, which type-checks) and fix any issues
 - [x] 4.2 Add/adjust a test covering at least one failure path (e.g. upload failure shows a toast)
-- [ ] 4.3 Run E2E against the diary-wip stack for the affected flows; confirm a forced failure surfaces a toast and success paths are unaffected
+- [x] 4.3 Run E2E against the diary-wip stack for the affected flows; confirm a forced failure surfaces a toast and success paths are unaffected
