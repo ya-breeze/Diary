@@ -1,0 +1,28 @@
+## 1. Toast infrastructure
+
+- [ ] 1.1 Create a `ToastProvider` client component + `useToast()` hook (context) that renders a fixed-position, dismissible, auto-timeout toast stack with at least an `error` variant
+- [ ] 1.2 Mount `ToastProvider` in the root layout so it wraps the authenticated routes where user actions occur
+- [ ] 1.3 Add `getErrorMessage(error: unknown): string` normalizer handling `ApiError`, plain `Error`, and unknown thrown values (never throws); prefer friendly, status-aware phrasing over raw backend text
+
+## 2. Wire toasts into user-initiated action failures
+
+- [ ] 2.1 `EntryEditor` image upload: on failure, `toast.error(getErrorMessage(e))` and clear the progress indicator
+- [ ] 2.2 `EntryEditor` save (`onSubmit`): on failure, toast and keep the user in the editor with content intact
+- [ ] 2.3 `EntryEditor` suggest tags: on failure, toast
+- [ ] 2.4 `EntryEditor` accept tag: on failure, toast
+- [ ] 2.5 `EntryEditor` dismiss tag: on failure, toast
+- [ ] 2.6 `profile` page update AI tagging setting: on failure, toast
+- [ ] 2.7 `tags` page action (replace the silent `catch {}`): on failure, toast
+- [ ] 2.8 `authStore` logout: on failure, toast
+
+## 3. Preserve silent degradation
+
+- [ ] 3.1 Confirm `EntryEditor` `aiEnabled` probe still degrades silently (AI treated as off) and keeps `console.error`; no toast
+- [ ] 3.2 Confirm `EntryEditor` `knownTags` autocomplete load still degrades silently (empty list) and keeps `console.error`; no toast
+- [ ] 3.3 Confirm `client.ts` 401 refresh/redirect path raises no toast
+
+## 4. Verification
+
+- [ ] 4.1 Run frontend lint / type-check (`make lint` / `tsc --noEmit`) and fix issues
+- [ ] 4.2 Add/adjust a test covering at least one failure path (e.g. upload failure shows a toast)
+- [ ] 4.3 Run E2E against the diary-wip stack for the affected flows; confirm a forced failure surfaces a toast and success paths are unaffected
