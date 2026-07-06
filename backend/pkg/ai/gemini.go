@@ -74,12 +74,13 @@ func (g *geminiSuggester) SuggestTags(
 	// An empty response is a legitimate "no suggestions" outcome (blocked,
 	// token-limited, or no candidate) — log the reason and degrade gracefully
 	// rather than failing. parseSuggestions also tolerates empty input.
-	if strings.TrimSpace(resp.Text()) == "" {
+	text := resp.Text()
+	if strings.TrimSpace(text) == "" {
 		g.logEmptyResponse(resp)
 		return nil, nil
 	}
 
-	return parseSuggestions([]byte(resp.Text()))
+	return parseSuggestions([]byte(text))
 }
 
 const (
