@@ -31,7 +31,7 @@ When a response yields no usable content, the backend SHALL log the reason (the 
 
 ### Requirement: Transient model-provider errors are retried
 
-When a suggestion request fails with a transient server error (HTTP 5xx) from the model provider, the system SHALL retry the request a bounded number of times with a short backoff before failing, and SHALL respect the caller's context (cancellation/deadline). Each retried attempt SHALL be logged. If all attempts fail, the request SHALL surface the error (rather than silently returning empty). Retry applies only to transient server errors — it SHALL NOT retry an empty-but-successful response (which is handled by degrading to no suggestions).
+When a suggestion request fails with a transient error from the model provider — an HTTP **5xx** server error or an HTTP **429** rate-limit error — the system SHALL retry the request a bounded number of times before failing, and SHALL respect the caller's context (cancellation/deadline). For a 429, the retry SHALL honor the provider's `Retry-After` hint when present (bounded so it cannot exceed the retry budget), otherwise it SHALL use the standard short backoff used for 5xx. Each retried attempt SHALL be logged. If all attempts fail, the request SHALL surface the error (rather than silently returning empty). Retry applies only to these transient errors — it SHALL NOT retry a non-transient (other 4xx) error or an empty-but-successful response (which is handled by degrading to no suggestions).
 
 #### Scenario: Transient 5xx is retried and then succeeds
 
@@ -40,11 +40,23 @@ When a suggestion request fails with a transient server error (HTTP 5xx) from th
 - **THEN** suggestions from the successful attempt are returned
 - **AND** the retried attempt(s) are logged
 
-#### Scenario: Persistent 5xx surfaces an error
+#### Scenario: Rate-limit (429) is retried, honoring Retry-After
 
-- **WHEN** every attempt (up to the retry bound) returns a 5xx error
+- **GIVEN** a family with AI tagging enabled and a configured API key
+- **WHEN** the model call returns a 429 with a `Retry-After` hint and a later attempt succeeds
+- **THEN** the retry waits according to the `Retry-After` hint (bounded by the retry budget) before re-attempting
+- **AND** suggestions from the successful attempt are returned
+
+#### Scenario: Persistent transient error surfaces an error
+
+- **WHEN** every attempt (up to the retry bound) returns a 5xx or 429 error
 - **THEN** the suggestion request fails with an error rather than returning an empty list
 - **AND** the failed attempts are logged
+
+#### Scenario: Non-transient error is not retried
+
+- **WHEN** the model call returns a non-transient error (a 4xx other than 429)
+- **THEN** the request fails immediately without retrying
 
 #### Scenario: Empty successful response is not retried
 

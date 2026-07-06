@@ -31,12 +31,13 @@ When output is empty, log (at WARN/INFO) the `finishReason`, candidate count, an
 - **Why:** Today there is zero signal on why it's empty; this is the data needed to decide any follow-up tuning.
 - **Note:** Inspect the genai response fields for finish/block reason; guard for nil candidates so logging itself never panics.
 
-### Decision: Retry only transient 5xx server errors, with a bounded context-aware backoff
-Wrap the `GenerateContent` call in a small retry loop: retry when the returned error is a model-provider **5xx** (detected via the genai SDK's API-error type/`Code`), up to a bounded number of attempts (target ~3 total) with a short backoff between attempts (e.g. ~200ms → ~400ms, small jitter). Abort early if `ctx` is cancelled or its deadline passes; on exhausting attempts, return the wrapped error.
-- **Why:** `suggest-tags` is a synchronous, user-facing call — a transient 5xx should be absorbed, but total added latency must stay bounded (~sub-second) so a persistent outage fails fast rather than hanging the request.
-- **Scope of "transient":** HTTP 5xx only for now. **429 (rate limit)** is a candidate but has different backoff semantics (respect `Retry-After`) — left as an open question. Non-5xx client errors (4xx) and empty-but-200 responses are **not** retried.
+### Decision: Retry transient 5xx and 429 errors, with a bounded context-aware backoff
+Wrap the `GenerateContent` call in a small retry loop: retry when the returned error is a model-provider **5xx** or **429** (detected via the genai SDK's API-error type/`Code`), up to a bounded number of attempts (target ~3 total) with a short backoff between attempts (e.g. ~200ms → ~400ms, small jitter). Abort early if `ctx` is cancelled or its deadline passes; on exhausting attempts, return the wrapped error.
+- **Why:** `suggest-tags` is a synchronous, user-facing call — a transient 5xx/429 should be absorbed, but total added latency must stay bounded (~sub-second) so a persistent outage fails fast rather than hanging the request.
+- **429 handling:** honor the provider's `Retry-After` hint when present, but **cap the wait at the remaining retry budget** (and at `ctx`'s deadline) so a large `Retry-After` cannot hang the synchronous request — if the hint exceeds the budget, fail fast rather than wait. When no hint is present, use the standard 5xx backoff.
+- **Scope of "transient":** HTTP 5xx and 429 only. Other 4xx (client/config errors) and empty-but-200 responses are **not** retried.
 - **Detection:** inspect the genai error for its HTTP status code; if the SDK does not expose a clean status, fall back to a conservative check and treat unknown errors as non-retryable (fail fast) to avoid retry storms.
-- **Alternative considered:** a generic retry-any-error wrapper. Rejected — retrying 4xx/config errors or empty responses wastes latency and can mask real problems.
+- **Alternative considered:** a generic retry-any-error wrapper. Rejected — retrying other 4xx/config errors or empty responses wastes latency and can mask real problems.
 
 ### Decision: Interactive empty result shows an informational UI message
 The backend returns 200 + empty list for an empty model response. The **frontend** `fetchSuggestions` (`EntryEditor.tsx`) already awaits the call; on a successful response with zero suggestions it shows a brief informational message (e.g. "No tag suggestions for this entry") via the existing toast infrastructure's non-error variant (`info`/`success`), so the "Suggest tags" button never silently does nothing.
@@ -55,5 +56,4 @@ The backend returns 200 + empty list for an empty model response. The **frontend
 ## Open Questions
 
 - Once logs show the dominant `finishReason`, do we follow up with tuning (set `MaxOutputTokens`, retry on MAX_TOKENS, or adjust image/video inputs)? Deferred to a separate change informed by this change's new logs.
-- Should **429 (rate limit)** also be retried? It is transient but wants `Retry-After`-aware backoff rather than the fixed 5xx backoff — decide during implementation or defer.
-- Exact retry bound and backoff timings — target ~3 attempts / sub-second total; confirm against real Gemini latency during verification.
+- Exact retry bound and backoff timings — target ~3 attempts / sub-second total; confirm against real Gemini latency during verification. (429 `Retry-After` is honored but capped by this budget.)
