@@ -95,5 +95,15 @@ export default defineConfig({
                 storageState: path.resolve(__dirname, 'auth-state.json'),
             },
         },
+        // AI tagging empty-result informational message
+        {
+            name: 'tag-suggestions-empty',
+            testMatch: '**/tag-suggestions-empty.spec.ts',
+            dependencies: ['global-setup'],
+            use: {
+                ...devices['Desktop Chrome'],
+                storageState: path.resolve(__dirname, 'auth-state.json'),
+            },
+        },
     ],
 });

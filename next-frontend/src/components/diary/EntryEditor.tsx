@@ -101,6 +101,12 @@ export function EntryEditor({ entry, initialDate, onClose, onSave }: EntryEditor
     try {
       const res = await diaryApi.suggestTags({ date: currentDate, title, body });
       setSuggestedTags(res.tags.map((t) => t.name));
+      // A successful-but-empty result is a normal outcome (the model had
+      // nothing, was blocked, or hit a token limit). Tell the user rather than
+      // leaving the button appearing to do nothing.
+      if (res.tags.length === 0) {
+        toast.show('No tag suggestions for this entry.', 'info');
+      }
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {

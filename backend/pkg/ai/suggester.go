@@ -7,6 +7,7 @@
 package ai
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -113,7 +114,16 @@ func buildPrompt(title, body string, knownTags []string) string {
 // parseSuggestions decodes the model's strict-JSON response and normalizes it:
 // drops blank names, clamps confidence to [0,1], and de-duplicates by name
 // (case-insensitive) keeping the highest confidence, sorted confidence-first.
+//
+// An empty/whitespace-only response is a legitimate "no suggestions" outcome
+// (e.g. the model was blocked or hit a token limit) and returns (nil, nil); an
+// error is returned only for a non-empty but malformed payload, which is a
+// genuine problem worth surfacing.
 func parseSuggestions(raw []byte) ([]TagSuggestion, error) {
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return nil, nil
+	}
+
 	var resp struct {
 		Tags []TagSuggestion `json:"tags"`
 	}
@@ -121,21 +131,22 @@ func parseSuggestions(raw []byte) ([]TagSuggestion, error) {
 		return nil, fmt.Errorf("decoding tag suggestions: %w", err)
 	}
 
+	return normalizeSuggestions(resp.Tags), nil
+}
+
+// normalizeSuggestions drops blank names, clamps confidence to [0,1], de-dupes
+// by name (case-insensitive) keeping the highest confidence, and sorts
+// confidence-first.
+func normalizeSuggestions(tags []TagSuggestion) []TagSuggestion {
 	best := map[string]TagSuggestion{}
 	order := []string{}
-	for _, s := range resp.Tags {
+	for _, s := range tags {
 		name := strings.TrimSpace(s.Name)
 		if name == "" {
 			continue
 		}
 		key := strings.ToLower(name)
-		conf := s.Confidence
-		if conf < 0 {
-			conf = 0
-		}
-		if conf > 1 {
-			conf = 1
-		}
+		conf := clampConfidence(s.Confidence)
 		if prev, ok := best[key]; !ok || conf > prev.Confidence {
 			if !ok {
 				order = append(order, key)
@@ -150,5 +161,16 @@ func parseSuggestions(raw []byte) ([]TagSuggestion, error) {
 	}
 	// Highest confidence first for stable, useful ordering.
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Confidence > out[j].Confidence })
-	return out, nil
+	return out
+}
+
+// clampConfidence bounds a confidence value to [0,1].
+func clampConfidence(conf float64) float64 {
+	if conf < 0 {
+		return 0
+	}
+	if conf > 1 {
+		return 1
+	}
+	return conf
 }

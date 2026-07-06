@@ -71,6 +71,24 @@ func TestUntaggedDisabledSuggester(t *testing.T) {
 	}
 }
 
+func TestUntaggedEmptySuggestionsTolerated(t *testing.T) {
+	s, cfg, done := setupUntagged(t)
+	defer done()
+	fam, _ := s.CreateFamily("f")
+	_, _ = s.CreateUser("u", "p", fam.ID)
+	_ = s.SetFamilyAISettings(fam.ID, true, true, false, false, false)
+	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "beach day"})
+	makeLegacy(t, s, "2024-01-01")
+
+	// A model that produced no usable content yields (nil, nil): the check must
+	// treat the day as having no suggestions — no issue, no error (runUntagged
+	// fails the test on error).
+	sug := fakeSuggester{enabled: true, suggestions: nil}
+	if issues := runUntagged(t, s, cfg, sug); len(issues) != 0 {
+		t.Fatalf("empty suggestions should produce no issues, got %d", len(issues))
+	}
+}
+
 func TestUntaggedBackfillOff(t *testing.T) {
 	s, cfg, done := setupUntagged(t)
 	defer done()
