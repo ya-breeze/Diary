@@ -45,12 +45,12 @@ User-initiated failures toast; background enhancement fetches and the 401 path s
 - **Note:** the original proposal wrongly described the `tags` page as a silent `catch {}`; it already surfaces errors via an inline banner. It is excluded from the sweep to avoid rewriting working, conforming code.
 
 ### Decision: Toast placement and lifecycle
-Toasts render top-level (portal/fixed container in the provider), auto-dismiss after a few seconds, are manually dismissible, and stack. An `error` variant is required now; a `success`/`info` variant is optional and cheap to include but not required by any spec scenario.
+Toasts render top-level (portal/fixed container in the provider), auto-dismiss after a few seconds, are manually dismissible, and stack. The container uses an ARIA live region (`aria-live="assertive"` / `role="alert"`) so error messages are announced to screen-reader users without stealing focus. An `error` variant is required now; a `success`/`info` variant is optional and cheap to include but not required by any spec scenario.
 
 ## Risks / Trade-offs
 
 - **Judgment calls on the user/background boundary** → The boundary is enumerated explicitly above and encoded in the spec so reviewers can check each site.
-- **`getErrorMessage` could leak raw backend text** (`ApiError` carries the response body) → Prefer status-aware, friendly phrasing; fall back to the raw message only when nothing better exists. Verified against real messages during implementation.
+- **`getErrorMessage` could leak raw backend text** (`ApiError` carries the response body) → Prefer status-aware, friendly phrasing; fall back to the raw message only when nothing better exists. This is a verification step to perform during/after implementation: check the helper against real backend messages and confirm no raw response body, stack trace, or internal detail reaches the toast.
 - **Toast provider placement in the App Router** (server vs client boundary) → The provider is a client component mounted inside the root layout; verify it wraps the authenticated routes where these actions occur.
 - **Duplicate/toast spam if an action retries internally** → Toast at the outermost user-action catch only, not inside inner helpers.
 

@@ -4,6 +4,8 @@
 
 The frontend SHALL display a human-readable error message to the user whenever an action the user explicitly initiated fails. A user-initiated action is one triggered by a direct user gesture, including: uploading images, saving a diary entry (whether saving in place or saving before switching to another date), switching to another date in the editor, requesting tag suggestions, accepting a suggested tag, dismissing a suggested tag, updating the AI tagging setting, and logging out. Such failures MUST NOT be swallowed into logging only.
 
+Exception: a failure whose handling is the session-refresh/redirect flow (an expired session that results in a redirect to login) is considered handled by that redirect and SHALL NOT additionally raise a user-facing error notification, even when it occurred during a user-initiated action.
+
 #### Scenario: Image upload fails
 
 - **WHEN** the user uploads one or more images and the upload request fails
@@ -49,17 +51,27 @@ The frontend SHALL display a human-readable error message to the user whenever a
 
 ### Requirement: Error messages are normalized to a readable string
 
-The frontend SHALL normalize the different error shapes produced across the app — the `ApiError` thrown by the shared API client, a plain `Error` (e.g. the raw XHR rejection from the batch asset upload), and unknown/thrown values — into a single human-readable message used for user-facing notifications.
+The frontend SHALL normalize the different error shapes produced across the app — the `ApiError` thrown by the shared API client, a plain `Error` (e.g. the raw XHR rejection from the batch asset upload), and unknown/thrown values — into a single human-readable message used for user-facing notifications. The produced message SHALL be safe and user-friendly: it MUST NOT expose raw backend response bodies, stack traces, or internal implementation details. Where an error's raw text is not suitable for display, the normalizer SHALL substitute a friendly, status-aware message.
 
 #### Scenario: ApiError is normalized
 
 - **WHEN** an action fails with an `ApiError` carrying a status and message
-- **THEN** the notification shows a message derived from that error rather than a generic placeholder
+- **THEN** the notification shows a safe, user-friendly message derived from that error rather than a generic placeholder
+- **AND** the message does not expose a raw backend response body, stack trace, or internal details
 
 #### Scenario: Non-ApiError failure is normalized
 
 - **WHEN** an action fails with a plain `Error` or a non-error thrown value
 - **THEN** the normalizer still produces a readable message and the app displays a notification without throwing
+
+### Requirement: Error notifications are perceivable to assistive technology
+
+Error notifications SHALL be announced to assistive technology so screen-reader users perceive them. The toast container SHALL use an appropriate live region (e.g. `aria-live="assertive"` / `role="alert"`) so newly shown error messages are announced without requiring focus.
+
+#### Scenario: Error toast is announced to screen readers
+
+- **WHEN** an error notification appears
+- **THEN** it is rendered within a live region that causes its message to be announced to assistive technology
 
 ### Requirement: Background enhancements degrade silently
 

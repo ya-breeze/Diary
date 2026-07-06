@@ -1,8 +1,8 @@
 ## 1. Toast infrastructure
 
-- [ ] 1.1 Create a `ToastProvider` client component + `useToast()` hook (context) that renders a fixed-position, dismissible, auto-timeout toast stack with at least an `error` variant
+- [ ] 1.1 Create a `ToastProvider` client component + `useToast()` hook (context) that renders a fixed-position, dismissible, auto-timeout toast stack with at least an `error` variant, wrapped in an ARIA live region (`aria-live="assertive"` / `role="alert"`) so errors are announced to screen readers
 - [ ] 1.2 Mount `ToastProvider` in the root layout so it wraps the authenticated routes where user actions occur
-- [ ] 1.3 Add `getErrorMessage(error: unknown): string` normalizer handling `ApiError`, plain `Error`, and unknown thrown values (never throws); prefer friendly, status-aware phrasing over raw backend text
+- [ ] 1.3 Add `getErrorMessage(error: unknown): string` normalizer handling `ApiError`, plain `Error`, and unknown thrown values (never throws); produce safe, user-friendly, status-aware messages and never surface raw backend response bodies, stack traces, or internal details
 
 ## 2. Wire toasts into user-initiated action failures
 
@@ -26,6 +26,6 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Run frontend lint / type-check (`make lint` / `tsc --noEmit`) and fix issues
+- [ ] 4.1 Run `make lint` (runs eslint in `next-frontend`) and `make build` (runs `next build`, which type-checks) and fix any issues
 - [ ] 4.2 Add/adjust a test covering at least one failure path (e.g. upload failure shows a toast)
 - [ ] 4.3 Run E2E against the diary-wip stack for the affected flows; confirm a forced failure surfaces a toast and success paths are unaffected
