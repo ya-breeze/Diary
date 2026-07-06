@@ -78,6 +78,14 @@ export async function apiClient<T>(
                 } else {
                   resolve(retryResponse.text() as unknown as T);
                 }
+              } else if (retryResponse.status === 401) {
+                // Refresh succeeded but the session is still rejected — the
+                // session is truly dead. Redirect to login (handled by the
+                // redirect, so callers should not surface this as an error).
+                if (typeof window !== 'undefined') {
+                  window.location.href = '/login';
+                }
+                reject(new ApiError(401, 'Session expired'));
               } else {
                 reject(new ApiError(retryResponse.status, `HTTP ${retryResponse.status}`));
               }

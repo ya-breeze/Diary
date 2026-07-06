@@ -39,10 +39,10 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
+        // Always clear local session, even if the server call fails; rethrow so
+        // the caller (a component) can surface the failure to the user.
         try {
           await authApi.logout();
-        } catch (error) {
-          console.error('Logout failed', error);
         } finally {
           set({ user: null, isAuthenticated: false, error: null });
         }
