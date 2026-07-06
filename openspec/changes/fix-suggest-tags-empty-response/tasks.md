@@ -35,5 +35,5 @@
 ## 7. Verification
 
 - [x] 7.1 Run `make lint` and `make test` (or `go test ./...` in `backend`) and fix issues
-- [ ] 7.2 Deploy the branch to diary-wip and confirm `POST /v1/items/suggest-tags` returns 200 (empty list) rather than 500 when the model returns nothing; check logs show the reason
-- [ ] 7.3 In diary-wip, confirm the editor shows the informational "no suggestions" message when a suggestion request returns empty, and an error toast when the request genuinely fails
+- [x] 7.2 Deploy the branch to diary-wip and confirm `POST /v1/items/suggest-tags` returns 200 (empty list) rather than 500 when the model returns nothing; check logs show the reason
+- [x] 7.3 In diary-wip, confirm the editor shows the informational "no suggestions" message when a suggestion request returns empty, and an error toast when the request genuinely fails
