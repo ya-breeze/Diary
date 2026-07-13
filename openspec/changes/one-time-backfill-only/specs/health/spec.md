@@ -1,17 +1,19 @@
 ## MODIFIED Requirements
 
 ### Requirement: Untagged days check
-When a family has `ai_tagging_enabled` and `ai_tagging_backfill` enabled and its one-time backfill has not completed (`ai_tagging_backfill_done = false`), the health subsystem SHALL run an `untagged` check that finds pre-existing days that have not yet been analyzed and surfaces them through the existing issues flow. The check SHALL mark a day as analyzed even when it yields no suggestions, and SHALL NOT re-analyze a day merely because its content changed after a previous analysis. When no un-analyzed days remain, the family's backfill is complete and the check produces no further analysis for that family.
+When a family has `ai_tagging_enabled` and `ai_tagging_backfill` enabled, the health subsystem SHALL run an `untagged` check. New AI analysis (model calls) SHALL occur only while `ai_tagging_backfill_done = false`, targeting pre-existing days that have not yet been analyzed. The check SHALL mark a day as analyzed even when it yields no suggestions, and SHALL NOT re-analyze a day merely because its content changed after a previous analysis. When no un-analyzed days remain, the family's backfill is complete (`ai_tagging_backfill_done = true`) and no further model calls are made for that family. Regardless of `ai_tagging_backfill_done`, the check SHALL continue to surface days that already have staged `pending_tags` as (non-fixable) review issues until the user resolves them — completion stops new analysis, not the review of results already produced.
 
 #### Scenario: Backfill disabled means no untagged check
 - **GIVEN** a family with `ai_tagging_backfill = false`
 - **WHEN** health checks run
 - **THEN** no `untagged` issues are produced for that family
 
-#### Scenario: Completed backfill means no untagged check
+#### Scenario: Completed backfill stops new analysis but keeps surfacing pending
 - **GIVEN** a family with `ai_tagging_backfill_done = true`
+- **AND** some days already have staged `pending_tags` from the backfill, and other un-tagged days have never been analyzed
 - **WHEN** health checks run
-- **THEN** no new AI analysis runs and no new `untagged` issues are produced for that family
+- **THEN** no new model calls are made (the never-analyzed days are not analyzed)
+- **AND** the days that already have staged `pending_tags` are still reported as non-fixable `untagged` review issues until resolved
 
 #### Scenario: Un-analyzed day surfaced as an issue
 - **GIVEN** a family with `ai_tagging_backfill = true` and `ai_tagging_enabled = true` and `ai_tagging_backfill_done = false`

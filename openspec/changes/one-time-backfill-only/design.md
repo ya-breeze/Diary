@@ -26,8 +26,10 @@ Delete `maybeRetag`, `runRetag`, the `retagInflight`/`retagMu` fields, and the `
 - **Why:** The user wants *no* automatic analysis on save; a gate/flag would leave dead complexity. The manual button already covers on-demand tagging.
 - **Alternative considered:** keep `maybeRetag` behind a family flag. Rejected — extra state and surface for a path we want gone.
 
-### Decision: `ai_tagging_backfill_done` boolean on the family, default false
-New column (GORM migration). Gate the sweep with `AITaggingEnabled && AITaggingBackfill && !AITaggingBackfillDone`.
+### Decision: `ai_tagging_backfill_done` gates new analysis, NOT the whole family
+New column (GORM migration). The family-level gate stays `AITaggingEnabled && AITaggingBackfill` (so `runForFamily` still runs and can surface already-staged pending days as review issues). `AITaggingBackfillDone` gates only the **fresh-analysis** branch — the `processItem`/model-call path (`check_untagged.go:98-106`). The "surface existing pending" branch (`check_untagged.go:93-96`) runs regardless of `backfill_done`.
+- **Why:** in non-auto mode every suggestion is staged as pending for review; skipping the whole family on completion would make the user's untagged-days review worklist vanish before they've reviewed those chips. Completion must stop *new* analysis, not hide *results*.
+- **Concretely:** when `backfill_done` is true, the loop still iterates, still emits `reviewIssue` for days with `PendingTags`, but never calls `processItem` (no model calls); un-analyzed days are simply left alone.
 - **Migration:** existing families default to `false`, so on first deploy the backfill runs to completion once (processing the leftover empty-hash / no-suggestion items), then flips true. This is safe: those items are exactly the ones that were being re-analyzed every run anyway.
 
 ### Decision: Stamp the hash even when a day yields no suggestions

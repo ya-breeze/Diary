@@ -7,21 +7,22 @@
 ## 2. Family model: backfill-done flag
 
 - [ ] 2.1 Add `AITaggingBackfillDone bool` (column `ai_tagging_backfill_done`, default false) to the family model; add the GORM migration/auto-migrate
-- [ ] 2.2 `SetFamilyAISettings`: when `ai_tagging_backfill` transitions false→on, set `AITaggingBackfillDone = false`; expose the field on read where family AI settings are returned (no new API field required unless the UI needs it)
+- [ ] 2.2 Reset-on-toggle: `UpdateFamilySettings` already loads `current` before writing, so detect `!current.AITaggingBackfill && newBackfill` there (or read-current inside `SetFamilyAISettings`) and set `AITaggingBackfillDone = false` on that transition; adjust the `SetFamilyAISettings` signature/storage write accordingly
+- [ ] 2.3 Update the `AITaggingAuto` model doc comment (family.go) — it currently says "unattended triggers (on-save, backfill)"; on-save is gone, so it's backfill-only
 
 ## 3. Backfill becomes a one-shot
 
-- [ ] 3.1 `check_untagged.go`: extend the family gate to `AITaggingEnabled && AITaggingBackfill && !AITaggingBackfillDone`
+- [ ] 3.1 `check_untagged.go`: keep the family gate `AITaggingEnabled && AITaggingBackfill`; gate only the fresh-analysis branch (`processItem`/model call) on `!AITaggingBackfillDone`. The "surface existing pending" branch must still run so already-staged pending days keep appearing as review issues
 - [ ] 3.2 `processItem`: when the model yields no suggestions, stamp `TagsSourceHash` (mark analyzed) instead of returning early unstamped
-- [ ] 3.3 In `runForFamily`, distinguish "scan finished with no remaining un-analyzed candidate" from "stopped at the per-run cap"; when the corpus is exhausted, set `AITaggingBackfillDone = true` and persist it
-- [ ] 3.4 Ensure a family with `AITaggingBackfillDone = true` runs no AI analysis (still fine to surface already-staged pending as review issues, without model calls)
+- [ ] 3.3 In `runForFamily`, distinguish "scan finished with no remaining un-analyzed candidate" from "stopped at the per-run cap"; when the corpus is exhausted, set `AITaggingBackfillDone = true` and persist it (skip this flip entirely when already done)
+- [ ] 3.4 Verify: a family with `AITaggingBackfillDone = true` makes zero model calls, yet days with existing `PendingTags` are still surfaced as non-fixable review issues; never-analyzed days are left alone
 
 ## 4. Tests
 
 - [ ] 4.1 `pkg/server/api`: saving a new entry triggers no AI suggestion/staging; editing an entry triggers no re-analysis (was previously handled by `maybeRetag`)
 - [ ] 4.2 `pkg/checker`: a pre-existing day yielding no suggestions is marked analyzed and not re-queried on the next run
 - [ ] 4.3 `pkg/checker`: backfill flips `AITaggingBackfillDone = true` when the corpus is exhausted, and does not flip when it stopped at the per-run cap
-- [ ] 4.4 `pkg/checker`: a family with `AITaggingBackfillDone = true` makes no model calls
+- [ ] 4.4 `pkg/checker`: a family with `AITaggingBackfillDone = true` makes no model calls, AND a day that already has `PendingTags` is still surfaced as a review issue (results not hidden on completion)
 - [ ] 4.5 `pkg/checker` or family store test: toggling `ai_tagging_backfill` off→on resets `AITaggingBackfillDone = false`
 - [ ] 4.6 Update/remove existing tests that assert edit/create-triggered retag behavior
 
