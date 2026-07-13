@@ -1,5 +1,8 @@
 # Feature: Date Jump
 
+## Purpose
+How the user navigates directly to an arbitrary date — from the entry viewer's date badge and from a sidebar calendar affordance — opening that day's entry, or a fresh editor when none exists.
+
 ## Requirements
 
 ### Requirement: Jump to arbitrary date from entry viewer
