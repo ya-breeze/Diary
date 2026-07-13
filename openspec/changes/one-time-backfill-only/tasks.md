@@ -37,4 +37,4 @@
 ## 7. Verification
 
 - [x] 7.1 Run `make lint` and backend tests (`go test ./...`) and fix issues
-- [ ] 7.2 Deploy to diary-wip; confirm: creating/editing an entry stages no suggestions; the manual "Suggest tags" button still works; a family's backfill completes and stops (check logs / DB flag)
+- [x] 7.2 Deploy to diary-wip; confirm: creating/editing an entry stages no suggestions; the manual "Suggest tags" button still works; a family's backfill completes and stops (check logs / DB flag)
