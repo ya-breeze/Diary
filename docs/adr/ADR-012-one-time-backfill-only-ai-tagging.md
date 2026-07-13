@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 (Introduced by OpenSpec change `one-time-backfill-only`. Amends the trigger model of ADR-011 — the suggest-vs-write boundary and provider decisions there stand.)
 
