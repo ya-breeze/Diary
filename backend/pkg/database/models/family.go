@@ -11,11 +11,16 @@ type Family struct {
 	// AITaggingEnabled is the per-family master switch for AI tag suggestion.
 	// Defaults to false; the feature also requires GEMINI_API_KEY on the server.
 	AITaggingEnabled bool `gorm:"default:false"`
-	// AITaggingBackfill enables the background "untagged" health check that finds
-	// untagged/stale days and surfaces them via the health-issues flow.
+	// AITaggingBackfill enables the one-time background backfill that analyzes
+	// pre-existing days and surfaces suggestions via the health-issues flow.
 	AITaggingBackfill bool `gorm:"default:false"`
-	// AITaggingAuto lets unattended triggers (on-save, backfill) auto-apply
-	// confident suggestions to untagged days instead of only staging pending tags.
+	// AITaggingBackfillDone records that the one-time backfill has exhausted the
+	// family's pre-existing entries; no further automatic analysis runs. Toggling
+	// AITaggingBackfill off->on resets it, allowing a fresh one-time pass.
+	AITaggingBackfillDone bool `gorm:"default:false"`
+	// AITaggingAuto lets the backfill auto-apply confident suggestions to
+	// untagged days instead of only staging pending tags (backfill-only; saving
+	// or editing an entry never triggers automatic tagging).
 	AITaggingAuto bool `gorm:"default:false"`
 	// AITaggingUseImages sends the entry's referenced image assets to Gemini
 	// alongside the text. Off by default; privacy-sensitive opt-in.

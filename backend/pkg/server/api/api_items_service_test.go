@@ -91,7 +91,7 @@ var _ = Describe("ItemsAPIService", func() {
 		storage = database.NewStorage(logger, cfg)
 		Expect(storage.Open()).To(Succeed())
 
-		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8, "")
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), "")
 	})
 
 	AfterEach(func() {
@@ -555,6 +555,90 @@ func (f fakeSuggester) SuggestTags(
 
 func ptr(s string) *string { return &s }
 
+// countingSuggester records how many times the model was queried, to prove
+// code paths make no AI calls.
+type countingSuggester struct {
+	calls *int
+}
+
+func (c countingSuggester) Enabled() bool { return true }
+
+func (c countingSuggester) SuggestTags(
+	_ context.Context, _, _ string, _ []ai.ImageAsset, _ []string,
+) ([]ai.TagSuggestion, error) {
+	*c.calls++
+	return []ai.TagSuggestion{{Name: "beach", Confidence: 0.9}}, nil
+}
+
+var _ = Describe("ItemsAPIService PutItems never auto-tags", func() {
+	var (
+		logger   *slog.Logger
+		storage  database.Storage
+		tempDir  string
+		familyID uuid.UUID
+		ctx      context.Context
+		calls    int
+		service  goserver.ItemsAPIService
+	)
+
+	BeforeEach(func() {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelError}))
+		var err error
+		tempDir, err = os.MkdirTemp("", "noautotag_test")
+		Expect(err).NotTo(HaveOccurred())
+		storage = database.NewStorage(logger, &config.Config{DataPath: tempDir})
+		Expect(storage.Open()).To(Succeed())
+
+		fam, err := storage.CreateFamily("noautotag-fam")
+		Expect(err).NotTo(HaveOccurred())
+		familyID = fam.ID
+		ctx = createContextWithFamilyIDForItems(familyID)
+
+		// AI fully enabled (incl. auto) — saving must STILL not trigger the model.
+		Expect(storage.SetFamilyAISettings(familyID, true, true, true, false, false)).To(Succeed())
+		calls = 0
+		service = api.NewItemsAPIService(logger, storage, countingSuggester{calls: &calls}, "")
+	})
+
+	AfterEach(func() {
+		storage.Close()
+		os.RemoveAll(tempDir)
+	})
+
+	It("creating a new entry makes no AI call and stages nothing", func() {
+		body := "a brand new day"
+		req := goserver.ItemsRequest{Date: parseTestDate("2024-02-01"), Title: "New day", Body: &body}
+		resp, err := service.PutItems(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(200))
+
+		Expect(calls).To(Equal(0))
+		item, err := storage.GetItem(familyID, "2024-02-01")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(item.PendingTags).To(BeEmpty())
+		Expect(item.Tags).To(BeEmpty())
+	})
+
+	It("editing an entry makes no AI call and leaves tags as they were", func() {
+		Expect(storage.PutItem(familyID, &models.Item{
+			Date: "2024-02-02", Title: "Old", Body: "old body", Tags: models.StringList{"kept"},
+		})).To(Succeed())
+
+		body := "completely different content"
+		tags := []string{"kept"}
+		req := goserver.ItemsRequest{Date: parseTestDate("2024-02-02"), Title: "Changed", Body: &body, Tags: &tags}
+		resp, err := service.PutItems(ctx, req)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp.Code).To(Equal(200))
+
+		Expect(calls).To(Equal(0))
+		item, err := storage.GetItem(familyID, "2024-02-02")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(item.PendingTags).To(BeEmpty())
+		Expect([]string(item.Tags)).To(Equal([]string{"kept"}))
+	})
+})
+
 var _ = Describe("ItemsAPIService SuggestItemTags", func() {
 	var (
 		logger   *slog.Logger
@@ -590,7 +674,7 @@ var _ = Describe("ItemsAPIService SuggestItemTags", func() {
 	}
 
 	It("returns 503 when the suggester is disabled", func() {
-		svc := api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8, "")
+		svc := api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), "")
 		resp, err := svc.SuggestItemTags(ctx, req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.Code).To(Equal(503))
@@ -598,7 +682,7 @@ var _ = Describe("ItemsAPIService SuggestItemTags", func() {
 
 	It("returns 503 when the family has not enabled AI tagging", func() {
 		svc := api.NewItemsAPIService(logger, storage,
-			fakeSuggester{suggestions: []ai.TagSuggestion{{Name: "beach", Confidence: 0.9}}}, 0.8, "")
+			fakeSuggester{suggestions: []ai.TagSuggestion{{Name: "beach", Confidence: 0.9}}}, "")
 		resp, err := svc.SuggestItemTags(ctx, req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.Code).To(Equal(503))
@@ -609,7 +693,7 @@ var _ = Describe("ItemsAPIService SuggestItemTags", func() {
 		svc := api.NewItemsAPIService(logger, storage, fakeSuggester{suggestions: []ai.TagSuggestion{
 			{Name: "beach", Confidence: 0.9},
 			{Name: "summer", Confidence: 0.5},
-		}}, 0.8, "")
+		}}, "")
 		resp, err := svc.SuggestItemTags(ctx, req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.Code).To(Equal(200))
@@ -620,7 +704,7 @@ var _ = Describe("ItemsAPIService SuggestItemTags", func() {
 	})
 
 	It("returns 401 without a family in context", func() {
-		svc := api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8, "")
+		svc := api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), "")
 		resp, err := svc.SuggestItemTags(context.Background(), req)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.Code).To(Equal(401))
@@ -648,7 +732,7 @@ var _ = Describe("ItemsAPIService GetTags", func() {
 		Expect(err).NotTo(HaveOccurred())
 		familyID = fam.ID
 		ctx = createContextWithFamilyIDForItems(familyID)
-		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8, "")
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), "")
 	})
 
 	AfterEach(func() {
@@ -707,7 +791,7 @@ var _ = Describe("ItemsAPIService tag management", func() {
 		Expect(err).NotTo(HaveOccurred())
 		familyID = fam.ID
 		ctx = createContextWithFamilyIDForItems(familyID)
-		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8, "")
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), "")
 	})
 
 	AfterEach(func() {
@@ -824,7 +908,7 @@ var _ = Describe("ItemsAPIService DismissItemTag", func() {
 		Expect(err).NotTo(HaveOccurred())
 		familyID = fam.ID
 		ctx = createContextWithFamilyIDForItems(familyID)
-		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8, "")
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), "")
 	})
 
 	AfterEach(func() {
@@ -887,7 +971,7 @@ var _ = Describe("ItemsAPIService AcceptItemTag", func() {
 		Expect(err).NotTo(HaveOccurred())
 		familyID = fam.ID
 		ctx = createContextWithFamilyIDForItems(familyID)
-		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8, "")
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), "")
 	})
 
 	AfterEach(func() {
@@ -955,7 +1039,7 @@ var _ = Describe("ItemsAPIService blank-tag filtering", func() {
 		Expect(err).NotTo(HaveOccurred())
 		familyID = fam.ID
 		ctx = createContextWithFamilyIDForItems(familyID)
-		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), 0.8, "")
+		service = api.NewItemsAPIService(logger, storage, ai.NewDisabledSuggester(), "")
 	})
 
 	AfterEach(func() {

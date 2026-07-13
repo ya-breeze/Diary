@@ -118,49 +118,61 @@ Every orphan mutation SHALL trigger a fresh orphan scan so the returned state is
 - **THEN** the `mime` issues remain in the response (only orphan results are replaced)
 
 ### Requirement: Untagged days check
-When a family has `ai_tagging_backfill` enabled, the health subsystem SHALL run an `untagged` check that finds days which have no tags or whose tags are stale relative to their content, and surface them through the existing issues flow.
+When a family has `ai_tagging_enabled` and `ai_tagging_backfill` enabled, the health subsystem SHALL run an `untagged` check. New AI analysis (model calls) SHALL occur only while `ai_tagging_backfill_done = false`, targeting pre-existing days that have not yet been analyzed. The check SHALL mark a day as analyzed even when it yields no suggestions, and SHALL NOT re-analyze a day merely because its content changed after a previous analysis. When no un-analyzed days remain, the family's backfill is complete (`ai_tagging_backfill_done = true`) and no further model calls are made for that family. Regardless of `ai_tagging_backfill_done`, the check SHALL continue to surface days that already have staged `pending_tags` as (non-fixable) review issues until the user resolves them — completion stops new analysis, not the review of results already produced.
 
 #### Scenario: Backfill disabled means no untagged check
 - **GIVEN** a family with `ai_tagging_backfill = false`
 - **WHEN** health checks run
 - **THEN** no `untagged` issues are produced for that family
 
-#### Scenario: Untagged day surfaced as an issue
-- **GIVEN** a family with `ai_tagging_backfill = true` and `ai_tagging_enabled = true`
-- **AND** a day with content but no confirmed tags
+#### Scenario: Completed backfill stops new analysis but keeps surfacing pending
+- **GIVEN** a family with `ai_tagging_backfill_done = true`
+- **AND** some days already have staged `pending_tags` from the backfill, and other un-tagged days have never been analyzed
+- **WHEN** health checks run
+- **THEN** no new model calls are made (the never-analyzed days are not analyzed)
+- **AND** the days that already have staged `pending_tags` are still reported as non-fixable `untagged` review issues until resolved
+
+#### Scenario: Un-analyzed day surfaced as an issue
+- **GIVEN** a family with `ai_tagging_backfill = true` and `ai_tagging_enabled = true` and `ai_tagging_backfill_done = false`
+- **AND** a pre-existing day with content but no confirmed tags that has not been analyzed
 - **WHEN** health checks run
 - **THEN** an issue with `check` = `untagged` is reported for that day
 
-#### Scenario: Stale day surfaced as an issue
-- **GIVEN** a family with `ai_tagging_backfill = true`
-- **AND** a day whose current content hash differs from its stored `tags_source_hash`
-- **WHEN** health checks run
-- **THEN** an issue with `check` = `untagged` is reported for that day
+#### Scenario: A day yielding no suggestions is marked analyzed and not re-queried
+- **GIVEN** the backfill analyzes a pre-existing day and the model returns no suggestions
+- **THEN** the day is marked analyzed
+- **AND** a later `untagged` check does not analyze that day again
 
-#### Scenario: Confident auto-apply happens during the sweep (no manual fix)
+#### Scenario: Editing a day does not resurface it in the untagged check
+- **GIVEN** a day that has already been analyzed (or created after the backfill model took effect) and has no staged `pending_tags`
+- **WHEN** the user edits its content and saves
+- **THEN** the `untagged` check does not re-analyze it and does not report a new `untagged` issue for it
+- **AND** if a day still has previously staged `pending_tags`, its existing review issue continues to be surfaced (the edit neither generates new pending nor clears the old)
+
+#### Scenario: Confident auto-apply happens during the backfill (no manual fix)
 - **GIVEN** a family with `ai_tagging_backfill = true` and `ai_tagging_auto = true` and threshold τ
-- **AND** a day with no confirmed tags for which the model returns a suggestion with confidence ≥ τ
-- **WHEN** the `untagged` check runs (the background sweep or a fix request)
+- **AND** a pre-existing un-analyzed day with no confirmed tags for which the model returns a suggestion with confidence ≥ τ
+- **WHEN** the `untagged` check runs
 - **THEN** the confident tags are written to the day's confirmed `tags` immediately
 - **AND** no issue is reported for that day (it is resolved)
 
-#### Scenario: Stale day that already has confirmed tags is not auto-applied
+#### Scenario: An un-analyzed day that already has confirmed tags is not auto-applied
 - **GIVEN** a family with `ai_tagging_backfill = true` and `ai_tagging_auto = true`
-- **AND** a stale day that already has at least one confirmed tag
+- **AND** a pre-existing un-analyzed day that already has at least one confirmed tag
 - **WHEN** the `untagged` check runs
 - **THEN** suggestions are stored in `pending_tags` (never auto-applied over the user's tags)
 - **AND** the issue is reported as not `fixable` (the user reviews chips on the day)
 
 #### Scenario: Uncertain day routed to manual review
 - **GIVEN** a family with `ai_tagging_backfill = true` and `ai_tagging_auto = true` and threshold τ
-- **AND** an untagged day for which all suggestions have confidence < τ
+- **AND** a pre-existing un-analyzed day for which all suggestions have confidence < τ
 - **WHEN** health checks run
 - **THEN** the day's suggestions are stored in `pending_tags`
 - **AND** the issue is reported as not `fixable`, identifying the day so the user can open and review it
 
 #### Scenario: Default (non-auto) mode stages suggestions for manual review
 - **GIVEN** a family with `ai_tagging_backfill = true` and `ai_tagging_auto = false`
-- **AND** an untagged day
+- **AND** a pre-existing un-analyzed day
 - **WHEN** health checks run
 - **THEN** the day's suggestions are stored in `pending_tags`
 - **AND** the issue is reported as not `fixable`, identifying the day so the user can open and accept the chips

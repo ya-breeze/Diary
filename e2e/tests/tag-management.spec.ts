@@ -55,12 +55,14 @@ test.describe('Tag management', () => {
         await page.goto('/tags');
         await tagRow(page, 'tmbrowse2').locator('[data-testid="tag-browse"]').click();
         // The browse view shows the seeded entry, and the URL carries the tag.
-        await expect(page.getByText('TM browse target')).toBeVisible({ timeout: 5000 });
+        // Scope to the main region: the sidebar lists all diary entries, so an
+        // unscoped getByText can match the same title twice (strict-mode flake).
+        await expect(page.getByRole('main').getByText('TM browse target')).toBeVisible({ timeout: 5000 });
         await expect(page).toHaveURL(/\/tags\?tag=tmbrowse2$/);
 
         // Navigating directly to the deep link reproduces the same browse view.
         await page.goto('/tags?tag=tmbrowse2');
-        await expect(page.getByText('TM browse target')).toBeVisible({ timeout: 5000 });
+        await expect(page.getByRole('main').getByText('TM browse target')).toBeVisible({ timeout: 5000 });
     });
 
     test('rename merges into an existing tag (collision)', async ({ page }) => {

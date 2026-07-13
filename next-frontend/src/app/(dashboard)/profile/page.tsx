@@ -244,7 +244,7 @@ export default function ProfilePage() {
               <div className="mt-3 space-y-3 border-t border-zinc-100 pt-3 dark:border-zinc-800">
                 <label className="flex items-center justify-between gap-4">
                   <span className="text-sm text-zinc-700 dark:text-zinc-300">
-                    Backfill: scan untagged days in the background
+                    Backfill: analyze pre-existing days once (toggle off/on to re-run)
                   </span>
                   <input
                     type="checkbox"

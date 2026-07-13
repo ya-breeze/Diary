@@ -2,6 +2,7 @@ package checker
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"testing"
@@ -68,6 +69,133 @@ func TestUntaggedDisabledSuggester(t *testing.T) {
 
 	if issues := runUntagged(t, s, cfg, fakeSuggester{enabled: false}); len(issues) != 0 {
 		t.Fatalf("disabled suggester should produce no issues, got %d", len(issues))
+	}
+}
+
+func TestUntaggedEmptyResultMarkedAnalyzedNotRequeried(t *testing.T) {
+	s, cfg, done := setupUntagged(t)
+	defer done()
+	fam, _ := s.CreateFamily("f")
+	_, _ = s.CreateUser("u", "p", fam.ID)
+	_ = s.SetFamilyAISettings(fam.ID, true, true, false, false, false)
+	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "quiet day"})
+	makeLegacy(t, s, "2024-01-01")
+
+	// The model has nothing to suggest: the day must still be marked analyzed
+	// (hash stamped) so the next run does not re-query it.
+	sug := &countingSuggester{out: nil}
+	if issues := runUntagged(t, s, cfg, sug); len(issues) != 0 {
+		t.Fatalf("first run: expected no issues, got %d", len(issues))
+	}
+	if sug.calls != 1 {
+		t.Fatalf("first run: expected 1 model call, got %d", sug.calls)
+	}
+	if issues := runUntagged(t, s, cfg, sug); len(issues) != 0 {
+		t.Fatalf("second run: expected no issues, got %d", len(issues))
+	}
+	if sug.calls != 1 {
+		t.Fatalf("second run: day was re-queried (calls=%d)", sug.calls)
+	}
+}
+
+func TestUntaggedBackfillDoneFlipsWhenExhausted(t *testing.T) {
+	s, cfg, done := setupUntagged(t)
+	defer done()
+	fam, _ := s.CreateFamily("f")
+	_, _ = s.CreateUser("u", "p", fam.ID)
+	_ = s.SetFamilyAISettings(fam.ID, true, true, false, false, false)
+	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "beach day"})
+	makeLegacy(t, s, "2024-01-01")
+
+	sug := &countingSuggester{out: nil}
+	_ = runUntagged(t, s, cfg, sug)
+
+	got, err := s.GetFamily(fam.ID)
+	if err != nil {
+		t.Fatalf("GetFamily: %v", err)
+	}
+	if !got.AITaggingBackfillDone {
+		t.Fatal("expected AITaggingBackfillDone=true after the corpus is exhausted")
+	}
+}
+
+func TestUntaggedBackfillDoneNotFlippedAtCap(t *testing.T) {
+	s, cfg, done := setupUntagged(t)
+	defer done()
+	fam, _ := s.CreateFamily("f")
+	_, _ = s.CreateUser("u", "p", fam.ID)
+	_ = s.SetFamilyAISettings(fam.ID, true, true, false, false, false)
+	// One more candidate than the per-run cap: the run must stop at the cap and
+	// NOT mark the backfill done (work remains for the next run).
+	for i := 0; i <= maxBackfillPerRun; i++ {
+		date := fmt.Sprintf("2024-02-%02d", i+1)
+		_ = s.PutItem(fam.ID, &models.Item{Date: date, Title: "day " + date})
+		makeLegacy(t, s, date)
+	}
+
+	sug := &countingSuggester{out: nil}
+	_ = runUntagged(t, s, cfg, sug)
+	if sug.calls != maxBackfillPerRun {
+		t.Fatalf("expected exactly %d model calls (the cap), got %d", maxBackfillPerRun, sug.calls)
+	}
+	got, _ := s.GetFamily(fam.ID)
+	if got.AITaggingBackfillDone {
+		t.Fatal("backfill must not be marked done when the run stopped at the cap")
+	}
+
+	// The next run finishes the remainder and flips done.
+	_ = runUntagged(t, s, cfg, sug)
+	got, _ = s.GetFamily(fam.ID)
+	if !got.AITaggingBackfillDone {
+		t.Fatal("expected done after the second run exhausted the corpus")
+	}
+}
+
+func TestUntaggedDoneFamilyNoCallsButPendingStillSurfaced(t *testing.T) {
+	s, cfg, done := setupUntagged(t)
+	defer done()
+	fam, _ := s.CreateFamily("f")
+	_, _ = s.CreateUser("u", "p", fam.ID)
+	_ = s.SetFamilyAISettings(fam.ID, true, true, false, false, false)
+	// One day with staged pending (analyzed), one never-analyzed day.
+	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-01", Title: "reviewed day"})
+	_ = s.SetPendingTags(fam.ID, "2024-01-01", []string{"beach"}) // stamps hash
+	_ = s.PutItem(fam.ID, &models.Item{Date: "2024-01-02", Title: "never analyzed"})
+	makeLegacy(t, s, "2024-01-02")
+	// Mark the family's backfill complete.
+	if err := s.SetFamilyBackfillDone(fam.ID, true); err != nil {
+		t.Fatalf("SetFamilyBackfillDone: %v", err)
+	}
+
+	sug := &countingSuggester{out: []ai.TagSuggestion{{Name: "x", Confidence: 0.9}}}
+	issues := runUntagged(t, s, cfg, sug)
+	if sug.calls != 0 {
+		t.Fatalf("done family must make no model calls, got %d", sug.calls)
+	}
+	if len(issues) != 1 {
+		t.Fatalf("expected the staged-pending day to still be surfaced (1 issue), got %d", len(issues))
+	}
+}
+
+func TestBackfillToggleResetsDone(t *testing.T) {
+	s, _, done := setupUntagged(t)
+	defer done()
+	fam, _ := s.CreateFamily("f")
+	_ = s.SetFamilyAISettings(fam.ID, true, true, false, false, false)
+	if err := s.SetFamilyBackfillDone(fam.ID, true); err != nil {
+		t.Fatalf("SetFamilyBackfillDone: %v", err)
+	}
+
+	// Toggle backfill off, then on: done must reset to false.
+	_ = s.SetFamilyAISettings(fam.ID, true, false, false, false, false)
+	got, _ := s.GetFamily(fam.ID)
+	if !got.AITaggingBackfillDone {
+		t.Fatal("turning backfill OFF must not reset done")
+	}
+	_ = s.SetFamilyAISettings(fam.ID, true, true, false, false, false)
+	got, _ = s.GetFamily(fam.ID)
+	if got.AITaggingBackfillDone {
+		t.Fatal("turning backfill back ON must reset done to false")
 	}
 }
 
