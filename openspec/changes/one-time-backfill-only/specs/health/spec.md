@@ -27,9 +27,10 @@ When a family has `ai_tagging_enabled` and `ai_tagging_backfill` enabled, the he
 - **AND** a later `untagged` check does not analyze that day again
 
 #### Scenario: Editing a day does not resurface it in the untagged check
-- **GIVEN** a day that has already been analyzed (or created after the backfill model took effect)
+- **GIVEN** a day that has already been analyzed (or created after the backfill model took effect) and has no staged `pending_tags`
 - **WHEN** the user edits its content and saves
 - **THEN** the `untagged` check does not re-analyze it and does not report a new `untagged` issue for it
+- **AND** if a day still has previously staged `pending_tags`, its existing review issue continues to be surfaced (the edit neither generates new pending nor clears the old)
 
 #### Scenario: Confident auto-apply happens during the backfill (no manual fix)
 - **GIVEN** a family with `ai_tagging_backfill = true` and `ai_tagging_auto = true` and threshold τ

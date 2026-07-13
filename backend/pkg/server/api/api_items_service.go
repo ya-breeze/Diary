@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,32 +14,23 @@ import (
 	"github.com/ya-breeze/diary.be/pkg/database/models"
 	"github.com/ya-breeze/diary.be/pkg/generated/goserver"
 	"github.com/ya-breeze/diary.be/pkg/server/common"
-	"github.com/ya-breeze/diary.be/pkg/utils"
 )
 
 type ItemsAPIServiceImpl struct {
 	logger    *slog.Logger
 	db        database.Storage
 	suggester ai.Suggester
-	threshold float64
 	dataPath  string
-
-	// inflight coalesces background retags: at most one per (family,date) runs
-	// at a time, so rapid saves don't spawn piles of concurrent model calls.
-	retagMu       sync.Mutex
-	retagInflight map[string]struct{}
 }
 
 func NewItemsAPIService(
-	logger *slog.Logger, db database.Storage, suggester ai.Suggester, threshold float64, dataPath string,
+	logger *slog.Logger, db database.Storage, suggester ai.Suggester, dataPath string,
 ) goserver.ItemsAPIService {
 	return &ItemsAPIServiceImpl{
-		logger:        logger,
-		db:            db,
-		suggester:     suggester,
-		threshold:     threshold,
-		dataPath:      dataPath,
-		retagInflight: make(map[string]struct{}),
+		logger:    logger,
+		db:        db,
+		suggester: suggester,
+		dataPath:  dataPath,
 	}
 }
 
@@ -271,13 +261,6 @@ func (s *ItemsAPIServiceImpl) PutItems(
 		body = *itemsRequest.Body
 	}
 
-	// Detect whether the tag-relevant content changed, to decide on retagging.
-	newHash := utils.ComputeTagsSourceHash(itemsRequest.Title, body)
-	contentChanged := true
-	if existing, err := s.db.GetItem(familyID, dateStr); err == nil {
-		contentChanged = existing.TagsSourceHash != newHash
-	}
-
 	item := &models.Item{
 		Date:  dateStr,
 		Title: itemsRequest.Title,
@@ -288,12 +271,6 @@ func (s *ItemsAPIServiceImpl) PutItems(
 	if err := s.db.PutItem(familyID, item); err != nil {
 		s.logger.Error("Failed to save item", "error", err, "item", item)
 		return goserver.Response(500, nil), nil
-	}
-
-	// Edit-triggered retag: when content changed and AI tagging is enabled, refresh
-	// the day's pending suggestions in the background (suggest-only in phase 1).
-	if contentChanged {
-		s.maybeRetag(ctx, familyID, dateStr, item.Title, item.Body, item.Tags)
 	}
 
 	response := newItemResponse(item)
@@ -399,108 +376,6 @@ func (s *ItemsAPIServiceImpl) enabledFamily(familyID uuid.UUID) (*models.Family,
 		return nil, false
 	}
 	return family, true
-}
-
-// maybeRetag asynchronously refreshes an entry's AI tags. It is a no-op unless
-// AI tagging is enabled for the family. Under auto mode, confident suggestions
-// are applied directly to an untagged day's confirmed tags; otherwise (or for
-// low-confidence suggestions) they are staged as pending for the user to accept.
-// Errors are logged, not surfaced — retagging is best-effort and must never
-// block or fail a save.
-func (s *ItemsAPIServiceImpl) maybeRetag(
-	ctx context.Context, familyID uuid.UUID, date, title, body string, confirmed models.StringList,
-) {
-	family, ok := s.enabledFamily(familyID)
-	if !ok {
-		return
-	}
-	autoMode := family.AITaggingAuto
-	useImages := family.AITaggingUseImages
-	useVideo := family.AITaggingUseVideo
-
-	// Coalesce: skip if a retag for this exact day is already running.
-	key := familyID.String() + "|" + date
-	s.retagMu.Lock()
-	if _, running := s.retagInflight[key]; running {
-		s.retagMu.Unlock()
-		return
-	}
-	s.retagInflight[key] = struct{}{}
-	s.retagMu.Unlock()
-
-	// Detach from the request lifecycle (preserving any context values) so the
-	// retag is not cancelled when the HTTP response returns.
-	ctx = context.WithoutCancel(ctx)
-	go func() {
-		defer func() {
-			s.retagMu.Lock()
-			delete(s.retagInflight, key)
-			s.retagMu.Unlock()
-		}()
-		s.runRetag(ctx, familyID, date, title, body, confirmed, autoMode, useImages, useVideo)
-	}()
-}
-
-// runRetag performs the background suggestion + routing for maybeRetag.
-func (s *ItemsAPIServiceImpl) runRetag(
-	ctx context.Context, familyID uuid.UUID, date, title, body string,
-	confirmed models.StringList, autoMode, useImages, useVideo bool,
-) {
-	knownTags, err := s.db.GetDistinctTags(familyID)
-	if err != nil {
-		s.logger.Error("Retag: failed to load known tags", "error", err, "familyID", familyID)
-		return
-	}
-	var images []ai.ImageAsset
-	if useImages {
-		images = ai.LoadImageAssets(body, s.dataPath, familyID.String())
-	}
-	if useVideo {
-		images = append(images, ai.LoadVideoKeyframes(body, s.dataPath, familyID.String(), s.logger, ai.MaxImages-len(images))...)
-	}
-	suggestions, err := s.suggester.SuggestTags(ctx, title, body, images, knownTags)
-	if err != nil {
-		s.logger.Error("Retag: suggestion failed", "error", err, "familyID", familyID, "date", date)
-		return
-	}
-	pending, confident := ai.Partition(suggestions, confirmed, s.threshold)
-
-	// Auto mode: apply confident tags directly to an untagged day. Curated days
-	// (already have tags) are never auto-written — only staged. AddConfirmedTags
-	// is additive and atomic, so a concurrent edit can't lose tags.
-	if autoMode && len(confirmed) == 0 && len(confident) > 0 {
-		if err := s.db.AddConfirmedTags(familyID, date, confident); err != nil {
-			s.logger.Error("Retag: failed to auto-apply tags", "error", err, "familyID", familyID, "date", date)
-		}
-		// Stage any low-confidence suggestions that weren't auto-applied.
-		if uncertain := subtractStrings(pending, confident); len(uncertain) > 0 {
-			if err := s.db.SetPendingTags(familyID, date, uncertain); err != nil {
-				s.logger.Error("Retag: failed to store pending tags", "error", err, "familyID", familyID, "date", date)
-			}
-		}
-		return
-	}
-	if err := s.db.SetPendingTags(familyID, date, pending); err != nil {
-		s.logger.Error("Retag: failed to store pending tags", "error", err, "familyID", familyID, "date", date)
-	}
-}
-
-// subtractStrings returns the elements of all that are not in exclude.
-func subtractStrings(all, exclude []string) []string {
-	if len(exclude) == 0 {
-		return all
-	}
-	ex := make(map[string]struct{}, len(exclude))
-	for _, s := range exclude {
-		ex[s] = struct{}{}
-	}
-	var out []string
-	for _, s := range all {
-		if _, ok := ex[s]; !ok {
-			out = append(out, s)
-		}
-	}
-	return out
 }
 
 // toAPITagSuggestions maps internal suggestions to the API response type.

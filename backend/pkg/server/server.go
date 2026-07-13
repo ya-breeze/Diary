@@ -60,7 +60,7 @@ func createControllers(
 		UserAPIService:   api.NewUserAPIService(logger, db),
 		AssetsAPIService: api.NewAssetsAPIService(logger, cfg),
 		HealthAPIService: api.NewHealthAPIServiceImpl(checkerTask),
-		ItemsAPIService:  api.NewItemsAPIService(logger, db, suggester, cfg.AITaggingThreshold, cfg.DataPath),
+		ItemsAPIService:  api.NewItemsAPIService(logger, db, suggester, cfg.DataPath),
 		SyncAPIService:   api.NewSyncAPIService(logger, db),
 	}
 }

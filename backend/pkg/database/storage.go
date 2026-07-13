@@ -56,7 +56,12 @@ type Storage interface {
 	GetFamily(familyID uuid.UUID) (*models.Family, error)
 	SetFamilyAITaggingEnabled(familyID uuid.UUID, enabled bool) error
 	// SetFamilyAISettings updates all AI tagging flags for a family at once.
+	// Toggling backfill off->on resets AITaggingBackfillDone, re-arming the
+	// one-time backfill pass.
 	SetFamilyAISettings(familyID uuid.UUID, enabled, backfill, auto, useImages, useVideo bool) error
+	// SetFamilyBackfillDone marks whether the one-time backfill has exhausted
+	// the family's pre-existing entries.
+	SetFamilyBackfillDone(familyID uuid.UUID, done bool) error
 
 	// GetDistinctTags returns the family's existing tag vocabulary (deduplicated,
 	// sorted) — used for tag autocomplete and as AI suggestion context.
@@ -289,23 +294,41 @@ func (s *storage) SetFamilyAITaggingEnabled(familyID uuid.UUID, enabled bool) er
 }
 
 func (s *storage) SetFamilyAISettings(familyID uuid.UUID, enabled, backfill, auto, useImages, useVideo bool) error {
-	// Verify existence explicitly: an all-unchanged map update reports
-	// RowsAffected == 0 on SQLite, which would otherwise look like "not found".
-	var count int64
-	if err := s.db.Model(&models.Family{}).Where("id = ?", familyID).Count(&count).Error; err != nil {
+	// Load current settings: verifies existence (an all-unchanged map update
+	// reports RowsAffected == 0 on SQLite, which would otherwise look like
+	// "not found") and lets us detect the backfill off->on transition.
+	var current models.Family
+	if err := s.db.Where("id = ?", familyID).First(&current).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrNotFound
+		}
 		return fmt.Errorf(StorageError, err)
 	}
-	if count == 0 {
-		return ErrNotFound
-	}
-	if err := s.db.Model(&models.Family{}).Where("id = ?", familyID).Updates(map[string]any{
+
+	updates := map[string]any{
 		"ai_tagging_enabled":    enabled,
 		"ai_tagging_backfill":   backfill,
 		"ai_tagging_auto":       auto,
 		"ai_tagging_use_images": useImages,
 		"ai_tagging_use_video":  useVideo,
-	}).Error; err != nil {
+	}
+	// Re-enabling backfill re-arms the one-time pass over any still-un-analyzed
+	// entries (see AITaggingBackfillDone).
+	if backfill && !current.AITaggingBackfill {
+		updates["ai_tagging_backfill_done"] = false
+	}
+	if err := s.db.Model(&models.Family{}).Where("id = ?", familyID).Updates(updates).Error; err != nil {
 		return fmt.Errorf(StorageError, err)
+	}
+	return nil
+}
+
+// SetFamilyBackfillDone marks whether the family's one-time backfill has
+// exhausted its pre-existing entries.
+func (s *storage) SetFamilyBackfillDone(familyID uuid.UUID, done bool) error {
+	if res := s.db.Model(&models.Family{}).Where("id = ?", familyID).
+		Update("ai_tagging_backfill_done", done); res.Error != nil {
+		return fmt.Errorf(StorageError, res.Error)
 	}
 	return nil
 }

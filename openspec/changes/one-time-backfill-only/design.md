@@ -42,8 +42,9 @@ A run processes up to `maxBackfillPerRun` fresh analyses. Set `backfill_done = t
 - **Implementation shape:** track whether the scan stopped early (cap) vs. finished with zero fresh analyses needed. If it finished and every candidate is now analyzed, mark done.
 
 ### Decision: Reset `backfill_done` on Backfill off→on transition
-In `SetFamilyAISettings`, when `ai_tagging_backfill` transitions from false to true, set `backfill_done = false`.
-- **Why:** gives the user an explicit escape hatch to re-run over any still-un-analyzed entries (e.g., after a bulk import), without a separate control.
+When `ai_tagging_backfill` transitions from false to true (detected in `UpdateFamilySettings`, which loads the current settings), set `backfill_done = false`.
+- **Why:** gives the user an explicit escape hatch to re-run over any still-un-analyzed entries, without a separate control.
+- **What "still-un-analyzed" means:** items whose `TagsSourceHash` is empty or mismatched. Note that entries written through the normal save path (`PutItem`) are stamped on save and therefore look analyzed — the re-run picks up only items inserted without a hash (e.g., direct DB imports or restores that bypass `PutItem`). A bulk import that goes through the API would need its hash cleared to be re-analyzed; that is acceptable and out of scope here.
 
 ## Risks / Trade-offs
 
