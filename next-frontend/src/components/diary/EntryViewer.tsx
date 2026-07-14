@@ -41,11 +41,11 @@ export function EntryViewer({ entry, className, onEdit }: EntryViewerProps) {
   return (
     <article className={className}>
       {/* Header badges & Actions */}
-      <div className="mb-8 flex items-center justify-between gap-4">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 md:flex-nowrap">
         {/* Left: Tags */}
-        <div className="flex flex-1 items-center gap-2 overflow-hidden">
+        <div className="order-1 flex w-full flex-wrap items-center gap-2 md:order-none md:w-auto md:flex-1 md:flex-nowrap md:overflow-hidden">
           {mood && <Badge variant="mood" className="shrink-0">{mood}</Badge>}
-          <div className="flex flex-wrap gap-2 overflow-hidden">
+          <div className="flex flex-wrap gap-2">
             {entry.tags?.slice(1).map((tag) => (
               <Badge key={tag} variant="default" className="shrink-0">
                 {tag}
@@ -55,7 +55,7 @@ export function EntryViewer({ entry, className, onEdit }: EntryViewerProps) {
         </div>
 
         {/* Center: Date Navigation */}
-        <div className="flex flex-none items-center gap-0.5">
+        <div className="order-2 flex flex-none items-center gap-0.5 md:order-none">
           {entry.previousDate ? (
             <Link
               href={`/diary/${entry.previousDate}`}
@@ -106,7 +106,7 @@ export function EntryViewer({ entry, className, onEdit }: EntryViewerProps) {
         </div>
 
         {/* Right: Edit Action */}
-        <div className="flex flex-1 justify-end">
+        <div className="order-3 ml-auto flex justify-end md:order-none md:ml-0 md:flex-1">
           {onEdit && (
             <Button
               variant="ghost"

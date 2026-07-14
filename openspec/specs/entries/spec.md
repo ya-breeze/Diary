@@ -23,7 +23,7 @@ Navigating to `/diary/[date]` SHALL show the entry for that date.
 - **THEN** they see the same entry
 
 ### Requirement: Tag display
-Tags SHALL be rendered as badges in the viewer, with the first tag styled distinctly as a "mood" indicator. Pending AI-suggested tags SHALL be visually distinct from confirmed tags and offer a one-tap accept action.
+Tags SHALL be rendered as badges in the viewer, with the first tag styled distinctly as a "mood" indicator. Pending AI-suggested tags SHALL be visually distinct from confirmed tags and offer a one-tap accept action. At any viewport width, every confirmed tag SHALL remain visible and usable without horizontal page scrolling or clipping; when the tags exceed the available width they SHALL wrap onto additional rows rather than be clipped.
 
 #### Scenario: Entry has multiple tags
 - **GIVEN** an entry with tags `["happy", "work", "outdoors"]`
@@ -49,6 +49,18 @@ Tags SHALL be rendered as badges in the viewer, with the first tag styled distin
 - **WHEN** the user taps accept on the `"beach"` chip
 - **THEN** `"beach"` becomes a confirmed tag badge
 - **AND** `"beach"` is removed from the suggestion chips
+
+#### Scenario: Multiple tags on a narrow viewport
+- **GIVEN** an entry with tags `["happy", "work", "outdoors"]`
+- **AND** the user views the entry on a viewport narrower than the `md` breakpoint
+- **THEN** the mood badge and every standard tag badge are visible and usable
+- **AND** the tag badges do not require horizontal page scrolling to be accessed
+
+#### Scenario: Many tags on a wide viewport
+- **GIVEN** an entry whose tags exceed the width of the viewer's tag column
+- **AND** the user views the entry on a viewport at or above the `md` breakpoint
+- **THEN** the tag badges wrap onto additional rows and every tag remains visible
+- **AND** no tag badge is clipped or hidden
 
 ### Requirement: Date navigation
 The viewer SHALL show prev/next links to adjacent entries that have content, and the date badge is now an interactive control for jumping to any arbitrary date.
