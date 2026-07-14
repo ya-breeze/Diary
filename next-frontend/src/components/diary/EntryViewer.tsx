@@ -45,7 +45,7 @@ export function EntryViewer({ entry, className, onEdit }: EntryViewerProps) {
         {/* Left: Tags */}
         <div className="order-1 flex w-full flex-wrap items-center gap-2 md:order-none md:w-auto md:flex-1 md:flex-nowrap md:overflow-hidden">
           {mood && <Badge variant="mood" className="shrink-0">{mood}</Badge>}
-          <div className="flex flex-wrap gap-2 md:flex-nowrap md:overflow-hidden">
+          <div className="flex flex-wrap gap-2">
             {entry.tags?.slice(1).map((tag) => (
               <Badge key={tag} variant="default" className="shrink-0">
                 {tag}

@@ -21,9 +21,9 @@
 
 ### Use a mobile-only tag row above the controls
 
-At widths below `md`, the header will become a wrapping container: tags take a full-width first row and wrap naturally, while date navigation and Edit occupy a second row. At `md` and above, existing flex sizing restores the single-row layout.
+At widths below `md`, the header will become a wrapping container: tags take a full-width first row and wrap naturally, while date navigation and Edit occupy a second row. At `md` and above, existing flex sizing restores the single-row header (tags / date navigation / Edit as three columns), and the tag column itself wraps its badges onto additional rows instead of clipping them.
 
-This exposes all tags without a secondary interaction. A horizontal tag scroller was considered, but it keeps content off-screen and is less discoverable; truncation is the current failure mode and is rejected.
+This exposes all tags without a secondary interaction. A horizontal tag scroller was considered, but it keeps content off-screen and is less discoverable; truncation/clipping is the previous failure mode and is rejected at every viewport width.
 
 ### Keep the existing tag badges and data model
 
@@ -36,7 +36,7 @@ The Playwright test will create an entry with a mood and multiple standard tags,
 ## Risks / Trade-offs
 
 - [Many or long tag names make the header taller] → Tags deliberately wrap, so content remains readable and the date controls move down predictably.
-- [Responsive classes could affect desktop alignment] → Scope the structural changes below `md` and retain the current desktop classes at `md` and above.
+- [Responsive classes could affect desktop alignment] → Keep the row-wrapping restructure below `md`; at `md` and above retain the three-column layout but let the tag column wrap its badges so no tag is clipped on desktop either.
 - [A visibility check could pass while a badge is overlapped] → Use Playwright's visible assertion after navigation, which detects clipped or `display:none` content.
 
 ## Migration Plan
