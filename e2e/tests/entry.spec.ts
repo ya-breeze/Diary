@@ -7,6 +7,7 @@ const BACK_NAV_PREV_DATE = '2010-06-17'; // test 4: the back-target entry
 const BACK_NAV_DATE = '2010-06-18';      // test 4: the entry we edit
 const EMPTY_TITLE_DATE = '2010-06-19';  // test 5: empty title saves as Untitled
 
+const MOBILE_TAGS_DATE = '2010-06-20';  // test 6: multiple tags remain visible on mobile
 test.describe('Diary entries', () => {
     test('create entry: write, save, reload, content persists', async ({ page }) => {
         // Navigate to a specific date in edit mode (creates a new entry)
@@ -59,6 +60,30 @@ test.describe('Diary entries', () => {
 
         await expect(page).toHaveURL(new RegExp(`/diary/${EMPTY_TITLE_DATE}$`), { timeout: 10000 });
         await expect(page.getByRole('article').getByRole('heading', { name: 'Untitled' })).toBeVisible({ timeout: 5000 });
+    });
+
+    test('all entry tags remain visible on a mobile viewport', async ({ page }) => {
+        await page.goto(`/diary/${MOBILE_TAGS_DATE}?edit=true`);
+        await page.fill('input[placeholder="Enter a title..."]', 'Mobile tag visibility');
+        await page.fill('textarea[placeholder="Write your thoughts..."]', 'Tags should not be clipped.');
+
+        const tags = page.locator('[data-testid="tags-input"]');
+        for (const tag of ['cheerful', 'family', 'outdoors']) {
+            await tags.fill(tag);
+            await tags.press('Enter');
+        }
+
+        await page.click('button[type="submit"]:has-text("Save Changes")');
+        await expect(page).toHaveURL(new RegExp(`/diary/${MOBILE_TAGS_DATE}$`), { timeout: 10000 });
+
+        await page.setViewportSize({ width: 375, height: 667 });
+
+        const entry = page.getByRole('article');
+        for (const tag of ['cheerful', 'family', 'outdoors']) {
+            const badge = entry.getByText(tag, { exact: true });
+            await expect(badge).toBeVisible();
+            await expect(badge).toBeInViewport();
+        }
     });
 
     test('back button after edit+save does not re-enter the editor', async ({ page }) => {
